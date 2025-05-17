@@ -48,27 +48,48 @@ class _StudentDashboardState extends State<StudentDashboard> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   late final List<Widget> _pages;
-  final List<String> _titles = [
-    '', // Only dashboard uses hello
-    'Profile',
-    'Settings',
-  ];
+  final List<String> _titles = ['', 'Profile', 'Settings'];
 
   @override
   void initState() {
     super.initState();
     _fetchStudentName();
     _pages = [
-      const StudentHomePage(), // Dashboard view
+      const StudentHomePage(),
       const StudentProfile(),
       const StudentSettings(),
     ];
   }
 
-  void _logout() async {
-    await _auth.signOut();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/login');
+  Future<void> _confirmLogout() async {
+    if (!mounted) return;
+    final navigationContext = context;
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder:
+          (BuildContext dialogContext) => AlertDialog(
+            title: const Text('Logout'),
+            content: const Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
+    );
+
+    if (!mounted) return;
+    if (shouldLogout == true) {
+      await _auth.signOut();
+      if (!mounted) return;
+      if (navigationContext.mounted) {
+        Navigator.pushReplacementNamed(navigationContext, '/student_login');
+      }
     }
   }
 
@@ -78,10 +99,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Future<void> _fetchStudentName() async {
+    if (!mounted) return;
     User? user = _auth.currentUser;
     if (user != null) {
       DocumentSnapshot snapshot =
           await _firestore.collection('users').doc(user.uid).get();
+      if (!mounted) return;
       if (snapshot.exists && snapshot['name'] != null) {
         setState(() {
           studentName = snapshot['name'];
@@ -92,93 +115,129 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _selectedIndex == 0
-              ? 'Hello, $studentName'
-              : (_selectedIndex < _titles.length
-                  ? _titles[_selectedIndex]
-                  : ''),
-        ),
-
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-        leading: Builder(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (!mounted) return;
+        final navigationContext = context;
+        final shouldLogout = await showDialog<bool>(
+          context: context,
           builder:
-              (context) => IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () => Scaffold.of(context).openDrawer(),
+              (BuildContext dialogContext) => AlertDialog(
+                title: const Text('Exit App'),
+                content: const Text('Do you want to logout and exit?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Logout'),
+                  ),
+                ],
               ),
+        );
+
+        if (!mounted) return;
+        if (shouldLogout == true) {
+          await _auth.signOut();
+          if (!mounted) return;
+          if (navigationContext.mounted) {
+            Navigator.pushReplacementNamed(navigationContext, '/student_login');
+          }
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            _selectedIndex == 0
+                ? 'Hello, $studentName'
+                : (_selectedIndex < _titles.length
+                    ? _titles[_selectedIndex]
+                    : ''),
+          ),
+          centerTitle: true,
+          automaticallyImplyLeading: false,
+          leading: Builder(
+            builder:
+                (context) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+          ),
         ),
-      ),
-      drawer: Drawer(
-        backgroundColor: Colors.redAccent,
-        child: ListView(
-          children: [
-            DrawerHeader(
-              child: Text(
-                'Welcome, $studentName',
-                style: const TextStyle(color: Colors.white, fontSize: 24),
+        drawer: Drawer(
+          backgroundColor: Colors.redAccent,
+          child: ListView(
+            children: [
+              DrawerHeader(
+                child: Text(
+                  'Welcome, $studentName',
+                  style: const TextStyle(color: Colors.white, fontSize: 24),
+                ),
               ),
+              ListTile(
+                leading: const Icon(Icons.dashboard),
+                title: const Text('Dashboard'),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _selectedIndex = 0);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.menu_book),
+                title: const Text('Lessons'),
+                onTap: () => _navigateTo(const StudentLessonsPage()),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Exercises'),
+                onTap: () => _navigateTo(const StudentExercisesPage()),
+              ),
+              ListTile(
+                leading: const Icon(Icons.quiz),
+                title: const Text('Quizzes'),
+                onTap: () => _navigateTo(const StudentQuizzessPage()),
+              ),
+              ListTile(
+                leading: const Icon(Icons.bar_chart),
+                title: const Text('Progress'),
+                onTap: () => _navigateTo(const StudentProgressPage()),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Logout'),
+                onTap: _confirmLogout,
+              ),
+            ],
+          ),
+        ),
+        body: _pages[_selectedIndex],
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) {
+            setState(() => _selectedIndex = index);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard),
+              label: 'Dashboard',
             ),
-            ListTile(
-              leading: const Icon(Icons.dashboard),
-              title: const Text('Dashboard'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _selectedIndex = 0);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.menu_book),
-              title: const Text('Lessons'),
-              onTap: () => _navigateTo(const StudentLessonsPage()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Exercises'),
-              onTap: () => _navigateTo(const StudentExercisesPage()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.quiz),
-              title: const Text('Quizzes'),
-              onTap: () => _navigateTo(const StudentQuizzessPage()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.bar_chart),
-              title: const Text('Progress'),
-              onTap: () => _navigateTo(const StudentProgressPage()),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
-              onTap: _logout,
+            NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
+            NavigationDestination(
+              icon: Icon(Icons.settings),
+              label: 'Settings',
             ),
           ],
         ),
-      ),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
-        ],
       ),
     );
   }
 }
 
-// Home/Dashboard Page Content
 class StudentHomePage extends StatelessWidget {
   const StudentHomePage({super.key});
 

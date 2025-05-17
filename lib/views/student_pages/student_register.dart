@@ -83,12 +83,13 @@ class StudentRegisterPageState extends State<StudentRegisterPage> {
                     (val) => val!.isEmpty ? 'Enter You Student ID' : null,
               ),
               TextFormField(
-                decoration: InputDecoration(labelText: 'First Name'),
+                decoration: InputDecoration(labelText: 'Contact Number'),
                 onChanged: (val) => name = val,
-                validator: (val) => val!.isEmpty ? 'Enter your name' : null,
+                validator:
+                    (val) => val!.isEmpty ? 'Enter your Contact Number' : null,
               ),
               TextFormField(
-                decoration: InputDecoration(labelText: 'Contact Number'),
+                decoration: InputDecoration(labelText: 'Full Name'),
                 onChanged: (val) => name = val,
                 validator: (val) => val!.isEmpty ? 'Enter your name' : null,
               ),

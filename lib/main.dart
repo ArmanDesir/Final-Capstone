@@ -1,5 +1,6 @@
 import 'package:capstone_project/views/get_started_page.dart';
 import 'package:capstone_project/views/teacher_pages/teacher_login.dart';
+import 'package:capstone_project/views/student_pages/student_login.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/teacher_login':
             (context) => const TeacherLoginPage(), // <-- route definition
+        '/student_login': (context) => const StudentLoginPage(),
       },
     );
   }
