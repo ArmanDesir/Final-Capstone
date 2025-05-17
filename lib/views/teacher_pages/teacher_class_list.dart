@@ -309,7 +309,7 @@ class _TeacherClassListState extends State<TeacherClassList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Classes'),
+        title: const Text('My Classes'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadClasses),
         ],
@@ -322,46 +322,29 @@ class _TeacherClassListState extends State<TeacherClassList> {
           isLoading
               ? const Center(child: CircularProgressIndicator())
               : classes.isEmpty
-              ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.class_, size: 64, color: Colors.grey),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No classes yet',
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: _addClass,
-                      child: const Text('Add your first class'),
-                    ),
-                  ],
-                ),
+              ? const Center(
+                child: Text('No classes yet. Tap + to add a class.'),
               )
               : ListView.builder(
-                itemCount: classes.length,
                 padding: const EdgeInsets.all(16),
+                itemCount: classes.length,
                 itemBuilder: (context, index) {
-                  final classDoc = classes[index];
-                  final students = classDoc['students'] as List? ?? [];
+                  final doc = classes[index];
+                  final classData = doc.data() as Map<String, dynamic>;
+                  final students = classData['students'] as List? ?? [];
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 16),
                     child: ListTile(
-                      title: Text(classDoc['name']),
+                      title: Text(classData['name'] ?? 'Unnamed Class'),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Code: ${classDoc['classCode']}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          Text(classData['description'] ?? 'No description'),
                           const SizedBox(height: 4),
                           Text(
-                            classDoc['description'] ?? 'No description',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            'Class Code: ${classData['classCode'] ?? 'N/A'}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -375,10 +358,10 @@ class _TeacherClassListState extends State<TeacherClassList> {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.people),
-                            onPressed: () => _viewStudents(classDoc),
+                            onPressed: () => _viewStudents(doc),
                             tooltip: 'View Students',
                           ),
-                          PopupMenuButton(
+                          PopupMenuButton<String>(
                             itemBuilder:
                                 (context) => [
                                   const PopupMenuItem(
@@ -392,9 +375,9 @@ class _TeacherClassListState extends State<TeacherClassList> {
                                 ],
                             onSelected: (value) {
                               if (value == 'edit') {
-                                _editClass(classDoc);
+                                _editClass(doc);
                               } else if (value == 'delete') {
-                                _deleteClass(classDoc.id);
+                                _deleteClass(doc.id);
                               }
                             },
                           ),
