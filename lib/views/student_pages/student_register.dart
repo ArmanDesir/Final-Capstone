@@ -1,7 +1,7 @@
-import 'package:capstone_project/views/student_pages/student_login.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../student_pages/student_dashboard.dart';
 
 class StudentRegisterPage extends StatefulWidget {
   const StudentRegisterPage({super.key});
@@ -17,51 +17,65 @@ class StudentRegisterPageState extends State<StudentRegisterPage> {
 
   String name = '';
   String email = '';
+  String studentId = '';
+  String contactNumber = '';
   String password = '';
-  Future<void> registerStudent() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        UserCredential userCredential = await _auth
-            .createUserWithEmailAndPassword(email: email, password: password);
+  bool _isLoading = false;
 
+  Future<void> _register() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      try {
+        // Validate student ID format
+        if (!RegExp(r'^\d{7}$').hasMatch(studentId)) {
+          throw 'Student ID must be 7 digits';
+        }
+
+        // Validate contact number format
+        if (!RegExp(r'^\+?[\d\s-]{10,}$').hasMatch(contactNumber)) {
+          throw 'Invalid contact number format';
+        }
+
+        // Check if student ID already exists
+        final existingStudent =
+            await _firestore
+                .collection('users')
+                .where('studentId', isEqualTo: studentId)
+                .get();
+
+        if (existingStudent.docs.isNotEmpty) {
+          throw 'Student ID already registered';
+        }
+
+        // Create user account
+        final userCredential = await _auth.createUserWithEmailAndPassword(
+          email: email.trim(),
+          password: password,
+        );
+
+        // Add user details to Firestore
         await _firestore.collection('users').doc(userCredential.user!.uid).set({
-          'name': name,
-          'email': email,
-          'password': password,
-          'student_id': 'student_id',
-          'cont_number': 'cont_number',
+          'name': name.trim(),
+          'email': email.trim(),
+          'studentId': studentId.trim(),
+          'contactNumber': contactNumber.trim(),
           'role': 'student',
+          'createdAt': FieldValue.serverTimestamp(),
         });
 
         if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Student Registered Successfully')),
-        );
-
-        // Navigate to the teacher login page after registration
-        Navigator.of(context).pushReplacementNamed('/student_login');
-      } on FirebaseAuthException catch (e) {
-        if (!mounted) return;
-
-        String message = 'Registration Error';
-        if (e.code == 'email-already-in-use') {
-          message = 'The email address is already in use.';
-        } else if (e.code == 'invalid-email') {
-          message = 'The email address is invalid.';
-        } else if (e.code == 'weak-password') {
-          message = 'The password is too weak.';
-        }
-
-        ScaffoldMessenger.of(
+        Navigator.pushReplacement(
           context,
-        ).showSnackBar(SnackBar(content: Text(message)));
+          MaterialPageRoute(builder: (context) => const StudentDashboard()),
+        );
       } catch (e) {
         if (!mounted) return;
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Registered Succesfuly')));
+        final message = e is String ? e : e.toString();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
+        );
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -69,65 +83,100 @@ class StudentRegisterPageState extends State<StudentRegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Student Registration')),
-      body: Padding(
+      appBar: AppBar(title: const Text('Student Registration')),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
               TextFormField(
-                decoration: InputDecoration(labelText: 'Student ID'),
-                onChanged: (val) => name = val,
-                validator:
-                    (val) => val!.isEmpty ? 'Enter You Student ID' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Student ID',
+                  hintText: 'Enter your 7-digit student ID',
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => studentId = val,
+                validator: (val) {
+                  if (val == null || val.isEmpty) {
+                    return 'Enter your Student ID';
+                  }
+                  if (!RegExp(r'^\d{7}$').hasMatch(val)) {
+                    return 'Student ID must be 7 digits';
+                  }
+                  return null;
+                },
               ),
+              const SizedBox(height: 16),
               TextFormField(
-                decoration: InputDecoration(labelText: 'Contact Number'),
-                onChanged: (val) => name = val,
-                validator:
-                    (val) => val!.isEmpty ? 'Enter your Contact Number' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Contact Number',
+                  hintText: 'Enter your contact number',
+                ),
+                keyboardType: TextInputType.phone,
+                onChanged: (val) => contactNumber = val,
+                validator: (val) {
+                  if (val == null || val.isEmpty) {
+                    return 'Enter your contact number';
+                  }
+                  if (!RegExp(r'^\+?[\d\s-]{10,}$').hasMatch(val)) {
+                    return 'Enter a valid contact number';
+                  }
+                  return null;
+                },
               ),
+              const SizedBox(height: 16),
               TextFormField(
-                decoration: InputDecoration(labelText: 'Full Name'),
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  hintText: 'Enter your full name',
+                ),
+                textCapitalization: TextCapitalization.words,
                 onChanged: (val) => name = val,
-                validator: (val) => val!.isEmpty ? 'Enter your name' : null,
+                validator: (val) {
+                  if (val == null || val.isEmpty) {
+                    return 'Enter your name';
+                  }
+                  if (val.trim().split(' ').length < 2) {
+                    return 'Please enter your full name';
+                  }
+                  return null;
+                },
               ),
+              const SizedBox(height: 16),
               TextFormField(
-                decoration: InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'Enter your email address',
+                ),
+                keyboardType: TextInputType.emailAddress,
                 onChanged: (val) => email = val,
-                validator: (val) => val!.isEmpty ? 'Enter an email' : null,
+                validator: (val) {
+                  if (val == null || val.isEmpty) {
+                    return 'Enter an email';
+                  }
+                  if (!RegExp(
+                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                  ).hasMatch(val)) {
+                    return 'Enter a valid email address';
+                  }
+                  return null;
+                },
               ),
-              TextFormField(
-                decoration: InputDecoration(labelText: 'Password'),
-                obscureText: true,
-                onChanged: (val) => password = val,
-                validator:
-                    (val) =>
-                        val!.length < 6
-                            ? 'Password must be 6+ characters'
-                            : null,
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    onPressed: registerStudent,
-                    child: Text('Register'),
-                  ),
-                  SizedBox(width: 20, height: 100), // Space between the buttons
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => StudentLoginPage(),
-                        ),
-                      );
-                    },
-                    child: Text('Login'),
-                  ),
-                ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _register,
+                  child:
+                      _isLoading
+                          ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Text('Register'),
+                ),
               ),
             ],
           ),

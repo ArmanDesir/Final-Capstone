@@ -1,17 +1,30 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow users to read and write their own data
+    // Allow users to read and write their own data, and teachers to read their students' data
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (
+        request.auth.uid == userId || // User can read their own data
+        exists(/databases/$(database)/documents/classes/$(wildcard)) // Check if any class exists where
+          .where(resource.data.teacherId == request.auth.uid // the requester is the teacher
+          && resource.data.students.hasAny([userId])) // and the user is a student
+      );
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Allow teachers to manage their classes
+    // Allow teachers to manage their classes and students to join
     match /classes/{classId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null 
         && request.resource.data.teacherId == request.auth.uid;
-      allow update, delete: if request.auth != null 
+      allow update: if request.auth != null && (
+        // Allow teachers to update their own classes
+        resource.data.teacherId == request.auth.uid ||
+        // Allow students to join/leave classes (only updating the students array)
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['students']) &&
+         request.resource.data.teacherId == resource.data.teacherId)
+      );
+      allow delete: if request.auth != null 
         && resource.data.teacherId == request.auth.uid;
     }
     

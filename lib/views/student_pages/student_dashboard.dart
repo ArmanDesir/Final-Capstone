@@ -5,6 +5,7 @@ import 'package:capstone_project/views/student_pages/student_exercises.dart';
 import 'package:capstone_project/views/student_pages/student_lessons.dart';
 import 'package:capstone_project/views/student_pages/student_progress.dart';
 import 'package:capstone_project/views/student_pages/student_quizzes.dart';
+import 'package:capstone_project/views/student_pages/student_classes.dart';
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -205,6 +206,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 leading: const Icon(Icons.bar_chart),
                 title: const Text('Progress'),
                 onTap: () => _navigateTo(const StudentProgressPage()),
+              ),
+              ListTile(
+                leading: const Icon(Icons.class_),
+                title: const Text('Classes'),
+                onTap: () => _navigateTo(const StudentClasses()),
               ),
               const Divider(),
               ListTile(

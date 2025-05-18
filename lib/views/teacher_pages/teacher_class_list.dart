@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
+import 'teacher_student_list.dart';
 
 class TeacherClassList extends StatefulWidget {
   const TeacherClassList({super.key});
@@ -391,8 +392,7 @@ class _TeacherClassListState extends State<TeacherClassList> {
   }
 }
 
-// This is a placeholder for the ClassStudents page
-// You'll need to implement this separately
+// Replace the placeholder ClassStudents widget at the bottom of the file
 class ClassStudents extends StatelessWidget {
   final DocumentSnapshot classDoc;
 
@@ -400,9 +400,10 @@ class ClassStudents extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Students in ${classDoc['name']}')),
-      body: const Center(child: Text('Student list coming soon...')),
+    final classData = classDoc.data() as Map<String, dynamic>;
+    return TeacherStudentList(
+      classId: classDoc.id,
+      className: 'Students in ${classData['name']}',
     );
   }
 }

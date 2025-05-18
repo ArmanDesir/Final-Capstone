@@ -1,4 +1,4 @@
-import 'package:capstone_project/views/student_pages/student_register.dart';
+import 'package:capstone_project/views/student_pages/student_login.dart';
 import 'package:capstone_project/views/teacher_pages/teacher_login.dart';
 
 import 'package:flutter/material.dart';
@@ -96,9 +96,7 @@ class GetStartedPage extends StatelessWidget {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => StudentRegisterPage(),
-                          ),
+                          MaterialPageRoute(builder: (_) => StudentLoginPage()),
                         );
                       },
                       child: Text(
