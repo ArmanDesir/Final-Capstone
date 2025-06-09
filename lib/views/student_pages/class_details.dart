@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../student_pages/lesson_details.dart';
+import '../student_pages/exercise_details.dart';
+import '../student_pages/quiz_details.dart';
 
 class ClassDetails extends StatefulWidget {
   final DocumentSnapshot classDoc;
@@ -167,7 +170,14 @@ class _ClassDetailsState extends State<ClassDetails> {
                                 ),
                                 leading: const Icon(Icons.book),
                                 onTap: () {
-                                  // TODO: Navigate to lesson details
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) =>
+                                              LessonDetails(lesson: lesson),
+                                    ),
+                                  );
                                 },
                               ),
                             );
@@ -192,7 +202,15 @@ class _ClassDetailsState extends State<ClassDetails> {
                                 ),
                                 leading: const Icon(Icons.edit),
                                 onTap: () {
-                                  // TODO: Navigate to exercise details
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => ExerciseDetails(
+                                            exercise: exercise,
+                                          ),
+                                    ),
+                                  );
                                 },
                               ),
                             );
@@ -215,7 +233,13 @@ class _ClassDetailsState extends State<ClassDetails> {
                                 ),
                                 leading: const Icon(Icons.quiz),
                                 onTap: () {
-                                  // TODO: Navigate to quiz details
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => QuizDetails(quiz: quiz),
+                                    ),
+                                  );
                                 },
                               ),
                             );

@@ -48,27 +48,58 @@ class StudentRegisterPageState extends State<StudentRegisterPage> {
         }
 
         // Create user account
+        debugPrint('Before createUserWithEmailAndPassword');
         final userCredential = await _auth.createUserWithEmailAndPassword(
           email: email.trim(),
           password: password,
         );
+        debugPrint('After createUserWithEmailAndPassword');
+
+        final user = userCredential.user;
+        if (user == null) {
+          debugPrint('Firebase User object is NULL after creation.');
+          throw 'Firebase User object is null after creation.';
+        }
+        debugPrint('User created with UID: ${user.uid}');
 
         // Add user details to Firestore
-        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        debugPrint(
+          'Attempting to write user details to Firestore for UID: ${user.uid}',
+        );
+        await _firestore.collection('users').doc(user.uid).set({
           'name': name.trim(),
           'email': email.trim(),
           'studentId': studentId.trim(),
           'contactNumber': contactNumber.trim(),
           'role': 'student',
+          'classId':
+              'roRBWR2aj3lc1CvwcgZN', // Automatically assign to the default class
           'createdAt': FieldValue.serverTimestamp(),
         });
+        debugPrint('User data successfully written to Firestore.');
+
+        if (!mounted) return;
+
+        // Fetch the updated user document to get the classId
+        debugPrint('Fetching updated user document for classId.');
+        final updatedDoc =
+            await _firestore.collection('users').doc(user.uid).get();
+        final String userClassId =
+            updatedDoc.data() != null &&
+                    updatedDoc.data()!.containsKey('classId')
+                ? updatedDoc['classId']
+                : '';
+        debugPrint('Fetched userClassId: $userClassId');
 
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const StudentDashboard()),
+          MaterialPageRoute(
+            builder: (context) => StudentDashboard(classId: userClassId),
+          ),
         );
       } catch (e) {
+        debugPrint('Caught error during registration: ${e.toString()}');
         if (!mounted) return;
         final message = e is String ? e : e.toString();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -159,6 +190,24 @@ class StudentRegisterPageState extends State<StudentRegisterPage> {
                     r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                   ).hasMatch(val)) {
                     return 'Enter a valid email address';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  hintText: 'Enter your password',
+                ),
+                obscureText: true, // Hides the input characters
+                onChanged: (val) => password = val,
+                validator: (val) {
+                  if (val == null || val.isEmpty) {
+                    return 'Please enter a password';
+                  }
+                  if (val.length < 6) {
+                    return 'Password must be at least 6 characters';
                   }
                   return null;
                 },

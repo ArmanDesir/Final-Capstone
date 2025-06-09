@@ -48,7 +48,15 @@ class StudentLoginPageState extends State<StudentLoginPage> {
         if (doc.exists && doc['role'] == 'student') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const StudentDashboard()),
+            MaterialPageRoute(
+              builder:
+                  (context) => StudentDashboard(
+                    classId:
+                        doc.data() != null && doc.data()!.containsKey('classId')
+                            ? doc['classId']
+                            : '',
+                  ),
+            ),
           );
         } else {
           await FirebaseAuth.instance.signOut();

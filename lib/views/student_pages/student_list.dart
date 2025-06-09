@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../student_pages/lesson_details.dart';
+import '../student_pages/student_profile.dart';
 
-class StudentLessonsPage extends StatelessWidget {
+class StudentList extends StatelessWidget {
   final String classId;
 
-  const StudentLessonsPage({super.key, required this.classId});
+  const StudentList({super.key, required this.classId});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Lessons')),
+      appBar: AppBar(title: const Text('Students')),
       body: StreamBuilder<QuerySnapshot>(
         stream:
             FirebaseFirestore.instance
-                .collection('lessons')
+                .collection('students')
                 .where('classId', isEqualTo: classId)
                 .snapshots(),
         builder: (context, snapshot) {
@@ -25,22 +25,22 @@ class StudentLessonsPage extends StatelessWidget {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No lessons found'));
+            return const Center(child: Text('No students found'));
           }
           return ListView.builder(
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
-              final lesson = snapshot.data!.docs[index];
+              final student = snapshot.data!.docs[index];
               return ListTile(
-                title: Text(lesson['title'] ?? 'Unknown'),
-                subtitle: Text(lesson['description'] ?? 'No description'),
+                title: Text(student['name'] ?? 'Unknown'),
+                subtitle: Text(student['email'] ?? 'No email'),
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder:
-                          (context) => LessonDetails(
-                            lesson: lesson.data() as Map<String, dynamic>,
+                          (context) => StudentProfile(
+                            student: student.data() as Map<String, dynamic>,
                           ),
                     ),
                   );

@@ -53,9 +53,7 @@ class _TeacherExercisesState extends State<TeacherExercises> {
     } catch (e) {
       debugPrint('Error loading data: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Error loading data')));
+        _showSnackBar('Error loading data');
       }
     } finally {
       if (mounted) {
@@ -69,9 +67,7 @@ class _TeacherExercisesState extends State<TeacherExercises> {
     if (!dialogContext.mounted) return;
 
     if (lessons.isEmpty) {
-      ScaffoldMessenger.of(dialogContext).showSnackBar(
-        const SnackBar(content: Text('Please create a lesson first')),
-      );
+      _showSnackBar('Please create a lesson first');
       return;
     }
 
@@ -128,11 +124,7 @@ class _TeacherExercisesState extends State<TeacherExercises> {
               TextButton(
                 onPressed: () async {
                   if (titleController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter an exercise title'),
-                      ),
-                    );
+                    _showSnackBar('Please enter an exercise title');
                     return;
                   }
 
@@ -152,9 +144,7 @@ class _TeacherExercisesState extends State<TeacherExercises> {
                     } catch (e) {
                       debugPrint('Error adding exercise: $e');
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Error adding exercise')),
-                      );
+                      _showSnackBar('Error adding exercise');
                     }
                   }
                 },
@@ -226,11 +216,7 @@ class _TeacherExercisesState extends State<TeacherExercises> {
               TextButton(
                 onPressed: () async {
                   if (titleController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter an exercise title'),
-                      ),
-                    );
+                    _showSnackBar('Please enter an exercise title');
                     return;
                   }
 
@@ -250,9 +236,7 @@ class _TeacherExercisesState extends State<TeacherExercises> {
                   } catch (e) {
                     debugPrint('Error updating exercise: $e');
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Error updating exercise')),
-                    );
+                    _showSnackBar('Error updating exercise');
                   }
                 },
                 child: const Text('Save'),
@@ -295,20 +279,23 @@ class _TeacherExercisesState extends State<TeacherExercises> {
       } catch (e) {
         debugPrint('Error deleting exercise: $e');
         if (!dialogContext.mounted) return;
-        ScaffoldMessenger.of(dialogContext).showSnackBar(
-          const SnackBar(content: Text('Error deleting exercise')),
-        );
+        _showSnackBar('Error deleting exercise');
       }
     }
   }
 
   String _getLessonTitle(String lessonId) {
-    try {
-      final lesson = lessons.firstWhere((l) => l.id == lessonId);
-      return lesson['title'] ?? 'Unknown Lesson';
-    } catch (e) {
-      return 'Unknown Lesson';
-    }
+    final lesson = lessons.cast<DocumentSnapshot?>().firstWhere(
+      (l) => l?.id == lessonId,
+      orElse: () => null,
+    );
+    return lesson?['title'] ?? 'Unknown Lesson';
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

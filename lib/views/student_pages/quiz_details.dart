@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 
-class StudentProfile extends StatelessWidget {
-  final Map<String, dynamic> student;
+class QuizDetails extends StatelessWidget {
+  final Map<String, dynamic> quiz;
 
-  const StudentProfile({super.key, required this.student});
+  const QuizDetails({super.key, required this.quiz});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(student['name'] ?? 'Student Profile')),
+      appBar: AppBar(title: Text(quiz['title'] ?? 'Quiz Details')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Email: ${student['email'] ?? 'No email'}',
+              'Duration: ${quiz['duration'] ?? 'N/A'} minutes',
               style: const TextStyle(fontSize: 16),
             ),
-            // Add more student details here as needed
+            // Add more quiz details here as needed
           ],
         ),
       ),
