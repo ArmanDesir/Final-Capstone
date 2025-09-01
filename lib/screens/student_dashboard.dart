@@ -22,7 +22,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.currentUser;
       if (user != null) {
-        // Load student's classroom
         Provider.of<ClassroomProvider>(
           context,
           listen: false,
@@ -67,23 +66,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Welcome Banner
                     _buildWelcomeBanner(user?.name ?? 'Student'),
                     const SizedBox(height: 24),
-
-                    // Quick Stats
                     _buildQuickStats(classroomProvider, user),
                     const SizedBox(height: 24),
-
-                    // Classroom Status
                     _buildClassroomStatus(classroomProvider, user),
                     const SizedBox(height: 24),
-
-                    // Quick Actions
                     _buildQuickActions(classroomProvider, user),
                     const SizedBox(height: 24),
-
-                    // Recent Activity
                     _buildRecentActivity(),
                   ],
                 ),
@@ -134,7 +124,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Widget _buildQuickStats(ClassroomProvider classroomProvider, User? user) {
     final classroom = classroomProvider.currentClassroom;
     final contentCount =
-        classroom != null ? 0 : 0; // TODO: Get actual content count
+        classroom != null ? 0 : 0;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -410,22 +400,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
           ),
           const SizedBox(height: 8),
-          // Card(
-          //   child: ListTile(
-          //     leading: const Icon(Icons.quiz, color: Colors.purple),
-          //     title: const Text('Take Quizzes'),
-          //     subtitle: const Text('Test your knowledge'),
-          //     onTap: () {
-          //       Navigator.push(
-          //         context,
-          //         MaterialPageRoute(
-          //           builder:
-          //               (_) => StudentClassroomScreen(classroom: classroom),
-          //         ),
-          //       );
-          //     },
-          //   ),
-          // ),
         ],
       ],
     );

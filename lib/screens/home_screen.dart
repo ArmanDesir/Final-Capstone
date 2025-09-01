@@ -42,13 +42,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final user = authProvider.currentUser;
-
-        // Show teacher dashboard for teachers
         if (user?.userType == UserType.teacher) {
           return const TeacherDashboard();
         }
 
-        // Show student dashboard for students
         return const StudentDashboard();
       },
     );

@@ -50,7 +50,6 @@ class MultiplicationLessonsScreen extends StatelessWidget {
                     'Learn what multiplication means and how it relates to addition',
                     Icons.close,
                     () {
-                      // TODO: Navigate to specific lesson
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Lesson 1 - Coming Soon!'),
@@ -64,7 +63,6 @@ class MultiplicationLessonsScreen extends StatelessWidget {
                     'Learn and memorize multiplication tables from 1 to 12',
                     Icons.table_chart,
                     () {
-                      // TODO: Navigate to specific lesson
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Lesson 2 - Coming Soon!'),
@@ -78,7 +76,6 @@ class MultiplicationLessonsScreen extends StatelessWidget {
                     'Learn to multiply larger numbers using different methods',
                     Icons.calculate,
                     () {
-                      // TODO: Navigate to specific lesson
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Lesson 3 - Coming Soon!'),
@@ -92,7 +89,6 @@ class MultiplicationLessonsScreen extends StatelessWidget {
                     'Apply multiplication skills to solve real-world problems',
                     Icons.description,
                     () {
-                      // TODO: Navigate to specific lesson
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Lesson 4 - Coming Soon!'),

@@ -19,7 +19,7 @@ class _SubtractionQuizScreenState extends State<SubtractionQuizScreen>
   int _current = 0;
   bool _quizFinished = false;
   late Timer _timer;
-  int _remainingSeconds = 300; // 5 minutes
+  int _remainingSeconds = 300;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
@@ -58,7 +58,6 @@ class _SubtractionQuizScreenState extends State<SubtractionQuizScreen>
 
   void _next() {
     if (_selected != -1) {
-      // Only check if an option is selected
       if (_selected == widget.questions[_current]['a']) {
         _score++;
       }

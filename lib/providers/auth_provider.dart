@@ -86,7 +86,6 @@ class AuthProvider with ChangeNotifier {
           .createUserWithEmailAndPassword(email, password);
 
       if (credential != null) {
-        // Create user profile
         app_model.User newUser = app_model.User(
           id: credential.user!.uid,
           name: name,

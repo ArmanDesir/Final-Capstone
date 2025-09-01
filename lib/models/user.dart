@@ -15,11 +15,11 @@ class User {
   final bool isOnline;
   final String? lastSyncTime;
   final UserType userType;
-  final String? teacherCode; // For teacher authentication
-  final List<String> classroomIds; // For teachers
-  final String? classroomId; // For students
-  final int? grade; // For students
-  final String? teacherId; // For students
+  final String? teacherCode;
+  final List<String> classroomIds;
+  final String? classroomId;
+  final int? grade;
+  final String? teacherId;
   final String? contactNumber;
   final String? studentId;
 

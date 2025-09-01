@@ -31,7 +31,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signIn() async {
     if (_formKey.currentState!.validate()) {
-      // Validate teacher code if teacher
       if (widget.userType == UserType.teacher) {
         if (_teacherCodeController.text.trim() != 'TEACHER2025') {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -101,7 +100,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 48),
 
-                // Teacher code field (only for teachers)
                 if (widget.userType == UserType.teacher) ...[
                   TextFormField(
                     controller: _teacherCodeController,

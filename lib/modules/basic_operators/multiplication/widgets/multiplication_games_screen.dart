@@ -54,7 +54,6 @@ class MultiplicationGamesScreen extends StatelessWidget {
                     Icons.speed,
                     Colors.blue,
                     () {
-                      // TODO: Navigate to multiplication race game
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Multiplication Race - Coming Soon!'),
@@ -68,7 +67,6 @@ class MultiplicationGamesScreen extends StatelessWidget {
                     Icons.table_chart,
                     Colors.orange,
                     () {
-                      // TODO: Navigate to times table challenge game
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Times Table Challenge - Coming Soon!'),
@@ -82,7 +80,6 @@ class MultiplicationGamesScreen extends StatelessWidget {
                     Icons.grid_on,
                     Colors.purple,
                     () {
-                      // TODO: Navigate to crossword game (similar to addition)
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Crossword Math - Coming Soon!'),
@@ -96,7 +93,6 @@ class MultiplicationGamesScreen extends StatelessWidget {
                     Icons.sports_martial_arts,
                     Colors.green,
                     () {
-                      // TODO: Navigate to ninja math game
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Ninja Math - Coming Soon!'),

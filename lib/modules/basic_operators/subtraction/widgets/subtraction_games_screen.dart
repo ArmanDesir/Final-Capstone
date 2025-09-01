@@ -54,7 +54,6 @@ class SubtractionGamesScreen extends StatelessWidget {
                     Icons.grid_on,
                     Colors.purple,
                     () {
-                      // TODO: Navigate to crossword game (similar to addition)
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Crossword Math - Coming Soon!'),
@@ -68,7 +67,6 @@ class SubtractionGamesScreen extends StatelessWidget {
                     Icons.memory,
                     Colors.orange,
                     () {
-                      // TODO: Navigate to memory match game
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Memory Match - Coming Soon!'),

@@ -29,7 +29,6 @@ class DatabaseHelper {
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Users table
     await db.execute('''
       CREATE TABLE users(
         id TEXT PRIMARY KEY,
@@ -50,7 +49,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Tasks table
     await db.execute('''
       CREATE TABLE tasks(
         id TEXT PRIMARY KEY,
@@ -67,7 +65,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Classrooms table
     await db.execute('''
       CREATE TABLE classrooms(
         id TEXT PRIMARY KEY,
@@ -91,7 +88,6 @@ class DatabaseHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // Add classrooms table for version 2
       await db.execute('''
         CREATE TABLE classrooms(
           id TEXT PRIMARY KEY,
@@ -114,7 +110,6 @@ class DatabaseHelper {
     }
 
     if (oldVersion < 3) {
-      // Add missing user fields for version 3
       await db.execute('ALTER TABLE users ADD COLUMN classroomId TEXT');
       await db.execute('ALTER TABLE users ADD COLUMN teacherCode TEXT');
       await db.execute('ALTER TABLE users ADD COLUMN grade INTEGER');
@@ -124,7 +119,6 @@ class DatabaseHelper {
     }
   }
 
-  // User operations
   Future<int> insertUser(User user) async {
     final db = await database;
     return await db.insert('users', {
@@ -234,7 +228,6 @@ class DatabaseHelper {
     return await db.delete('users', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Task operations
   Future<int> insertTask(Task task) async {
     final db = await database;
     return await db.insert('tasks', {
@@ -383,7 +376,6 @@ class DatabaseHelper {
     });
   }
 
-  // Classroom operations
   Future<int> insertClassroom(Classroom classroom) async {
     final db = await database;
     return await db.insert('classrooms', {
@@ -399,8 +391,8 @@ class DatabaseHelper {
       'quizIds': classroom.quizIds.join(','),
       'code': classroom.code,
       'isActive': classroom.isActive ? 1 : 0,
-      'isSynced': 1, // Assume synced when inserted locally
-      'firebaseId': classroom.id, // Use same ID for Firebase
+      'isSynced': 1,
+      'firebaseId': classroom.id,
     });
   }
 

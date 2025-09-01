@@ -59,15 +59,14 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
     if (widget.difficulty == 'Hard') max = 50;
     List<_TargetRound> list = [];
     for (int i = 0; i < _totalRounds; i++) {
-      // Generate 4-5 random numbers, pick a random subset as the solution
-      int numCount = 4 + _random.nextInt(2); // 4 or 5
+      int numCount = 4 + _random.nextInt(2);
       List<int> numbers = List.generate(
         numCount,
         (_) => 1 + _random.nextInt(max),
       );
       numbers.shuffle();
       int solutionCount =
-          2 + _random.nextInt(numCount - 1); // at least 2 numbers
+          2 + _random.nextInt(numCount - 1);
       List<int> solution = numbers.sublist(0, solutionCount);
       int target = solution.reduce((a, b) => a + b);
       list.add(_TargetRound(target: target, numbers: numbers));
@@ -199,7 +198,6 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   }
 
   Widget _buildMascot() {
-    // Placeholder ninja mascot area for hints/feedback
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

@@ -66,12 +66,10 @@ class _MultiplicationNinjaMathGameScreenState
 
     List<_MultiplicationTargetRound> list = [];
     for (int i = 0; i < _totalRounds; i++) {
-      // Generate factors that when multiplied give the target
       int factor1 = 2 + _random.nextInt(max - 1);
       int factor2 = 2 + _random.nextInt(max - 1);
       int target = factor1 * factor2;
 
-      // Generate additional numbers as distractors
       List<int> numbers = [factor1, factor2];
       while (numbers.length < 5) {
         int distractor = 1 + _random.nextInt(max + 2);

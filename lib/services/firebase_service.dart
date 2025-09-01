@@ -9,7 +9,6 @@ class FirebaseService {
   final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Authentication methods
   Future<firebase_auth.UserCredential?> signInWithEmailAndPassword(
     String email,
     String password,
@@ -50,7 +49,6 @@ class FirebaseService {
 
   Stream<firebase_auth.User?> get authStateChanges => _auth.authStateChanges();
 
-  // User operations
   Future<void> createUser(app_model.User user) async {
     try {
       await _firestore.collection('users').doc(user.id).set(user.toJson());
@@ -97,7 +95,6 @@ class FirebaseService {
     }
   }
 
-  // Task operations
   Future<String> createTask(Task task) async {
     try {
       DocumentReference docRef = await _firestore
@@ -175,17 +172,12 @@ class FirebaseService {
     }
   }
 
-  // Sync operations
   Future<void> syncTasksToFirebase(List<Task> tasks) async {
     try {
       for (Task task in tasks) {
         if (task.firebaseId == null) {
-          // Create new task in Firebase
           await createTask(task);
-          // Update local task with Firebase ID
-          // Note: This would need to be handled by the calling service
         } else {
-          // Update existing task in Firebase
           await updateTask(task);
         }
       }
@@ -204,7 +196,6 @@ class FirebaseService {
     }
   }
 
-  // Classroom operations
   Future<String> createClassroom(Classroom classroom) async {
     try {
       DocumentReference docRef = await _firestore
@@ -283,17 +274,12 @@ class FirebaseService {
     }
   }
 
-  // Sync operations for classrooms
   Future<void> syncClassroomsToFirebase(List<Classroom> classrooms) async {
     try {
       for (Classroom classroom in classrooms) {
         if (classroom.firebaseId == null) {
-          // Create new classroom in Firebase
           await createClassroom(classroom);
-          // Update local classroom with Firebase ID
-          // Note: This would need to be handled by the calling service
         } else {
-          // Update existing classroom in Firebase
           await updateClassroom(classroom);
         }
       }

@@ -50,7 +50,6 @@ class DivisionLessonsScreen extends StatelessWidget {
                     'Learn what division means and how to divide small numbers',
                     Icons.percent,
                     () {
-                      // TODO: Navigate to specific lesson
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Lesson 1 - Coming Soon!'),
@@ -64,7 +63,6 @@ class DivisionLessonsScreen extends StatelessWidget {
                     'Learn how to divide when theres a leftover amount',
                     Icons.exposure_plus_1,
                     () {
-                      // TODO: Navigate to specific lesson
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Lesson 2 - Coming Soon!'),
@@ -78,7 +76,6 @@ class DivisionLessonsScreen extends StatelessWidget {
                     'Practice dividing larger numbers step by step',
                     Icons.calculate,
                     () {
-                      // TODO: Navigate to specific lesson
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Lesson 3 - Coming Soon!'),

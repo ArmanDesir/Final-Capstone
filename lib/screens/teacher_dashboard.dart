@@ -133,7 +133,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Quick Stats
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -166,7 +165,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-                  // Quick Action: Manage Classroom
                   Card(
                     child: ListTile(
                       leading: const Icon(Icons.settings, color: Colors.blue),
@@ -184,7 +182,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                             builder: (_) => ManageClassroomsScreen(),
                           ),
                         );
-                        // Reload classrooms after returning
                         Provider.of<ClassroomProvider>(
                           context,
                           listen: false,
@@ -192,50 +189,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  // // Quick Action: Add Lesson
-                  // Card(
-                  //   child: ListTile(
-                  //     leading: const Icon(Icons.book, color: Colors.blue),
-                  //     title: const Text(
-                  //       'Add Lesson',
-                  //       style: TextStyle(fontWeight: FontWeight.bold),
-                  //     ),
-                  //     subtitle: const Text(
-                  //       'Create engaging math lessons for your students',
-                  //     ),
-                  //     onTap: () {
-                  //       ScaffoldMessenger.of(context).showSnackBar(
-                  //         const SnackBar(
-                  //           content: Text('Add Lesson feature coming soon!'),
-                  //         ),
-                  //       );
-                  //     },
-                  //   ),
-                  // ),
-                  const SizedBox(height: 12),
-                  // Quick Action: Create Quiz
-                  // Card(
-                  //   child: ListTile(
-                  //     leading: const Icon(Icons.quiz, color: Colors.purple),
-                  //     title: const Text(
-                  //       'Create Quiz',
-                  //       style: TextStyle(fontWeight: FontWeight.bold),
-                  //     ),
-                  //     subtitle: const Text(
-                  //       'Design interactive quizzes to test knowledge',
-                  //     ),
-                  //     onTap: () {
-                  //       ScaffoldMessenger.of(context).showSnackBar(
-                  //         const SnackBar(
-                  //           content: Text('Create Quiz feature coming soon!'),
-                  //         ),
-                  //       );
-                  //     },
-                  //   ),
-                  // ),
                   const SizedBox(height: 24),
-                  // Classroom cards section
                   const Text(
                     'Your Classrooms',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -295,7 +249,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                         ),
                       ),
                     ),
-                  // Accepted Students List
                   const SizedBox(height: 24),
                   const Text(
                     'Accepted Students',

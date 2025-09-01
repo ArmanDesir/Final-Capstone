@@ -7,13 +7,10 @@ class ClassroomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Uuid _uuid = Uuid();
 
-  // Generate a unique classroom code
   String generateClassroomCode() {
-    // 6-character alphanumeric code
     return _uuid.v4().substring(0, 6).toUpperCase();
   }
 
-  // Create a classroom
   Future<Classroom> createClassroom({
     required String name,
     required String description,
@@ -36,7 +33,6 @@ class ClassroomService {
     return classroom;
   }
 
-  // Student requests to join a classroom
   Future<void> requestToJoinClassroom({
     required String classroomCode,
     required String studentId,
@@ -60,7 +56,6 @@ class ClassroomService {
     });
   }
 
-  // Teacher accepts a student
   Future<void> acceptStudent({
     required String classroomId,
     required String studentId,
@@ -81,14 +76,12 @@ class ClassroomService {
       'updatedAt': DateTime.now(),
     });
 
-    // Update student's classroomId
     await _firestore.collection('users').doc(studentId).update({
       'classroomId': classroomId,
       'updatedAt': DateTime.now(),
     });
   }
 
-  // Teacher rejects a student
   Future<void> rejectStudent({
     required String classroomId,
     required String studentId,
@@ -104,7 +97,6 @@ class ClassroomService {
     });
   }
 
-  // Teacher removes a student from classroom
   Future<void> removeStudent({
     required String classroomId,
     required String studentId,
@@ -119,14 +111,12 @@ class ClassroomService {
       'studentIds': updatedStudents,
     });
 
-    // Clear student's classroomId
     await _firestore.collection('users').doc(studentId).update({
       'classroomId': null,
       'updatedAt': DateTime.now(),
     });
   }
 
-  // Get classroom by code
   Future<Classroom?> getClassroomByCode(String code) async {
     final query =
         await _firestore
@@ -137,14 +127,12 @@ class ClassroomService {
     return Classroom.fromJson(query.docs.first.data());
   }
 
-  // Get classroom by id
   Future<Classroom?> getClassroomById(String id) async {
     final doc = await _firestore.collection('classrooms').doc(id).get();
     if (!doc.exists) return null;
     return Classroom.fromJson(doc.data() as Map<String, dynamic>);
   }
 
-  // List accepted students
   Future<List<User>> getAcceptedStudents(String classroomId) async {
     final classroom = await getClassroomById(classroomId);
     if (classroom == null) return [];
@@ -157,7 +145,6 @@ class ClassroomService {
     return query.docs.map((doc) => User.fromJson(doc.data())).toList();
   }
 
-  // List pending students
   Future<List<User>> getPendingStudents(String classroomId) async {
     final classroom = await getClassroomById(classroomId);
     if (classroom == null) return [];
@@ -170,7 +157,6 @@ class ClassroomService {
     return query.docs.map((doc) => User.fromJson(doc.data())).toList();
   }
 
-  // Update classroom
   Future<void> updateClassroom(Classroom classroom) async {
     await _firestore.collection('classrooms').doc(classroom.id).update({
       'name': classroom.name,
@@ -179,7 +165,6 @@ class ClassroomService {
     });
   }
 
-  // Delete classroom
   Future<void> deleteClassroom(String classroomId) async {
     await _firestore.collection('classrooms').doc(classroomId).delete();
   }

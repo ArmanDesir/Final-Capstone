@@ -39,7 +39,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
-      // Validate teacher code if teacher
       if (widget.userType == UserType.teacher) {
         if (_teacherCodeController.text.trim() != 'TEACHER2025') {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -117,7 +116,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 48),
 
-                  // Teacher code field (only for teachers)
                   if (widget.userType == UserType.teacher) ...[
                     TextFormField(
                       controller: _teacherCodeController,
@@ -291,7 +289,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return const SizedBox.shrink();
                     },
                   ),
-                  // Student ID field (only for students)
                   if (widget.userType == UserType.student) ...[
                     TextFormField(
                       controller: _studentIdController,
@@ -304,7 +301,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         if (value == null || value.isEmpty) {
                           return 'Please enter your student ID';
                         }
-                        // Add more validation if needed (e.g., uniqueness)
                         return null;
                       },
                     ),

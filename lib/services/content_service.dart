@@ -10,7 +10,6 @@ class ContentService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final Uuid _uuid = Uuid();
 
-  // Pick and upload PDF file
   Future<FilePickerResult?> pickPDFFile() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -23,7 +22,6 @@ class ContentService {
     }
   }
 
-  // Upload PDF to Firebase Storage
   Future<String> uploadPDFFile(
     File file,
     String classroomId,
@@ -45,7 +43,6 @@ class ContentService {
     }
   }
 
-  // Create content with PDF
   Future<Content> createContent({
     required String classroomId,
     required String title,
@@ -80,7 +77,6 @@ class ContentService {
     }
   }
 
-  // Get content by classroom
   Future<List<Content>> getContentByClassroom(String classroomId) async {
     try {
       print('Loading content for classroom: $classroomId');
@@ -103,7 +99,6 @@ class ContentService {
     }
   }
 
-  // Delete content
   Future<void> deleteContent(String contentId) async {
     try {
       await _firestore.collection('content').doc(contentId).delete();

@@ -52,13 +52,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen>
   }
 
   void _setupCrosswordGrid() {
-    // Create a proper math crossword puzzle
     _crosswordGrid = _createMathCrossword();
     _numberBank = [];
     _usedNumbers = [];
     _total = 0;
 
-    // Collect all blank cell answers for the number bank
     for (var row in _crosswordGrid) {
       for (var cell in row) {
         if (cell.type == CellType.blank) {
@@ -68,7 +66,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen>
       }
     }
 
-    // Add some extra numbers to make it challenging
     _numberBank.addAll([1, 2, 7, 8, 9]);
     _numberBank.shuffle();
 
@@ -77,18 +74,13 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen>
   }
 
   List<List<CrosswordCell>> _createMathCrossword() {
-    // Create a 5x5 grid with proper math equations
-    // Row 1: 2 + 3 = 5
-    // Row 2: + + +
-    // Row 3: 4 + 1 = 5
-    // Row 4: = = =
-    // Row 5: 6 4 6
+
 
     return [
       [
-        CrosswordCell(type: CellType.blank, answer: 2), // 2
+        CrosswordCell(type: CellType.blank, answer: 2),
         CrosswordCell(value: '+', type: CellType.operator),
-        CrosswordCell(type: CellType.blank, answer: 3), // 3
+        CrosswordCell(type: CellType.blank, answer: 3),
         CrosswordCell(value: '=', type: CellType.equals),
         CrosswordCell(value: '5', type: CellType.answer),
       ],
@@ -100,9 +92,9 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen>
         CrosswordCell(value: '+', type: CellType.operator),
       ],
       [
-        CrosswordCell(type: CellType.blank, answer: 4), // 4
+        CrosswordCell(type: CellType.blank, answer: 4),
         CrosswordCell(value: '+', type: CellType.operator),
-        CrosswordCell(type: CellType.blank, answer: 1), // 1
+        CrosswordCell(type: CellType.blank, answer: 1),
         CrosswordCell(value: '=', type: CellType.equals),
         CrosswordCell(value: '5', type: CellType.answer),
       ],
@@ -115,7 +107,7 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen>
       ],
       [
         CrosswordCell(value: '6', type: CellType.answer),
-        CrosswordCell(type: CellType.blank, answer: 6), // 6
+        CrosswordCell(type: CellType.blank, answer: 6),
         CrosswordCell(value: '4', type: CellType.answer),
         CrosswordCell(value: '=', type: CellType.equals),
         CrosswordCell(value: '10', type: CellType.answer),
@@ -259,7 +251,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              // Crossword Grid
               for (int i = 0; i < _crosswordGrid.length; i++)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -270,7 +261,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen>
                 ),
               const SizedBox(height: 32),
 
-              // Number Bank
               const Text(
                 'Drag numbers to fill the blanks:',
                 style: TextStyle(

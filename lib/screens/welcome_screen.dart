@@ -61,7 +61,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // Animated background
           AnimatedBuilder(
             animation: _floatingController,
             builder: (context, child) {
@@ -75,7 +74,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             },
           ),
 
-          // Content
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -83,8 +81,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Spacer(),
-
-                  // App title and logo
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -121,7 +117,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                   const SizedBox(height: 40),
 
-                  // User type selection
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -147,7 +142,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         ),
                         const SizedBox(height: 20),
 
-                        // Student button
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
@@ -175,7 +169,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                         const SizedBox(height: 12),
 
-                        // Teacher button
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
@@ -203,10 +196,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ],
                     ),
                   ),
-
                   const Spacer(),
-
-                  // Footer
                   Text(
                     'Making Math Learning Fun and Interactive',
                     style: TextStyle(
@@ -261,7 +251,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   ),
                   const SizedBox(height: 20),
 
-                  // Login button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -292,10 +281,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
-                  // Register button
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
@@ -400,7 +386,6 @@ class MathBackgroundPainter extends CustomPainter {
           break;
       }
 
-      // Draw number
       final textSpan = TextSpan(
         text: shape.number.toString(),
         style: TextStyle(

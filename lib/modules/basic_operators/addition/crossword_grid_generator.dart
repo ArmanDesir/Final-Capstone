@@ -16,13 +16,6 @@ class CrosswordGridGenerator {
   }
 
   static List<List<CrosswordCell>> _easyGrid() {
-    // Simple 5x5 grid with addition only
-    // Row 1: 2 + 3 = 5
-    // Row 2: + + + = +
-    // Row 3: 4 + 1 = 5
-    // Row 4: = = = = =
-    // Row 5: 6 4 4 = 10
-
     return [
       [
         CrosswordCell(type: CellType.blank, answer: 2),
@@ -63,13 +56,6 @@ class CrosswordGridGenerator {
   }
 
   static List<List<CrosswordCell>> _mediumGrid() {
-    // 5x5 grid with addition and subtraction
-    // Row 1: 8 - 3 = 5
-    // Row 2: + - + = +
-    // Row 3: 2 + 7 = 9
-    // Row 4: = = = = =
-    // Row 5: 10 4 10 = 14
-
     return [
       [
         CrosswordCell(type: CellType.blank, answer: 8),
@@ -110,13 +96,6 @@ class CrosswordGridGenerator {
   }
 
   static List<List<CrosswordCell>> _hardGrid() {
-    // 5x5 grid with multiplication and division
-    // Row 1: 6 ÷ 2 = 3
-    // Row 2: × ÷ × = ×
-    // Row 3: 4 × 2 = 8
-    // Row 4: = = = = =
-    // Row 5: 24 4 6 = 11
-
     return [
       [
         CrosswordCell(type: CellType.blank, answer: 6),
@@ -164,7 +143,6 @@ class CrosswordGridGenerator {
       List<CrosswordCell> row = [];
       for (int j = 0; j < size; j++) {
         if (i == size - 1 || j == size - 1) {
-          // Last row and column are equals or answers
           if (i == size - 1 && j == size - 1) {
             row.add(CrosswordCell(value: '=', type: CellType.equals));
           } else if (i == size - 1) {
@@ -173,7 +151,6 @@ class CrosswordGridGenerator {
             row.add(CrosswordCell(value: '=', type: CellType.equals));
           }
         } else if (i % 2 == 0 && j % 2 == 0) {
-          // Even positions are numbers (blanks or given)
           int answer = random.nextInt(9) + 1;
           if (random.nextBool()) {
             row.add(CrosswordCell(type: CellType.blank, answer: answer));
@@ -183,7 +160,6 @@ class CrosswordGridGenerator {
             );
           }
         } else {
-          // Odd positions are operators
           List<String> operators = ['+', '-', '×', '÷'];
           String op = operators[random.nextInt(operators.length)];
           row.add(CrosswordCell(value: op, type: CellType.operator));

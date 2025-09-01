@@ -16,7 +16,7 @@ class _QuizScreenState extends State<QuizScreen>
   int _current = 0;
   bool _quizFinished = false;
   late Timer _timer;
-  int _remainingSeconds = 300; // 5 minutes
+  int _remainingSeconds = 300;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 

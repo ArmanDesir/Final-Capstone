@@ -51,7 +51,6 @@ class _JoinClassroomScreenState extends State<JoinClassroomScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Reload user and classroom state
       await Provider.of<AuthProvider>(
         context,
         listen: false,
@@ -104,7 +103,6 @@ class _JoinClassroomScreenState extends State<JoinClassroomScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 20),
-                  // Header
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -146,7 +144,6 @@ class _JoinClassroomScreenState extends State<JoinClassroomScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  // Form
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -233,7 +230,6 @@ class _JoinClassroomScreenState extends State<JoinClassroomScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Info card
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(

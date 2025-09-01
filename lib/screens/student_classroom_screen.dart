@@ -87,7 +87,6 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Classroom info
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -113,7 +112,6 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
           ),
           const SizedBox(height: 24),
 
-          // Content list
           Row(
             children: [
               Text(
@@ -258,14 +256,12 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
   }
 
   void _downloadContent(Content content) {
-    // TODO: Implement PDF download/viewing
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Opening ${content.title}...'),
         action: SnackBarAction(
           label: 'View',
           onPressed: () {
-            // TODO: Open PDF viewer
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text('PDF viewer coming soon!')));

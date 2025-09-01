@@ -34,7 +34,6 @@ class ClassroomProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Teacher: Create classroom
   Future<Classroom?> createClassroom({
     required String name,
     required String description,
@@ -48,7 +47,6 @@ class ClassroomProvider with ChangeNotifier {
         teacherId: teacherId,
       );
 
-      // Save to local database for offline access
       await _databaseHelper.insertClassroom(classroom);
 
       _teacherClassrooms.add(classroom);
@@ -62,11 +60,9 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  // Teacher: Load classrooms they own
   Future<void> loadTeacherClassrooms(String teacherId) async {
     _setLoading(true);
     try {
-      // First try to get from local database
       List<Classroom> localClassrooms = await _databaseHelper
           .getClassroomsByTeacherId(teacherId);
 
@@ -75,7 +71,6 @@ class ClassroomProvider with ChangeNotifier {
         notifyListeners();
       }
 
-      // Then try to sync from Firebase if online
       try {
         final query =
             await FirebaseFirestore.instance
@@ -85,7 +80,6 @@ class ClassroomProvider with ChangeNotifier {
         List<Classroom> firebaseClassrooms =
             query.docs.map((doc) => Classroom.fromJson(doc.data())).toList();
 
-        // Update local database with Firebase data
         for (Classroom classroom in firebaseClassrooms) {
           await _databaseHelper.insertClassroom(classroom);
         }
@@ -93,7 +87,6 @@ class ClassroomProvider with ChangeNotifier {
         _teacherClassrooms = firebaseClassrooms;
         notifyListeners();
       } catch (e) {
-        // If Firebase fails, we still have local data
         Logger().e('Error loading from Firebase: $e');
       }
 
@@ -104,16 +97,13 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  // Student: Load classroom they belong to
   Future<void> loadStudentClassroom(String studentId) async {
     _setLoading(true);
     try {
-      // First try to get from local database
       List<Classroom> localClassrooms = await _databaseHelper
           .getClassroomsByUserId(studentId);
 
       if (localClassrooms.isNotEmpty) {
-        // Find the classroom where the student is accepted (not pending)
         for (Classroom classroom in localClassrooms) {
           if (classroom.studentIds.contains(studentId)) {
             _currentClassroom = classroom;
@@ -123,9 +113,7 @@ class ClassroomProvider with ChangeNotifier {
         notifyListeners();
       }
 
-      // Then try to sync from Firebase if online
       try {
-        // Query classrooms where student is in studentIds
         final query =
             await FirebaseFirestore.instance
                 .collection('classrooms')
@@ -142,7 +130,6 @@ class ClassroomProvider with ChangeNotifier {
 
         notifyListeners();
       } catch (e) {
-        // If Firebase fails, we still have local data
         Logger().e('Error loading from Firebase: $e');
       }
 
@@ -153,30 +140,24 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  // Teacher: Load classroom details and students
   Future<void> loadClassroomDetails(String classroomId) async {
     _setLoading(true);
     try {
-      // First try to get from local database
       _currentClassroom = await _databaseHelper.getClassroomById(classroomId);
 
       if (_currentClassroom != null) {
-        // Load students from local database if available
         await _loadStudentsFromLocal(classroomId);
       }
 
-      // Then try to sync from Firebase if online
       try {
         _currentClassroom = await _service.getClassroomById(classroomId);
         _acceptedStudents = await _service.getAcceptedStudents(classroomId);
         _pendingStudents = await _service.getPendingStudents(classroomId);
 
-        // Update local database
         if (_currentClassroom != null) {
           await _databaseHelper.insertClassroom(_currentClassroom!);
         }
       } catch (e) {
-        // If Firebase fails, we still have local data
         Logger().e('Error loading from Firebase: $e');
       }
 
@@ -188,10 +169,8 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  // Load students from local database
   Future<void> _loadStudentsFromLocal(String classroomId) async {
     if (_currentClassroom != null) {
-      // Load accepted students
       _acceptedStudents = [];
       for (String studentId in _currentClassroom!.studentIds) {
         User? user = await _databaseHelper.getUserById(studentId);
@@ -200,7 +179,6 @@ class ClassroomProvider with ChangeNotifier {
         }
       }
 
-      // Load pending students
       _pendingStudents = [];
       for (String studentId in _currentClassroom!.pendingStudentIds) {
         User? user = await _databaseHelper.getUserById(studentId);
@@ -211,14 +189,12 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  // Teacher: Accept student
   Future<void> acceptStudent(String classroomId, String studentId) async {
     await _service.acceptStudent(
       classroomId: classroomId,
       studentId: studentId,
     );
 
-    // Update local database
     if (_currentClassroom != null) {
       List<String> updatedPending = List.from(
         _currentClassroom!.pendingStudentIds,
@@ -236,7 +212,6 @@ class ClassroomProvider with ChangeNotifier {
       _currentClassroom = updatedClassroom;
     }
 
-    // Update user's classroomId in local database
     User? user = await _databaseHelper.getUserById(studentId);
     if (user != null) {
       User updatedUser = user.copyWith(
@@ -253,14 +228,12 @@ class ClassroomProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Teacher: Reject student
   Future<void> rejectStudent(String classroomId, String studentId) async {
     await _service.rejectStudent(
       classroomId: classroomId,
       studentId: studentId,
     );
 
-    // Update local database
     if (_currentClassroom != null) {
       List<String> updatedPending = List.from(
         _currentClassroom!.pendingStudentIds,
@@ -279,14 +252,12 @@ class ClassroomProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Teacher: Remove student
   Future<void> removeStudent(String classroomId, String studentId) async {
     await _service.removeStudent(
       classroomId: classroomId,
       studentId: studentId,
     );
 
-    // Update local database
     if (_currentClassroom != null) {
       List<String> updatedStudents = List.from(_currentClassroom!.studentIds)
         ..remove(studentId);
@@ -300,7 +271,6 @@ class ClassroomProvider with ChangeNotifier {
       _currentClassroom = updatedClassroom;
     }
 
-    // Clear user's classroomId in local database
     User? user = await _databaseHelper.getUserById(studentId);
     if (user != null) {
       User updatedUser = user.copyWith(
@@ -314,7 +284,6 @@ class ClassroomProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Student: Request to join classroom
   Future<bool> requestToJoinClassroom({
     required String code,
     required String studentId,
@@ -326,7 +295,6 @@ class ClassroomProvider with ChangeNotifier {
         studentId: studentId,
       );
 
-      // Update local database if we have the classroom
       Classroom? classroom = await _databaseHelper.getClassroomByCode(code);
       if (classroom != null) {
         List<String> updatedPending = List.from(classroom.pendingStudentIds)
@@ -347,31 +315,24 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  // Student: Get classroom by code
   Future<Classroom?> getClassroomByCode(String code) async {
-    // First try local database
     Classroom? localClassroom = await _databaseHelper.getClassroomByCode(code);
     if (localClassroom != null) {
       return localClassroom;
     }
 
-    // Then try Firebase
     return await _service.getClassroomByCode(code);
   }
 
-  // Student: Get classroom by id
   Future<Classroom?> getClassroomById(String id) async {
-    // First try local database
     Classroom? localClassroom = await _databaseHelper.getClassroomById(id);
     if (localClassroom != null) {
       return localClassroom;
     }
 
-    // Then try Firebase
     return await _service.getClassroomById(id);
   }
 
-  // Update classroom
   Future<void> updateClassroom(Classroom classroom) async {
     _setLoading(true);
     try {
@@ -385,7 +346,6 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  // Delete classroom
   Future<void> deleteClassroom(String classroomId) async {
     _setLoading(true);
     try {

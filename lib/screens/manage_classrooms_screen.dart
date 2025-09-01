@@ -71,7 +71,6 @@ class ManageClassroomsScreen extends StatelessWidget {
                           IconButton(
                             icon: const Icon(Icons.edit, color: Colors.blue),
                             onPressed: () async {
-                              // Edit classroom (show dialog)
                               await _showEditClassroomDialog(
                                 context,
                                 classroomProvider,

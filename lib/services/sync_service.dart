@@ -34,7 +34,6 @@ class SyncService {
   }
 
   void _startPeriodicSync() {
-    // Sync every 5 minutes when online
     _syncTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
       if (_isOnline) {
         _performSync();
@@ -51,12 +50,8 @@ class SyncService {
     }
   }
 
-  // Task operations with offline-first approach
   Future<Task> createTask(Task task) async {
-    // Always save to local database first
     await _databaseHelper.insertTask(task);
-
-    // If online, try to sync to Firebase
     if (_isOnline) {
       try {
         String firebaseId = await _firebaseService.createTask(task);
@@ -68,7 +63,6 @@ class SyncService {
         return updatedTask;
       } catch (e) {
         Logger().e('Error syncing task to Firebase: $e');
-        // Task remains unsynced, will be synced later
       }
     }
 
@@ -76,10 +70,8 @@ class SyncService {
   }
 
   Future<Task?> updateTask(Task task) async {
-    // Always update local database first
     await _databaseHelper.updateTask(task);
 
-    // If online and task has Firebase ID, sync to Firebase
     if (_isOnline && task.firebaseId != null) {
       try {
         await _firebaseService.updateTask(task);
@@ -88,7 +80,6 @@ class SyncService {
         return updatedTask;
       } catch (e) {
         Logger().e('Error syncing task update to Firebase: $e');
-        // Mark as unsynced for later sync
         Task unsyncedTask = task.copyWith(isSynced: false);
         await _databaseHelper.updateTask(unsyncedTask);
       }
@@ -100,26 +91,22 @@ class SyncService {
   Future<void> deleteTask(String taskId) async {
     Task? task = await _databaseHelper.getTaskById(taskId);
     if (task != null) {
-      // Delete from local database
       await _databaseHelper.deleteTask(taskId);
 
-      // If online and task has Firebase ID, delete from Firebase
       if (_isOnline && task.firebaseId != null) {
         try {
           await _firebaseService.deleteTask(task.firebaseId!);
         } catch (e) {
           Logger().e('Error deleting task from Firebase: $e');
-          // Could implement a deletion queue for later sync
         }
       }
     }
   }
 
   Future<List<Task>> getTasksByUserId(String userId) async {
-    // Always get from local database first
+
     List<Task> localTasks = await _databaseHelper.getTasksByUserId(userId);
 
-    // If online, try to sync from Firebase
     if (_isOnline) {
       try {
         List<Task> firebaseTasks = await _firebaseService.getTasksByUserId(
@@ -140,7 +127,6 @@ class SyncService {
     List<Task> firebaseTasks,
     String userId,
   ) async {
-    // Create maps for easy lookup
     Map<String, Task> localTaskMap = {
       for (Task task in localTasks) task.id: task,
     };
@@ -148,7 +134,6 @@ class SyncService {
       for (Task task in firebaseTasks) task.firebaseId ?? task.id: task,
     };
 
-    // Add new tasks from Firebase to local database
     for (Task firebaseTask in firebaseTasks) {
       bool existsLocally = localTaskMap.values.any(
         (localTask) => localTask.firebaseId == firebaseTask.firebaseId,
@@ -164,7 +149,6 @@ class SyncService {
       }
     }
 
-    // Update local tasks with Firebase data if they're newer
     for (Task localTask in localTasks) {
       if (localTask.firebaseId != null) {
         Task? firebaseTask = firebaseTaskMap[localTask.firebaseId];
@@ -187,7 +171,6 @@ class SyncService {
     for (Task task in unsyncedTasks) {
       try {
         if (task.firebaseId == null) {
-          // Create new task in Firebase
           String firebaseId = await _firebaseService.createTask(task);
           Task updatedTask = task.copyWith(
             firebaseId: firebaseId,
@@ -195,7 +178,6 @@ class SyncService {
           );
           await _databaseHelper.updateTask(updatedTask);
         } else {
-          // Update existing task in Firebase
           await _firebaseService.updateTask(task);
           Task updatedTask = task.copyWith(isSynced: true);
           await _databaseHelper.updateTask(updatedTask);
@@ -207,16 +189,11 @@ class SyncService {
   }
 
   Future<void> _syncTasksFromFirebase() async {
-    // This would typically sync all tasks for the current user
-    // Implementation depends on your app's requirements
   }
 
-  // User operations
   Future<User> createUser(User user) async {
-    // Always save to local database first
     await _databaseHelper.insertUser(user);
 
-    // If online, try to sync to Firebase
     if (_isOnline) {
       try {
         await _firebaseService.createUser(user);
@@ -235,10 +212,7 @@ class SyncService {
   }
 
   Future<User?> updateUser(User user) async {
-    // Always update local database first
-    await _databaseHelper.updateUser(user);
 
-    // If online, sync to Firebase
     if (_isOnline) {
       try {
         await _firebaseService.updateUser(user);
@@ -257,10 +231,7 @@ class SyncService {
   }
 
   Future<User?> getUserById(String id) async {
-    // Always get from local database first
     User? localUser = await _databaseHelper.getUserById(id);
-
-    // If online, try to sync from Firebase
     if (_isOnline) {
       try {
         User? firebaseUser = await _firebaseService.getUserById(id);
@@ -276,7 +247,6 @@ class SyncService {
     return localUser;
   }
 
-  // Update user's classroom assignment
   Future<void> updateUserClassroom(String userId, String? classroomId) async {
     User? user = await _databaseHelper.getUserById(userId);
     if (user != null) {
@@ -285,8 +255,6 @@ class SyncService {
         updatedAt: DateTime.now(),
       );
       await _databaseHelper.updateUser(updatedUser);
-
-      // If online, sync to Firebase
       if (_isOnline) {
         try {
           await _firebaseService.updateUser(updatedUser);

@@ -51,7 +51,6 @@ class DivisionQuizScreen extends StatelessWidget {
                     Icons.star_outline,
                     Colors.green,
                     () {
-                      // TODO: Navigate to easy quiz
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Easy Quiz - Coming Soon!'),
@@ -66,7 +65,6 @@ class DivisionQuizScreen extends StatelessWidget {
                     Icons.star_half,
                     Colors.orange,
                     () {
-                      // TODO: Navigate to medium quiz
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Medium Quiz - Coming Soon!'),
@@ -81,7 +79,6 @@ class DivisionQuizScreen extends StatelessWidget {
                     Icons.star,
                     Colors.red,
                     () {
-                      // TODO: Navigate to hard quiz
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Hard Quiz - Coming Soon!'),
