@@ -3,15 +3,14 @@ import 'package:json_annotation/json_annotation.dart';
 part 'user.g.dart';
 
 enum UserType { student, teacher }
-
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.snake)
 class User {
   final String id;
   final String name;
-  final String email;
+  final String? email;
   final String? photoUrl;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   final bool isOnline;
   final String? lastSyncTime;
   final UserType userType;
@@ -26,10 +25,10 @@ class User {
   User({
     required this.id,
     required this.name,
-    required this.email,
+    this.email,
     this.photoUrl,
-    required this.createdAt,
-    required this.updatedAt,
+    this.createdAt,
+    this.updatedAt,
     this.isOnline = false,
     this.lastSyncTime,
     required this.userType,

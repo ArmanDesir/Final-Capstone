@@ -13,7 +13,6 @@ class Classroom {
   final List<String> quizIds;
   final String? code;
   final bool isActive;
-  final String? firebaseId;
   final bool isSynced;
 
   Classroom({
@@ -29,69 +28,58 @@ class Classroom {
     this.quizIds = const [],
     this.code,
     this.isActive = true,
-    this.firebaseId,
     this.isSynced = false,
   });
 
   factory Classroom.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic value) {
-      if (value is Timestamp) {
-        return value.toDate();
-      } else if (value is String) {
-        return DateTime.parse(value);
-      } else {
-        throw Exception('Invalid date format for Classroom');
-      }
+      if (value is String) return DateTime.parse(value);
+      throw Exception('Invalid date format for Classroom');
     }
 
     return Classroom(
       id: json['id'] as String,
       name: json['name'] as String,
-      teacherId: json['teacherId'] as String,
+      teacherId: json['teacher_id'] as String,
       description: json['description'] as String,
-      createdAt: parseDate(json['createdAt']),
-      updatedAt: parseDate(json['updatedAt']),
-      studentIds:
-          (json['studentIds'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
+      createdAt: parseDate(json['created_at']),
+      updatedAt: parseDate(json['updated_at']),
+      studentIds: (json['student_ids'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
           const [],
-      pendingStudentIds:
-          (json['pendingStudentIds'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
+      pendingStudentIds: (json['pending_student_ids'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
           const [],
-      lessonIds:
-          (json['lessonIds'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
+      lessonIds: (json['lesson_ids'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
           const [],
-      quizIds:
-          (json['quizIds'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
+      quizIds: (json['quiz_ids'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
           const [],
       code: json['code'] as String?,
-      isActive: json['isActive'] as bool? ?? true,
-      firebaseId: json['firebaseId'] as String?,
-      isSynced: json['isSynced'] as bool? ?? false,
+      isActive: json['is_active'] as bool? ?? true,
+      isSynced: json['is_synced'] as bool? ?? false,
     );
   }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
-    'teacherId': teacherId,
+    'teacher_id': teacherId,
     'description': description,
-    'createdAt': createdAt.toIso8601String(),
-    'updatedAt': updatedAt.toIso8601String(),
-    'studentIds': studentIds,
-    'pendingStudentIds': pendingStudentIds,
-    'lessonIds': lessonIds,
-    'quizIds': quizIds,
+    'created_at': createdAt.toIso8601String(),
+    'updated_at': updatedAt.toIso8601String(),
+    'student_ids': studentIds,
+    'pending_student_ids': pendingStudentIds,
+    'lesson_ids': lessonIds,
+    'quiz_ids': quizIds,
     'code': code,
-    'isActive': isActive,
-    'firebaseId': firebaseId,
-    'isSynced': isSynced,
+    'is_active': isActive,
+    'is_synced': isSynced,
   };
 
   Classroom copyWith({
@@ -107,7 +95,6 @@ class Classroom {
     List<String>? quizIds,
     String? code,
     bool? isActive,
-    String? firebaseId,
     bool? isSynced,
   }) {
     return Classroom(
@@ -123,7 +110,6 @@ class Classroom {
       quizIds: quizIds ?? this.quizIds,
       code: code ?? this.code,
       isActive: isActive ?? this.isActive,
-      firebaseId: firebaseId ?? this.firebaseId,
       isSynced: isSynced ?? this.isSynced,
     );
   }

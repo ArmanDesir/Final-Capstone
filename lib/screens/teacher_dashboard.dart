@@ -15,7 +15,8 @@ class CreateClassroomScreen extends StatelessWidget {
     final descController = TextEditingController();
     final classroomProvider = Provider.of<ClassroomProvider>(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Classroom')),
+      appBar: AppBar(
+          title: const Text('Create Classroom')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -106,6 +107,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Teacher Dashboard'),
         backgroundColor: Colors.green,
         actions: [

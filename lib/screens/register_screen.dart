@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/models/user.dart';
+import 'package:offline_first_app/providers/auth_provider.dart';
+import 'package:offline_first_app/screens/home_screen.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../models/user.dart';
-import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   final UserType userType;
@@ -60,10 +60,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _nameController.text.trim(),
         widget.userType,
         contactNumber: _contactNumberController.text.trim(),
-        studentId:
-            widget.userType == UserType.student
-                ? _studentIdController.text.trim()
-                : null,
+        studentId: widget.userType == UserType.student
+            ? _studentIdController.text.trim()
+            : null,
       );
 
       if (success && mounted) {
@@ -92,7 +91,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Form(
               key: _formKey,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Icon(
@@ -111,7 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Sign up to start ${widget.userType == UserType.student ? 'learning' : 'teaching'} math',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
@@ -141,14 +139,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icon(Icons.person),
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your name';
-                      }
-                      return null;
-                    },
+                    validator: (value) =>
+                    value == null || value.isEmpty
+                        ? 'Please enter your name'
+                        : null,
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _contactNumberController,
                     keyboardType: TextInputType.phone,
@@ -157,14 +154,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icon(Icons.phone),
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your contact number';
-                      }
-                      return null;
-                    },
+                    validator: (value) =>
+                    value == null || value.isEmpty
+                        ? 'Please enter your contact number'
+                        : null,
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -186,6 +182,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -217,6 +214,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
@@ -231,7 +229,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         onPressed: () {
                           setState(() {
-                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                            _obscureConfirmPassword =
+                            !_obscureConfirmPassword;
                           });
                         },
                       ),
@@ -247,7 +246,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
+                  if (widget.userType == UserType.student) ...[
+                    TextFormField(
+                      controller: _studentIdController,
+                      decoration: const InputDecoration(
+                        labelText: 'Student ID',
+                        prefixIcon: Icon(Icons.badge),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) =>
+                      value == null || value.isEmpty
+                          ? 'Please enter your student ID'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, child) {
+                      if (authProvider.error != null) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Text(
+                              authProvider.error!,
+                              style: TextStyle(color: Colors.red.shade700),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+
                   Consumer<AuthProvider>(
                     builder: (context, authProvider, child) {
                       return ElevatedButton(
@@ -258,54 +298,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child:
-                            authProvider.isLoading
-                                ? const CircularProgressIndicator()
-                                : const Text(
-                                  'Sign Up',
-                                  style: TextStyle(fontSize: 16),
-                                ),
+                        child: authProvider.isLoading
+                            ? const CircularProgressIndicator()
+                            : const Text(
+                          'Sign Up',
+                          style: TextStyle(fontSize: 16),
+                        ),
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
-                  Consumer<AuthProvider>(
-                    builder: (context, authProvider, child) {
-                      if (authProvider.error != null) {
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.shade200),
-                          ),
-                          child: Text(
-                            authProvider.error!,
-                            style: TextStyle(color: Colors.red.shade700),
-                            textAlign: TextAlign.center,
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                  if (widget.userType == UserType.student) ...[
-                    TextFormField(
-                      controller: _studentIdController,
-                      decoration: const InputDecoration(
-                        labelText: 'Student ID',
-                        prefixIcon: Icon(Icons.badge),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your student ID';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
                 ],
               ),
             ),

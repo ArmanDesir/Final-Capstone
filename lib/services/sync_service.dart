@@ -1,16 +1,16 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:offline_first_app/services/supabase_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/database_helper.dart';
-import '../services/firebase_service.dart';
-import '../models/user.dart';
 import '../models/task.dart';
-
 import 'package:logger/logger.dart';
 
 class SyncService {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
-  final FirebaseService _firebaseService = FirebaseService();
+  final SupabaseService _supabaseService = SupabaseService();
   final Connectivity _connectivity = Connectivity();
+  final Logger _logger = Logger();
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _syncTimer;
@@ -23,8 +23,8 @@ class SyncService {
 
   void _initializeConnectivity() {
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
-      results,
-    ) {
+        results,
+        ) {
       _isOnline =
           results.isNotEmpty && results.first != ConnectivityResult.none;
       if (_isOnline) {
@@ -42,11 +42,13 @@ class SyncService {
   }
 
   Future<void> _performSync() async {
+    _logger.i('Starting periodic sync...');
     try {
-      await _syncTasksToFirebase();
-      await _syncTasksFromFirebase();
+      await _syncTasksToSupabase();
+      await _syncTasksFromSupabase();
+      _logger.i('Sync completed successfully.');
     } catch (e) {
-      Logger().e('Error during sync: $e');
+      _logger.e('Error during sync: $e');
     }
   }
 
@@ -54,33 +56,32 @@ class SyncService {
     await _databaseHelper.insertTask(task);
     if (_isOnline) {
       try {
-        String firebaseId = await _firebaseService.createTask(task);
-        Task updatedTask = task.copyWith(
-          firebaseId: firebaseId,
+        final supabaseId = await _supabaseService.createTask(task);
+        final updatedTask = task.copyWith(
+          id: supabaseId,
           isSynced: true,
         );
         await _databaseHelper.updateTask(updatedTask);
         return updatedTask;
       } catch (e) {
-        Logger().e('Error syncing task to Firebase: $e');
+        _logger.e('Error syncing task to Supabase: $e');
       }
     }
-
     return task;
   }
 
   Future<Task?> updateTask(Task task) async {
     await _databaseHelper.updateTask(task);
 
-    if (_isOnline && task.firebaseId != null) {
+    if (_isOnline) {
       try {
-        await _firebaseService.updateTask(task);
-        Task updatedTask = task.copyWith(isSynced: true);
+        await _supabaseService.updateTask(task);
+        final updatedTask = task.copyWith(isSynced: true);
         await _databaseHelper.updateTask(updatedTask);
         return updatedTask;
       } catch (e) {
-        Logger().e('Error syncing task update to Firebase: $e');
-        Task unsyncedTask = task.copyWith(isSynced: false);
+        _logger.e('Error syncing task update to Supabase: $e');
+        final unsyncedTask = task.copyWith(isSynced: false);
         await _databaseHelper.updateTask(unsyncedTask);
       }
     }
@@ -89,74 +90,58 @@ class SyncService {
   }
 
   Future<void> deleteTask(String taskId) async {
-    Task? task = await _databaseHelper.getTaskById(taskId);
+    final task = await _databaseHelper.getTaskById(taskId);
     if (task != null) {
       await _databaseHelper.deleteTask(taskId);
-
-      if (_isOnline && task.firebaseId != null) {
+      if (_isOnline) {
         try {
-          await _firebaseService.deleteTask(task.firebaseId!);
+          await _supabaseService.deleteTask(task.id);
         } catch (e) {
-          Logger().e('Error deleting task from Firebase: $e');
+          _logger.e('Error deleting task from Supabase: $e');
         }
       }
     }
   }
 
   Future<List<Task>> getTasksByUserId(String userId) async {
-
     List<Task> localTasks = await _databaseHelper.getTasksByUserId(userId);
-
     if (_isOnline) {
       try {
-        List<Task> firebaseTasks = await _firebaseService.getTasksByUserId(
-          userId,
-        );
-        await _mergeTasks(localTasks, firebaseTasks, userId);
+        final supabaseTasks = await _supabaseService.getTasksByUserId(userId);
+        await _mergeTasks(localTasks, supabaseTasks);
         return await _databaseHelper.getTasksByUserId(userId);
       } catch (e) {
-        Logger().e('Error syncing tasks from Firebase: $e');
+        _logger.e('Error syncing tasks from Supabase: $e');
       }
     }
-
     return localTasks;
   }
 
   Future<void> _mergeTasks(
-    List<Task> localTasks,
-    List<Task> firebaseTasks,
-    String userId,
-  ) async {
-    Map<String, Task> localTaskMap = {
-      for (Task task in localTasks) task.id: task,
+      List<Task> localTasks,
+      List<Task> supabaseTasks,
+      ) async {
+    final localTaskMap = {
+      for (final task in localTasks) task.id: task,
     };
-    Map<String, Task> firebaseTaskMap = {
-      for (Task task in firebaseTasks) task.firebaseId ?? task.id: task,
+    final supabaseTaskMap = {
+      for (final task in supabaseTasks) task.id: task,
     };
 
-    for (Task firebaseTask in firebaseTasks) {
-      bool existsLocally = localTaskMap.values.any(
-        (localTask) => localTask.firebaseId == firebaseTask.firebaseId,
-      );
-
-      if (!existsLocally) {
-        Task newTask = firebaseTask.copyWith(
-          id: firebaseTask.firebaseId ?? firebaseTask.id,
-          userId: userId,
-          isSynced: true,
-        );
+    // Add new tasks from Supabase to local DB
+    for (final supabaseTask in supabaseTasks) {
+      if (!localTaskMap.containsKey(supabaseTask.id)) {
+        final newTask = supabaseTask.copyWith(isSynced: true);
         await _databaseHelper.insertTask(newTask);
       }
     }
 
-    for (Task localTask in localTasks) {
-      if (localTask.firebaseId != null) {
-        Task? firebaseTask = firebaseTaskMap[localTask.firebaseId];
-        if (firebaseTask != null &&
-            firebaseTask.updatedAt.isAfter(localTask.updatedAt)) {
-          Task updatedTask = firebaseTask.copyWith(
-            id: localTask.id,
-            userId: userId,
+    // Update existing tasks based on remote changes
+    for (final localTask in localTasks) {
+      if (supabaseTaskMap.containsKey(localTask.id)) {
+        final supabaseTask = supabaseTaskMap[localTask.id]!;
+        if (supabaseTask.updatedAt.isAfter(localTask.updatedAt)) {
+          final updatedTask = supabaseTask.copyWith(
             isSynced: true,
           );
           await _databaseHelper.updateTask(updatedTask);
@@ -165,104 +150,32 @@ class SyncService {
     }
   }
 
-  Future<void> _syncTasksToFirebase() async {
-    List<Task> unsyncedTasks = await _databaseHelper.getUnsyncedTasks();
-
-    for (Task task in unsyncedTasks) {
+  Future<void> _syncTasksToSupabase() async {
+    final unsyncedTasks = await _databaseHelper.getUnsyncedTasks();
+    for (final task in unsyncedTasks) {
       try {
-        if (task.firebaseId == null) {
-          String firebaseId = await _firebaseService.createTask(task);
-          Task updatedTask = task.copyWith(
-            firebaseId: firebaseId,
+        if (task.id.startsWith('temp_')) { // Task created offline
+          final supabaseId = await _supabaseService.createTask(task);
+          final updatedTask = task.copyWith(
+            id: supabaseId,
             isSynced: true,
           );
           await _databaseHelper.updateTask(updatedTask);
-        } else {
-          await _firebaseService.updateTask(task);
-          Task updatedTask = task.copyWith(isSynced: true);
+        } else { // Existing task updated offline
+          await _supabaseService.updateTask(task);
+          final updatedTask = task.copyWith(isSynced: true);
           await _databaseHelper.updateTask(updatedTask);
         }
       } catch (e) {
-        Logger().e('Error syncing task to Firebase: $e');
+        _logger.e('Error syncing task to Supabase: $e');
       }
     }
   }
 
-  Future<void> _syncTasksFromFirebase() async {
-  }
-
-  Future<User> createUser(User user) async {
-    await _databaseHelper.insertUser(user);
-
-    if (_isOnline) {
-      try {
-        await _firebaseService.createUser(user);
-        User updatedUser = user.copyWith(
-          isOnline: true,
-          lastSyncTime: DateTime.now().toIso8601String(),
-        );
-        await _databaseHelper.updateUser(updatedUser);
-        return updatedUser;
-      } catch (e) {
-        Logger().e('Error syncing user to Firebase: $e');
-      }
-    }
-
-    return user;
-  }
-
-  Future<User?> updateUser(User user) async {
-
-    if (_isOnline) {
-      try {
-        await _firebaseService.updateUser(user);
-        User updatedUser = user.copyWith(
-          isOnline: true,
-          lastSyncTime: DateTime.now().toIso8601String(),
-        );
-        await _databaseHelper.updateUser(updatedUser);
-        return updatedUser;
-      } catch (e) {
-        Logger().e('Error syncing user update to Firebase: $e');
-      }
-    }
-
-    return user;
-  }
-
-  Future<User?> getUserById(String id) async {
-    User? localUser = await _databaseHelper.getUserById(id);
-    if (_isOnline) {
-      try {
-        User? firebaseUser = await _firebaseService.getUserById(id);
-        if (firebaseUser != null) {
-          await _databaseHelper.updateUser(firebaseUser);
-          return firebaseUser;
-        }
-      } catch (e) {
-        Logger().e('Error syncing user from Firebase: $e');
-      }
-    }
-
-    return localUser;
-  }
-
-  Future<void> updateUserClassroom(String userId, String? classroomId) async {
-    User? user = await _databaseHelper.getUserById(userId);
-    if (user != null) {
-      User updatedUser = user.copyWith(
-        classroomId: classroomId,
-        updatedAt: DateTime.now(),
-      );
-      await _databaseHelper.updateUser(updatedUser);
-      if (_isOnline) {
-        try {
-          await _firebaseService.updateUser(updatedUser);
-        } catch (e) {
-          Logger().e('Error syncing user classroom update to Firebase: $e');
-        }
-      }
-    }
+  Future<void> _syncTasksFromSupabase() async {
+    // This method is now handled by the `getTasksByUserId` which
+    // merges the data upon request. You can also implement a real-time
+    // listener if needed, but for a periodic sync, this is sufficient.
   }
 
   bool get isOnline => _isOnline;

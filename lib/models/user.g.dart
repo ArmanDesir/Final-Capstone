@@ -1,14 +1,27 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
 part of 'user.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
 User _$UserFromJson(Map<String, dynamic> json) => User(
   id: json['id'] as String,
   name: json['name'] as String,
-  email: json['email'] as String,
+  email: json['email'] as String?,
   photoUrl: json['photoUrl'] as String?,
-  createdAt: DateTime.parse(json['createdAt'] as String),
-  updatedAt: DateTime.parse(json['updatedAt'] as String),
+  createdAt:
+      json['createdAt'] == null
+          ? null
+          : DateTime.parse(json['createdAt'] as String),
+  updatedAt:
+      json['updatedAt'] == null
+          ? null
+          : DateTime.parse(json['updatedAt'] as String),
   isOnline: json['isOnline'] as bool? ?? false,
   lastSyncTime: json['lastSyncTime'] as String?,
-  userType: $enumDecode(_$UserTypeEnumMap, json['userType']),
+  userType: $enumDecode(_$UserTypeEnumMap, json['user_type']),
   teacherCode: json['teacherCode'] as String?,
   classroomIds:
       (json['classroomIds'] as List<dynamic>?)
@@ -27,8 +40,8 @@ Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
   'name': instance.name,
   'email': instance.email,
   'photoUrl': instance.photoUrl,
-  'createdAt': instance.createdAt.toIso8601String(),
-  'updatedAt': instance.updatedAt.toIso8601String(),
+  'createdAt': instance.createdAt?.toIso8601String(),
+  'updatedAt': instance.updatedAt?.toIso8601String(),
   'isOnline': instance.isOnline,
   'lastSyncTime': instance.lastSyncTime,
   'userType': _$UserTypeEnumMap[instance.userType]!,

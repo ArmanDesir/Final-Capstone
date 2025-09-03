@@ -38,6 +38,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Student Dashboard'),
         backgroundColor: Colors.blue,
         actions: [

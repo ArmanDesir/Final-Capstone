@@ -1,4 +1,10 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
 part of 'lesson.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
 
 Lesson _$LessonFromJson(Map<String, dynamic> json) => Lesson(
   id: json['id'] as String,

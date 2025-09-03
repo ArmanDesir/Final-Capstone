@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/services/user_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart' as app_model;
@@ -21,7 +22,7 @@ class ProfileScreen extends StatelessWidget {
       return _ProfileScaffold(user: user, isTeacher: isTeacher);
     } else {
       return FutureBuilder<app_model.User?>(
-        future: authProvider.getUserById(studentId),
+        future: UserService().getUser(studentId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
@@ -88,7 +89,7 @@ class _ProfileScaffold extends StatelessWidget {
               value: user.contactNumber ?? 'N/A',
             ),
             const SizedBox(height: 16),
-            _ProfileField(label: 'Email', value: user.email),
+            _ProfileField(label: 'Email', value: user.email ?? 'N/A'),
           ],
         ),
       ),

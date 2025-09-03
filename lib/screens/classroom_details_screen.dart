@@ -161,7 +161,7 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                         ),
                       ),
                       title: Text(student.name),
-                      subtitle: Text(student.email),
+                      subtitle: Text(student.email ?? 'No email'),
                       trailing: IconButton(
                         icon: const Icon(
                           Icons.remove_circle_outline,
@@ -217,7 +217,7 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                         ),
                       ),
                       title: Text(student.name),
-                      subtitle: Text(student.email),
+                      subtitle: Text(student.email ?? 'No email'),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

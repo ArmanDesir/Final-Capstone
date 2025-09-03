@@ -54,7 +54,7 @@ class _JoinClassroomScreenState extends State<JoinClassroomScreen> {
       await Provider.of<AuthProvider>(
         context,
         listen: false,
-      ).getUserById(user.id);
+      ).refreshUserProfile();
       if (user.classroomId != null) {
         await Provider.of<ClassroomProvider>(
           context,

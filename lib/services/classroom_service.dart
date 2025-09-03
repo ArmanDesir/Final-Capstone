@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/classroom.dart';
-import '../models/user.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../models/classroom.dart';
+import '../models/user.dart' as app_model;
 
 class ClassroomService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
   final Uuid _uuid = Uuid();
 
   String generateClassroomCode() {
@@ -26,10 +26,7 @@ class ClassroomService {
       updatedAt: DateTime.now(),
       code: code,
     );
-    await _firestore
-        .collection('classrooms')
-        .doc(classroom.id)
-        .set(classroom.toJson());
+    await _supabase.from('classrooms').insert(classroom.toJson());
     return classroom;
   }
 
@@ -37,135 +34,172 @@ class ClassroomService {
     required String classroomCode,
     required String studentId,
   }) async {
-    final query =
-        await _firestore
-            .collection('classrooms')
-            .where('code', isEqualTo: classroomCode)
-            .get();
-    if (query.docs.isEmpty) throw Exception('Classroom not found');
-    final doc = query.docs.first;
-    final classroom = Classroom.fromJson(doc.data());
+    final response = await _supabase
+        .from('classrooms')
+        .select()
+        .eq('code', classroomCode)
+        .single();
+
+    if (response == null) {
+      throw Exception('Classroom not found');
+    }
+
+    final classroom = Classroom.fromJson(response);
     if (classroom.studentIds.contains(studentId) ||
         classroom.pendingStudentIds.contains(studentId)) {
       throw Exception('Already requested or joined');
     }
+
     final updatedPending = List<String>.from(classroom.pendingStudentIds)
       ..add(studentId);
-    await _firestore.collection('classrooms').doc(classroom.id).update({
+
+    await _supabase.from('classrooms').update({
       'pendingStudentIds': updatedPending,
-    });
+      'updatedAt': DateTime.now().toIso8601String(),
+    }).eq('id', classroom.id);
   }
 
   Future<void> acceptStudent({
     required String classroomId,
     required String studentId,
   }) async {
-    final doc =
-        await _firestore.collection('classrooms').doc(classroomId).get();
-    if (!doc.exists) throw Exception('Classroom not found');
-    final classroom = Classroom.fromJson(doc.data() as Map<String, dynamic>);
+    final classroomResponse = await _supabase
+        .from('classrooms')
+        .select()
+        .eq('id', classroomId)
+        .single();
+
+    if (classroomResponse == null) {
+      throw Exception('Classroom not found');
+    }
+
+    final classroom = Classroom.fromJson(classroomResponse);
     final updatedPending = List<String>.from(classroom.pendingStudentIds)
       ..remove(studentId);
     final updatedStudents = List<String>.from(classroom.studentIds);
     if (!updatedStudents.contains(studentId)) {
       updatedStudents.add(studentId);
     }
-    await _firestore.collection('classrooms').doc(classroomId).update({
+
+    await _supabase.from('classrooms').update({
       'pendingStudentIds': updatedPending,
       'studentIds': updatedStudents,
-      'updatedAt': DateTime.now(),
-    });
+      'updatedAt': DateTime.now().toIso8601String(),
+    }).eq('id', classroomId);
 
-    await _firestore.collection('users').doc(studentId).update({
+    await _supabase.from('users').update({
       'classroomId': classroomId,
-      'updatedAt': DateTime.now(),
-    });
+      'updatedAt': DateTime.now().toIso8601String(),
+    }).eq('id', studentId);
   }
 
   Future<void> rejectStudent({
     required String classroomId,
     required String studentId,
   }) async {
-    final doc =
-        await _firestore.collection('classrooms').doc(classroomId).get();
-    if (!doc.exists) throw Exception('Classroom not found');
-    final classroom = Classroom.fromJson(doc.data() as Map<String, dynamic>);
+    final classroomResponse = await _supabase
+        .from('classrooms')
+        .select()
+        .eq('id', classroomId)
+        .single();
+
+    if (classroomResponse == null) {
+      throw Exception('Classroom not found');
+    }
+
+    final classroom = Classroom.fromJson(classroomResponse);
     final updatedPending = List<String>.from(classroom.pendingStudentIds)
       ..remove(studentId);
-    await _firestore.collection('classrooms').doc(classroomId).update({
+
+    await _supabase.from('classrooms').update({
       'pendingStudentIds': updatedPending,
-    });
+    }).eq('id', classroomId);
   }
 
   Future<void> removeStudent({
     required String classroomId,
     required String studentId,
   }) async {
-    final doc =
-        await _firestore.collection('classrooms').doc(classroomId).get();
-    if (!doc.exists) throw Exception('Classroom not found');
-    final classroom = Classroom.fromJson(doc.data() as Map<String, dynamic>);
+    final classroomResponse = await _supabase
+        .from('classrooms')
+        .select()
+        .eq('id', classroomId)
+        .single();
+
+    if (classroomResponse == null) {
+      throw Exception('Classroom not found');
+    }
+
+    final classroom = Classroom.fromJson(classroomResponse);
     final updatedStudents = List<String>.from(classroom.studentIds)
       ..remove(studentId);
-    await _firestore.collection('classrooms').doc(classroomId).update({
-      'studentIds': updatedStudents,
-    });
 
-    await _firestore.collection('users').doc(studentId).update({
+    await _supabase.from('classrooms').update({
+      'studentIds': updatedStudents,
+    }).eq('id', classroomId);
+
+    await _supabase.from('users').update({
       'classroomId': null,
-      'updatedAt': DateTime.now(),
-    });
+      'updatedAt': DateTime.now().toIso8601String(),
+    }).eq('id', studentId);
   }
 
   Future<Classroom?> getClassroomByCode(String code) async {
-    final query =
-        await _firestore
-            .collection('classrooms')
-            .where('code', isEqualTo: code)
-            .get();
-    if (query.docs.isEmpty) return null;
-    return Classroom.fromJson(query.docs.first.data());
+    final response = await _supabase
+        .from('classrooms')
+        .select()
+        .eq('code', code)
+        .limit(1)
+        .maybeSingle();
+
+    if (response == null) return null;
+    return Classroom.fromJson(response);
   }
 
   Future<Classroom?> getClassroomById(String id) async {
-    final doc = await _firestore.collection('classrooms').doc(id).get();
-    if (!doc.exists) return null;
-    return Classroom.fromJson(doc.data() as Map<String, dynamic>);
+    final response = await _supabase
+        .from('classrooms')
+        .select()
+        .eq('id', id)
+        .maybeSingle();
+
+    if (response == null) return null;
+    return Classroom.fromJson(response);
   }
 
-  Future<List<User>> getAcceptedStudents(String classroomId) async {
+  Future<List<app_model.User>> getAcceptedStudents(String classroomId) async {
     final classroom = await getClassroomById(classroomId);
-    if (classroom == null) return [];
-    if (classroom.studentIds.isEmpty) return [];
-    final query =
-        await _firestore
-            .collection('users')
-            .where('id', whereIn: classroom.studentIds)
-            .get();
-    return query.docs.map((doc) => User.fromJson(doc.data())).toList();
+    if (classroom == null || classroom.studentIds.isEmpty) return [];
+
+    final response = await _supabase
+        .from('users')
+        .select()
+        .inFilter('id', classroom.studentIds);
+
+    return response.map((data) => app_model.User.fromJson(data)).toList();
   }
 
-  Future<List<User>> getPendingStudents(String classroomId) async {
+  Future<List<app_model.User>> getPendingStudents(String classroomId) async {
     final classroom = await getClassroomById(classroomId);
-    if (classroom == null) return [];
-    if (classroom.pendingStudentIds.isEmpty) return [];
-    final query =
-        await _firestore
-            .collection('users')
-            .where('id', whereIn: classroom.pendingStudentIds)
-            .get();
-    return query.docs.map((doc) => User.fromJson(doc.data())).toList();
+    if (classroom == null || classroom.pendingStudentIds.isEmpty) return [];
+
+    final response = await _supabase
+        .from('users')
+        .select()
+        .inFilter('id', classroom.pendingStudentIds);
+
+    return response.map((data) => app_model.User.fromJson(data)).toList();
   }
 
   Future<void> updateClassroom(Classroom classroom) async {
-    await _firestore.collection('classrooms').doc(classroom.id).update({
+    await _supabase.from('classrooms').update({
       'name': classroom.name,
       'description': classroom.description,
-      'updatedAt': DateTime.now(),
-    });
+      'updatedAt': DateTime.now().toIso8601String(),
+    }).eq('id', classroom.id);
   }
 
   Future<void> deleteClassroom(String classroomId) async {
-    await _firestore.collection('classrooms').doc(classroomId).delete();
+    await _supabase.from('classrooms').delete().eq('id', classroomId);
   }
 }

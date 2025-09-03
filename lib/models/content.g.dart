@@ -1,4 +1,11 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
 part of 'content.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
 Content _$ContentFromJson(Map<String, dynamic> json) => Content(
   id: json['id'] as String,
   classroomId: json['classroomId'] as String,
