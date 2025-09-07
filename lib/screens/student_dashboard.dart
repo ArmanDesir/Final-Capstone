@@ -25,7 +25,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         Provider.of<ClassroomProvider>(
           context,
           listen: false,
-        ).loadStudentClassroom(user.id);
+        ).loadStudentClassrooms(user.id);
       }
     });
   }
@@ -50,11 +50,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authProvider.signOut();
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/login');
-              }
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false)
+                  .signOutAndRedirect(context);
             },
           ),
         ],
@@ -123,14 +121,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildQuickStats(ClassroomProvider classroomProvider, User? user) {
-    final classroom = classroomProvider.currentClassroom;
-    final contentCount =
-        classroom != null ? 0 : 0;
+    final joinedClassrooms = classroomProvider.studentClassrooms.length;
+
+    // Later you can calculate content count properly based on lessons/quizzes.
+    final contentCount = 0;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildStatCard(classroom != null ? '1' : '0', 'Classroom', Colors.blue),
+        _buildStatCard(joinedClassrooms.toString(), 'Classrooms', Colors.blue),
         _buildStatCard(contentCount.toString(), 'Content', Colors.green),
         _buildStatCard('0', 'Completed', Colors.orange),
       ],
@@ -177,13 +176,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildClassroomStatus(
-    ClassroomProvider classroomProvider,
-    User? user,
-  ) {
+      ClassroomProvider classroomProvider,
+      User? user,
+      ) {
     final classroom = classroomProvider.currentClassroom;
 
     if (user?.classroomId == null) {
-      return _buildNoClassroomCard();
+      return _buildNoClassroomCard(classroomProvider);
     }
 
     if (classroom == null) {
@@ -198,10 +197,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
       return _buildActiveClassroomCard(classroom);
     }
 
-    return _buildNoClassroomCard();
+    return _buildNoClassroomCard(classroomProvider);
   }
 
-  Widget _buildNoClassroomCard() {
+  Widget _buildNoClassroomCard(ClassroomProvider classroomProvider) {
+    final joinedClassrooms = classroomProvider.studentClassrooms.length;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -209,9 +210,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
           children: [
             Icon(Icons.class_outlined, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            const Text(
-              '1 Classroom Joined',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              '$joinedClassrooms Classroom${joinedClassrooms == 1 ? '' : 's'} Joined',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text(

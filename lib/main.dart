@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/screens/student_dashboard.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/auth_provider.dart';
@@ -8,15 +9,15 @@ import 'providers/classroom_provider.dart';
 import 'models/user.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/login_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/teacher_dashboard.dart';
 import 'modules/basic_operators/addition/addition_screen.dart';
 import 'modules/basic_operators/addition/lesson_list_screen.dart';
 import 'modules/basic_operators/addition/quiz_screen.dart';
 import 'modules/basic_operators/addition/game_screen.dart';
 import 'modules/basic_operators/addition/mock_data.dart';
 import 'modules/basic_operators/basic_operations_dashboard.dart';
-import 'package:offline_first_app/modules/basic_operators/subtraction/subtraction_screen.dart';
+import 'modules/basic_operators/subtraction/subtraction_screen.dart';
 import 'modules/basic_operators/subtraction/widgets/subtraction_lessons_screen.dart';
 import 'modules/basic_operators/subtraction/widgets/subtraction_quiz_screen.dart';
 import 'modules/basic_operators/subtraction/widgets/subtraction_games_screen.dart';
@@ -29,11 +30,11 @@ import 'modules/basic_operators/division/widgets/division_lessons_screen.dart';
 import 'modules/basic_operators/division/widgets/division_quiz_screen.dart';
 import 'modules/basic_operators/division/widgets/division_games_screen.dart';
 
-// You must replace these with your actual Supabase project URL and API key.
 const String supabaseUrl = 'https://iblysqwclgpkijsxfgif.supabase.co';
-const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlibHlzcXdjbGdwa2lqc3hmZ2lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4ODkzMzUsImV4cCI6MjA3MjQ2NTMzNX0.QjrhspglPRecKsXQ0XHswqHyvvQuOymsuh1xUGrT5xE  ';
+const String supabaseAnonKey =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlibHlzcXdjbGdwa2lqc3hmZ2lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4ODkzMzUsImV4cCI6MjA3MjQ2NTMzNX0.QjrhspglPRecKsXQ0XHswqHyvvQuOymsuh1xUGrT5xE';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp();
@@ -67,29 +68,29 @@ class MyApp extends StatelessWidget {
         home: const AuthWrapper(),
         routes: {
           '/welcome': (context) => const WelcomeScreen(),
-          '/login': (context) => const LoginScreen(userType: UserType.student),
           '/home': (context) => const HomeScreen(),
           '/profile': (context) => const ProfileScreen(),
           '/basic_operations': (context) => const BasicOperationsDashboard(),
           '/addition': (context) => const AdditionScreen(),
           '/addition/lessons': (context) => const LessonListScreen(),
-          '/addition/quiz':
-              (context) => QuizScreen(
-            questions:
-            additionLessons[0]['quiz'].cast<Map<String, dynamic>>(),
+          '/addition/quiz': (context) => QuizScreen(
+            questions: additionLessons[0]['quiz']
+                .cast<Map<String, dynamic>>(),
           ),
           '/addition/games': (context) => const GameScreen(),
           '/subtraction': (context) => const SubtractionScreen(),
-          '/subtraction/lessons': (context) => const SubtractionLessonsScreen(),
-          '/subtraction/quiz':
-              (context) => const SubtractionQuizScreen(questions: []),
+          '/subtraction/lessons': (context) =>
+          const SubtractionLessonsScreen(),
+          '/subtraction/quiz': (context) =>
+          const SubtractionQuizScreen(questions: []),
           '/subtraction/games': (context) => const SubtractionGamesScreen(),
           '/multiplication': (context) => const MultiplicationScreen(),
-          '/multiplication/lessons':
-              (context) => const MultiplicationLessonsScreen(),
-          '/multiplication/quiz': (context) => const MultiplicationQuizScreen(),
-          '/multiplication/games':
-              (context) => const MultiplicationGamesScreen(),
+          '/multiplication/lessons': (context) =>
+          const MultiplicationLessonsScreen(),
+          '/multiplication/quiz': (context) =>
+          const MultiplicationQuizScreen(),
+          '/multiplication/games': (context) =>
+          const MultiplicationGamesScreen(),
           '/division': (context) => const DivisionScreen(),
           '/division/lessons': (context) => const DivisionLessonsScreen(),
           '/division/quiz': (context) => const DivisionQuizScreen(),
@@ -113,11 +114,16 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        if (authProvider.isAuthenticated) {
-          return const HomeScreen();
+        if (!authProvider.isAuthenticated || authProvider.currentUser == null) {
+          return const WelcomeScreen();
         }
 
-        return const WelcomeScreen();
+        final user = authProvider.currentUser!;
+        if (user.userType == UserType.teacher) {
+          return TeacherDashboard();
+        } else {
+          return StudentDashboard();
+        }
       },
     );
   }

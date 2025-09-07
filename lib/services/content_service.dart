@@ -95,8 +95,8 @@ class ContentService {
       final response = await _supabase
           .from('content')
           .select()
-          .eq('classroomId', classroomId)
-          .order('createdAt', ascending: false);
+          .eq('classroom_id', classroomId)
+          .order('created_at', ascending: false);
 
       _logger.i('Found ${response.length} content items');
       final contents = response.map((data) => Content.fromJson(data)).toList();
@@ -110,9 +110,15 @@ class ContentService {
   /// Deletes a content entry from the database and the associated file from storage.
   Future<void> deleteContent(String contentId) async {
     try {
-      final response = await _supabase.from('content').select('fileName').eq('id', contentId).single();
-      final fileName = response['fileName'] as String;
-      final classroomId = response['classroomId'] as String;
+      // Fetch file_name and classroom_id first
+      final response = await _supabase
+          .from('content')
+          .select('file_name, classroom_id')
+          .eq('id', contentId)
+          .single();
+
+      final fileName = response['file_name'] as String;
+      final classroomId = response['classroom_id'] as String;
 
       final storagePath = 'classrooms/$classroomId/content/$fileName';
 
@@ -127,7 +133,7 @@ class ContentService {
       _logger.e('Failed to delete file from storage: ${e.message}');
       // Proceed with deleting the database entry even if file removal fails
       await _supabase.from('content').delete().eq('id', contentId);
-      throw Exception('Failed to delete content: ${e.message}');
+      throw Exception('Failed to delete content file: ${e.message}');
     } catch (e) {
       _logger.e('Failed to delete content: $e');
       throw Exception('Failed to delete content: $e');

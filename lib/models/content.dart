@@ -4,7 +4,7 @@ part 'content.g.dart';
 
 enum ContentType { lesson, quiz, exercise }
 
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.snake)
 class Content {
   final String id;
   final String classroomId;

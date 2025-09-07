@@ -3,8 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/classroom_provider.dart';
 
 class CreateClassroomScreen extends StatefulWidget {
-  final String teacherId;
-  const CreateClassroomScreen({super.key, required this.teacherId});
+  const CreateClassroomScreen({super.key});
 
   @override
   State<CreateClassroomScreen> createState() => _CreateClassroomScreenState();
@@ -35,7 +34,6 @@ class _CreateClassroomScreenState extends State<CreateClassroomScreen> {
     final success = await classroomProvider.createClassroom(
       name: _nameController.text.trim(),
       description: _descController.text.trim(),
-      teacherId: widget.teacherId,
     );
 
     setState(() => _isLoading = false);

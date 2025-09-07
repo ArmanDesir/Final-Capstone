@@ -378,22 +378,26 @@ class DatabaseHelper {
 
   Future<int> insertClassroom(Classroom classroom) async {
     final db = await database;
-    return await db.insert('classrooms', {
-      'id': classroom.id,
-      'name': classroom.name,
-      'teacherId': classroom.teacherId,
-      'description': classroom.description,
-      'createdAt': classroom.createdAt.toIso8601String(),
-      'updatedAt': classroom.updatedAt.toIso8601String(),
-      'studentIds': classroom.studentIds.join(','),
-      'pendingStudentIds': classroom.pendingStudentIds.join(','),
-      'lessonIds': classroom.lessonIds.join(','),
-      'quizIds': classroom.quizIds.join(','),
-      'code': classroom.code,
-      'isActive': classroom.isActive ? 1 : 0,
-      'isSynced': 1,
-      'firebaseId': classroom.id,
-    });
+    return await db.insert(
+      'classrooms',
+      {
+        'id': classroom.id,
+        'name': classroom.name,
+        'teacherId': classroom.teacherId,
+        'description': classroom.description,
+        'createdAt': classroom.createdAt.toIso8601String(),
+        'updatedAt': classroom.updatedAt.toIso8601String(),
+        'studentIds': classroom.studentIds.join(','),
+        'pendingStudentIds': classroom.pendingStudentIds.join(','),
+        'lessonIds': classroom.lessonIds.join(','),
+        'quizIds': classroom.quizIds.join(','),
+        'code': classroom.code,
+        'isActive': classroom.isActive ? 1 : 0,
+        'isSynced': 1,
+        'firebaseId': classroom.id,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace, // 👈 important fix
+    );
   }
 
   Future<List<Classroom>> getAllClassrooms() async {

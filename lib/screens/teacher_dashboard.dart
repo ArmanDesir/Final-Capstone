@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/screens/welcome_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/classroom_provider.dart';
@@ -38,7 +39,6 @@ class CreateClassroomScreen extends StatelessWidget {
                   await classroomProvider.createClassroom(
                     name: nameController.text,
                     description: descController.text,
-                    teacherId: teacherId,
                   );
                   Navigator.pop(context, true);
                 }
@@ -71,14 +71,27 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   final GlobalKey _classroomListKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
 
+  int _lessonsCount = 0;
+  int _quizzesCount = 0;
+
   @override
   void initState() {
     super.initState();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    Provider.of<ClassroomProvider>(
-      context,
-      listen: false,
-    ).loadTeacherClassrooms(authProvider.currentUser?.id ?? '');
+    final classroomProvider = Provider.of<ClassroomProvider>(context, listen: false);
+
+    // Load classrooms first, then fetch lesson/quiz counts
+    classroomProvider.loadTeacherClassrooms().then((_) async {
+      final counts = await classroomProvider.getContentCountsForTeacher(
+        authProvider.currentUser?.id ?? '',
+      );
+      if (mounted) {
+        setState(() {
+          _lessonsCount = counts['lessons'] ?? 0;
+          _quizzesCount = counts['quizzes'] ?? 0;
+        });
+      }
+    });
   }
 
   void _scrollToClassrooms() {
@@ -105,6 +118,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             .toSet()
             .length;
 
+    final lessonsCount = _lessonsCount;
+    final quizzesCount = _quizzesCount;
+
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -119,11 +136,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authProvider.signOut();
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/login');
-              }
+            onPressed: () {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/welcome',
+                    (route) => false,
+              );
             },
           ),
         ],
@@ -157,8 +175,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildStatCard('23', 'Lessons', Colors.orange),
-                      _buildStatCard('8', 'Quizzes', Colors.purple),
+                      _buildStatCard('$lessonsCount', 'Lessons', Colors.orange),
+                      _buildStatCard('$quizzesCount', 'Quizzes', Colors.purple),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -187,7 +205,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                         Provider.of<ClassroomProvider>(
                           context,
                           listen: false,
-                        ).loadTeacherClassrooms(teacherId);
+                        ).loadTeacherClassrooms();
                       },
                     ),
                   ),

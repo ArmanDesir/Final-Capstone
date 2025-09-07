@@ -199,7 +199,11 @@ class ClassroomService {
     }).eq('id', classroom.id);
   }
 
-  Future<void> deleteClassroom(String classroomId) async {
-    await _supabase.from('classrooms').delete().eq('id', classroomId);
+  Future<void> softDeleteClassroom(String classroomId) async {
+    await _supabase.from('classrooms').update({
+      'is_active': false,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', classroomId);
   }
+
 }

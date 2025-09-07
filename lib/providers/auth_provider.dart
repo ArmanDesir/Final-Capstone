@@ -19,11 +19,9 @@ class AuthProvider with ChangeNotifier {
 
   AuthProvider() {
     _initAuthListener();
+    _loadCurrentUser();
   }
 
-  /// Listens for authentication state changes from Supabase.
-  /// This automatically loads the user's profile when they sign in
-  /// and clears the user when they sign out.
   void _initAuthListener() {
     supabase.auth.onAuthStateChange.listen((data) async {
       final AuthChangeEvent event = data.event;
@@ -45,8 +43,19 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
-  /// Creates a new user account using Supabase Auth.
-  /// After successful creation, it saves the user's profile to a separate table.
+  Future<void> _loadCurrentUser() async {
+    // 🚨 Prevent reload if already logged out
+    if (!_isAuthenticated) return;
+
+    final session = supabase.auth.currentSession;
+    if (session?.user != null) {
+      final user = await _userService.getUser(session!.user.id);
+      _currentUser = user;
+      _isAuthenticated = true;
+      notifyListeners();
+    }
+  }
+
   Future<bool> createUserWithEmailAndPassword(
       String email,
       String password,
@@ -68,8 +77,6 @@ class AuthProvider with ChangeNotifier {
         throw Exception('User creation failed.');
       }
 
-      // Supabase's auth service does not store extra user data.
-      // We must insert the user profile into our separate 'users' table.
       await _userService.saveUser(
         id: response.user!.id,
         email: email,
@@ -89,7 +96,7 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
-    } catch (e) {
+    } catch (_) {
       _error = 'An unexpected error occurred. Please try again.';
       _isLoading = false;
       notifyListeners();
@@ -108,11 +115,9 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// Signs in a user with email and password using Supabase Auth.
   Future<bool> signInWithEmailAndPassword(
       String email,
       String password,
-      app_model.UserType userType,
       ) async {
     _isLoading = true;
     _error = null;
@@ -122,13 +127,14 @@ class AuthProvider with ChangeNotifier {
         email: email,
         password: password,
       );
+
       if (response.user == null) {
         throw Exception('Sign in failed.');
       }
 
       final user = await _userService.getUser(response.user!.id);
-      if (user == null || user.userType != userType) {
-        throw Exception('Invalid credentials or user type.');
+      if (user == null) {
+        throw Exception('User not found.');
       }
 
       _currentUser = user;
@@ -141,7 +147,7 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
-    } catch (e) {
+    } catch (_) {
       _error = 'An unexpected error occurred. Please try again.';
       _isLoading = false;
       notifyListeners();
@@ -149,15 +155,45 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// Signs the current user out using Supabase Auth.
   Future<void> signOut() async {
-    await supabase.auth.signOut();
+    // 🚨 Use global scope to really clear session
+    await supabase.auth.signOut(scope: SignOutScope.global);
     _currentUser = null;
     _isAuthenticated = false;
     notifyListeners();
   }
 
-  /// Clears any stored error message.
+  Future<void> signOutAndRedirect(BuildContext context) async {
+    try {
+      debugPrint('[AuthProvider] Logging out user: ${_currentUser?.id}');
+      await supabase.auth.signOut();
+
+      debugPrint('[AuthProvider] Supabase session cleared.');
+
+      // Clear state BEFORE notifying listeners
+      _currentUser = null;
+      _isAuthenticated = false;
+
+      debugPrint('[AuthProvider] Local state cleared.');
+
+      if (context.mounted) {
+        debugPrint('[AuthProvider] Forcing navigation to WelcomeScreen...');
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/welcome',
+              (route) => false,
+        );
+      }
+
+      // Call notifyListeners LAST, after navigation
+      notifyListeners();
+
+    } catch (e, stack) {
+      debugPrint('[AuthProvider] Error during logout: $e');
+      debugPrint(stack.toString());
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

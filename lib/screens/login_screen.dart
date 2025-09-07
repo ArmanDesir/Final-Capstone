@@ -49,7 +49,6 @@ class _LoginScreenState extends State<LoginScreen> {
       bool success = await authProvider.signInWithEmailAndPassword(
         _emailController.text.trim(),
         _passwordController.text,
-        widget.userType,
       );
 
       if (success && mounted) {
