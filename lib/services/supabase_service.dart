@@ -8,7 +8,6 @@ class SupabaseService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final Logger _logger = Logger();
 
-  /// User Authentication
   Future<AuthResponse?> signInWithEmailAndPassword(
       String email,
       String password,
@@ -49,7 +48,6 @@ class SupabaseService {
 
   Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 
-  /// User Data Management
   Future<void> createUser(app_model.User user) async {
     try {
       await _supabase.from('users').insert(user.toJson());
@@ -88,7 +86,6 @@ class SupabaseService {
     }
   }
 
-  /// Task Management
   Future<String> createTask(Task task) async {
     try {
       final response = await _supabase.from('tasks').insert(task.toJson()).select().single();
@@ -127,7 +124,6 @@ class SupabaseService {
     }
   }
 
-  /// Classroom Management
   Future<String> createClassroom(Classroom classroom) async {
     try {
       final response = await _supabase.from('classrooms').insert(classroom.toJson()).select().single();

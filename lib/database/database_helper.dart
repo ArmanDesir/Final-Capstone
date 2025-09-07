@@ -396,7 +396,7 @@ class DatabaseHelper {
         'isSynced': 1,
         'firebaseId': classroom.id,
       },
-      conflictAlgorithm: ConflictAlgorithm.replace, // 👈 important fix
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 

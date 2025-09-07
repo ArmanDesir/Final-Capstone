@@ -44,7 +44,6 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _loadCurrentUser() async {
-    // 🚨 Prevent reload if already logged out
     if (!_isAuthenticated) return;
 
     final session = supabase.auth.currentSession;
@@ -156,7 +155,6 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    // 🚨 Use global scope to really clear session
     await supabase.auth.signOut(scope: SignOutScope.global);
     _currentUser = null;
     _isAuthenticated = false;
@@ -170,7 +168,6 @@ class AuthProvider with ChangeNotifier {
 
       debugPrint('[AuthProvider] Supabase session cleared.');
 
-      // Clear state BEFORE notifying listeners
       _currentUser = null;
       _isAuthenticated = false;
 
@@ -185,7 +182,6 @@ class AuthProvider with ChangeNotifier {
         );
       }
 
-      // Call notifyListeners LAST, after navigation
       notifyListeners();
 
     } catch (e, stack) {

@@ -123,7 +123,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Widget _buildQuickStats(ClassroomProvider classroomProvider, User? user) {
     final joinedClassrooms = classroomProvider.studentClassrooms.length;
 
-    // Later you can calculate content count properly based on lessons/quizzes.
     final contentCount = 0;
 
     return Row(

@@ -27,7 +27,6 @@ class ClassroomProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Helpers
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();
@@ -38,7 +37,6 @@ class ClassroomProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// ✅ Create Classroom
   Future<Classroom?> createClassroom({
     required String name,
     required String description,
@@ -48,7 +46,6 @@ class ClassroomProvider with ChangeNotifier {
       final user = _supabase.auth.currentUser;
       if (user == null) throw Exception("No authenticated user found");
 
-      // 👇 Call the service (which already generates `code`)
       final classroom = await _service.createClassroom(
         name: name,
         description: description,
@@ -68,7 +65,6 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ Load Teacher Classrooms
   Future<void> loadTeacherClassrooms() async {
     _setLoading(true);
     try {
@@ -84,7 +80,7 @@ class ClassroomProvider with ChangeNotifier {
           .select()
           .eq('teacher_id', userId)
           .eq('is_active', true)
-          .order('created_at', ascending: false) // newest first
+          .order('created_at', ascending: false)
           .limit(3);
 
       _teacherClassrooms =
@@ -98,7 +94,6 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ Load Student Classrooms
   Future<void> loadStudentClassrooms(String studentId) async {
     _setLoading(true);
     try {
@@ -119,7 +114,6 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ Load Classroom Details
   Future<void> loadClassroomDetails(String classroomId) async {
     _setLoading(true);
     try {
@@ -141,7 +135,6 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ Accept Student
   Future<void> acceptStudent(String classroomId, String studentId) async {
     await _service.acceptStudent(
       classroomId: classroomId,
@@ -151,7 +144,6 @@ class ClassroomProvider with ChangeNotifier {
     await loadTeacherClassrooms();
   }
 
-  /// ✅ Reject Student
   Future<void> rejectStudent(String classroomId, String studentId) async {
     await _service.rejectStudent(
       classroomId: classroomId,
@@ -160,7 +152,6 @@ class ClassroomProvider with ChangeNotifier {
     await loadClassroomDetails(classroomId);
   }
 
-  /// ✅ Remove Student
   Future<void> removeStudent(String classroomId, String studentId) async {
     await _service.removeStudent(
       classroomId: classroomId,
@@ -169,7 +160,6 @@ class ClassroomProvider with ChangeNotifier {
     await loadClassroomDetails(classroomId);
   }
 
-  /// ✅ Request to Join
   Future<bool> requestToJoinClassroom({
     required String code,
     required String studentId,
@@ -189,17 +179,14 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ Get Classroom by Code
   Future<Classroom?> getClassroomByCode(String code) async {
     return await _service.getClassroomByCode(code);
   }
 
-  /// ✅ Get Classroom by Id
   Future<Classroom?> getClassroomById(String id) async {
     return await _service.getClassroomById(id);
   }
 
-  /// ✅ Update Classroom
   Future<void> updateClassroom(Classroom classroom) async {
     _setLoading(true);
     try {
@@ -213,7 +200,6 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ Delete Classroom
   Future<void> deleteClassroom(String id) async {
     _setLoading(true);
     try {
@@ -227,17 +213,14 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ Get total lessons & quizzes for this teacher
   Future<Map<String, int>> getContentCountsForTeacher(String teacherId) async {
     try {
-      // Lessons
       final lessonsResponse = await _supabase
           .from('content')
           .select('id')
           .eq('type', 'lesson')
           .inFilter('classroom_id', _teacherClassrooms.map((c) => c.id).toList());
 
-      // Quizzes
       final quizzesResponse = await _supabase
           .from('content')
           .select('id')

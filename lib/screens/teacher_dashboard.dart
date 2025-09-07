@@ -80,7 +80,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final classroomProvider = Provider.of<ClassroomProvider>(context, listen: false);
 
-    // Load classrooms first, then fetch lesson/quiz counts
     classroomProvider.loadTeacherClassrooms().then((_) async {
       final counts = await classroomProvider.getContentCountsForTeacher(
         authProvider.currentUser?.id ?? '',

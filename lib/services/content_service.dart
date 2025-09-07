@@ -11,7 +11,6 @@ class ContentService {
   final Uuid _uuid = Uuid();
   final Logger _logger = Logger();
 
-  /// Prompts the user to pick a PDF file.
   Future<FilePickerResult?> pickPDFFile() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -25,7 +24,6 @@ class ContentService {
     }
   }
 
-  /// Uploads a PDF file to Supabase Storage.
   Future<String> uploadPDFFile(
       File file,
       String classroomId,
@@ -36,14 +34,12 @@ class ContentService {
 
       _logger.i('Uploading file: $storagePath');
 
-      // Upload the file to the 'content-files' bucket
       await _storage.from('content-files').uploadBinary(
         storagePath,
         file.readAsBytesSync(),
         fileOptions: const FileOptions(cacheControl: '3600'),
       );
 
-      // Get the public URL for the uploaded file
       final fileUrl = _storage.from('content-files').getPublicUrl(storagePath);
       return fileUrl;
     } on StorageException catch (e) {
@@ -55,7 +51,6 @@ class ContentService {
     }
   }
 
-  /// Creates a new content entry in the database and uploads the PDF.
   Future<Content> createContent({
     required String classroomId,
     required String title,
@@ -88,7 +83,6 @@ class ContentService {
     }
   }
 
-  /// Retrieves a list of content items for a specific classroom.
   Future<List<Content>> getContentByClassroom(String classroomId) async {
     try {
       _logger.i('Loading content for classroom: $classroomId');
@@ -107,10 +101,8 @@ class ContentService {
     }
   }
 
-  /// Deletes a content entry from the database and the associated file from storage.
   Future<void> deleteContent(String contentId) async {
     try {
-      // Fetch file_name and classroom_id first
       final response = await _supabase
           .from('content')
           .select('file_name, classroom_id')
@@ -122,16 +114,12 @@ class ContentService {
 
       final storagePath = 'classrooms/$classroomId/content/$fileName';
 
-      // Delete file from Supabase Storage
       await _storage.from('content-files').remove([storagePath]);
-
-      // Delete entry from Supabase database
       await _supabase.from('content').delete().eq('id', contentId);
 
       _logger.i('Content with ID $contentId deleted successfully.');
     } on StorageException catch (e) {
       _logger.e('Failed to delete file from storage: ${e.message}');
-      // Proceed with deleting the database entry even if file removal fails
       await _supabase.from('content').delete().eq('id', contentId);
       throw Exception('Failed to delete content file: ${e.message}');
     } catch (e) {

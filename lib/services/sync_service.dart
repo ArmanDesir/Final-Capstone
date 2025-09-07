@@ -128,7 +128,6 @@ class SyncService {
       for (final task in supabaseTasks) task.id: task,
     };
 
-    // Add new tasks from Supabase to local DB
     for (final supabaseTask in supabaseTasks) {
       if (!localTaskMap.containsKey(supabaseTask.id)) {
         final newTask = supabaseTask.copyWith(isSynced: true);
@@ -136,7 +135,6 @@ class SyncService {
       }
     }
 
-    // Update existing tasks based on remote changes
     for (final localTask in localTasks) {
       if (supabaseTaskMap.containsKey(localTask.id)) {
         final supabaseTask = supabaseTaskMap[localTask.id]!;
@@ -154,14 +152,14 @@ class SyncService {
     final unsyncedTasks = await _databaseHelper.getUnsyncedTasks();
     for (final task in unsyncedTasks) {
       try {
-        if (task.id.startsWith('temp_')) { // Task created offline
+        if (task.id.startsWith('temp_')) {
           final supabaseId = await _supabaseService.createTask(task);
           final updatedTask = task.copyWith(
             id: supabaseId,
             isSynced: true,
           );
           await _databaseHelper.updateTask(updatedTask);
-        } else { // Existing task updated offline
+        } else {
           await _supabaseService.updateTask(task);
           final updatedTask = task.copyWith(isSynced: true);
           await _databaseHelper.updateTask(updatedTask);
@@ -173,9 +171,6 @@ class SyncService {
   }
 
   Future<void> _syncTasksFromSupabase() async {
-    // This method is now handled by the `getTasksByUserId` which
-    // merges the data upon request. You can also implement a real-time
-    // listener if needed, but for a periodic sync, this is sufficient.
   }
 
   bool get isOnline => _isOnline;

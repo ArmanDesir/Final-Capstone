@@ -114,11 +114,10 @@ class ManageClassroomsScreen extends StatelessWidget {
           final created = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const CreateClassroomScreen(), // ✅ no teacherId
+              builder: (_) => const CreateClassroomScreen(),
             ),
           );
           if (created == true) {
-            // ✅ Provider knows the teacherId internally
             Provider.of<ClassroomProvider>(context, listen: false)
                 .loadTeacherClassrooms();
           }

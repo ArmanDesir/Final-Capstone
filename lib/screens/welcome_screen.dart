@@ -61,7 +61,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // Animated background
           AnimatedBuilder(
             animation: _floatingController,
             builder: (context, child) {
@@ -74,7 +73,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               );
             },
           ),
-          // Main content
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -82,7 +80,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Spacer(),
-                  // Logo & title
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -117,7 +114,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     ),
                   ),
                   const SizedBox(height: 40),
-                  // Role selection
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -142,7 +138,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // Student button
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
@@ -168,7 +163,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           ),
                         ),
                         const SizedBox(height: 12),
-                        // Teacher button
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
@@ -214,7 +208,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     );
   }
 
-  // Bottom sheet navigation for login/register
   void _navigateToAuth(BuildContext context, UserType userType) {
     showModalBottomSheet(
       context: context,
@@ -318,7 +311,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   }
 }
 
-// Floating shapes and background animation
 enum ShapeType { circle, square, triangle, star }
 
 class FloatingShape {
