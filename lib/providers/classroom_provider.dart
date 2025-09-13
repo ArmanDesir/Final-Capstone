@@ -37,6 +37,12 @@ class ClassroomProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// ✅ Allows switching classrooms manually from UI
+  void setCurrentClassroom(Classroom? classroom) {
+    _currentClassroom = classroom;
+    notifyListeners();
+  }
+
   Future<Classroom?> createClassroom({
     required String name,
     required String description,
@@ -100,17 +106,20 @@ class ClassroomProvider with ChangeNotifier {
       final response = await _supabase
           .from('classrooms')
           .select()
-          .contains('student_ids', [studentId]);
+          .contains('student_ids', [studentId]);  // still correct for your schema
 
       _studentClassrooms =
           (response as List).map((c) => Classroom.fromJson(c)).toList();
+
+      _currentClassroom =
+      _studentClassrooms.isNotEmpty ? _studentClassrooms.first : null;
 
       notifyListeners();
     } catch (e) {
       Logger().e('Error loading student classrooms: $e');
       _setError(e.toString());
     } finally {
-      _setLoading(false);
+      _setLoading(false); // ✅ guaranteed reset
     }
   }
 
@@ -158,6 +167,22 @@ class ClassroomProvider with ChangeNotifier {
       studentId: studentId,
     );
     await loadClassroomDetails(classroomId);
+  }
+
+  Future<List<User>> getAcceptedStudentsForAllClassrooms() async {
+    List<User> allStudents = [];
+
+    for (var classroom in _teacherClassrooms) {
+      final students = await _service.getAcceptedStudents(classroom.id);
+      allStudents.addAll(students);
+    }
+    allStudents.sort((a, b) {
+      if (a.createdAt != null && b.createdAt != null) {
+        return b.createdAt!.compareTo(a.createdAt!);
+      }
+      return 0;
+    });
+    return allStudents.take(3).toList();
   }
 
   Future<bool> requestToJoinClassroom({
@@ -236,5 +261,4 @@ class ClassroomProvider with ChangeNotifier {
       return {"lessons": 0, "quizzes": 0};
     }
   }
-
 }

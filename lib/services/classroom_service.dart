@@ -54,9 +54,10 @@ class ClassroomService {
       ..add(studentId);
 
     await _supabase.from('classrooms').update({
-      'pendingStudentIds': updatedPending,
-      'updatedAt': DateTime.now().toIso8601String(),
+      'pending_student_ids': updatedPending,
+      'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', classroom.id);
+
   }
 
   Future<void> acceptStudent({
@@ -82,14 +83,14 @@ class ClassroomService {
     }
 
     await _supabase.from('classrooms').update({
-      'pendingStudentIds': updatedPending,
-      'studentIds': updatedStudents,
-      'updatedAt': DateTime.now().toIso8601String(),
+      'pending_student_ids': updatedPending,
+      'student_ids': updatedStudents,
+      'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', classroomId);
 
     await _supabase.from('users').update({
-      'classroomId': classroomId,
-      'updatedAt': DateTime.now().toIso8601String(),
+      'classroom_id': classroomId,
+      'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', studentId);
   }
 
@@ -112,7 +113,7 @@ class ClassroomService {
       ..remove(studentId);
 
     await _supabase.from('classrooms').update({
-      'pendingStudentIds': updatedPending,
+      'pending_student_ids': updatedPending,
     }).eq('id', classroomId);
   }
 
@@ -135,12 +136,13 @@ class ClassroomService {
       ..remove(studentId);
 
     await _supabase.from('classrooms').update({
-      'studentIds': updatedStudents,
+      'student_ids': updatedStudents,
+      'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', classroomId);
 
     await _supabase.from('users').update({
-      'classroomId': null,
-      'updatedAt': DateTime.now().toIso8601String(),
+      'classroom_id': null,
+      'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', studentId);
   }
 
@@ -195,7 +197,7 @@ class ClassroomService {
     await _supabase.from('classrooms').update({
       'name': classroom.name,
       'description': classroom.description,
-      'updatedAt': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', classroom.id);
   }
 

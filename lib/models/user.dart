@@ -3,6 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 part 'user.g.dart';
 
 enum UserType { student, teacher }
+
 @JsonSerializable(fieldRename: FieldRename.snake)
 class User {
   final String id;
@@ -22,6 +23,12 @@ class User {
   final String? contactNumber;
   final String? studentId;
 
+  // ✅ New fields
+  final String? guardianName;
+  final String? guardianEmail;
+  final String? guardianContactNumber;
+  final String? studentInfo;
+
   User({
     required this.id,
     required this.name,
@@ -39,6 +46,10 @@ class User {
     this.teacherId,
     this.contactNumber,
     this.studentId,
+    this.guardianName,
+    this.guardianEmail,
+    this.guardianContactNumber,
+    this.studentInfo,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
@@ -61,6 +72,10 @@ class User {
     String? teacherId,
     String? contactNumber,
     String? studentId,
+    String? guardianName,
+    String? guardianEmail,
+    String? guardianContactNumber,
+    String? studentInfo,
   }) {
     return User(
       id: id ?? this.id,
@@ -79,6 +94,10 @@ class User {
       teacherId: teacherId ?? this.teacherId,
       contactNumber: contactNumber ?? this.contactNumber,
       studentId: studentId ?? this.studentId,
+      guardianName: guardianName ?? this.guardianName,
+      guardianEmail: guardianEmail ?? this.guardianEmail,
+      guardianContactNumber: guardianContactNumber ?? this.guardianContactNumber,
+      studentInfo: studentInfo ?? this.studentInfo,
     );
   }
 }

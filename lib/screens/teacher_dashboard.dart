@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/screens/welcome_screen.dart';
+import 'package:offline_first_app/models/user.dart' as app_model;
+import 'package:offline_first_app/providers/auth_provider.dart';
+import 'package:offline_first_app/providers/classroom_provider.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../providers/classroom_provider.dart';
 import 'manage_classrooms_screen.dart';
 import 'classroom_details_screen.dart';
 
@@ -284,30 +284,48 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       ),
                     )
                   else
-                    ...classroomProvider.teacherClassrooms
-                        .expand((c) => c.studentIds)
-                        .toSet()
-                        .map(
-                          (studentId) => Card(
-                            child: ListTile(
-                              leading: const Icon(
-                                Icons.person,
-                                color: Colors.green,
-                              ),
-                              title: Text('Student ID: $studentId'),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.arrow_forward),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    '/profile',
-                                    arguments: studentId,
-                                  );
-                                },
-                              ),
+                    FutureBuilder<List<app_model.User>>(
+                      future: classroomProvider.getAcceptedStudentsForAllClassrooms(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'No accepted students yet.',
+                              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                             ),
-                          ),
-                        ),
+                          );
+                        }
+
+                        final students = snapshot.data!;
+
+                        return Column(
+                          children: students.map((student) {
+                            return Card(
+                              child: ListTile(
+                                leading: const Icon(Icons.person, color: Colors.green),
+                                title: Text(student.name ?? 'Unknown'),
+                                subtitle: Text(student.email ?? 'No email'),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.arrow_forward),
+                                  onPressed: () {
+                                    if (student.id != null) {
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/profile',
+                                        arguments: student.id,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
                 ],
               ),
     );

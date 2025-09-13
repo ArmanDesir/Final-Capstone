@@ -54,11 +54,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
       bool success = await authProvider.createUserWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text,
-        _nameController.text.trim(),
-        widget.userType,
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+        userType: widget.userType,
         contactNumber: _contactNumberController.text.trim(),
         studentId: widget.userType == UserType.student
             ? _studentIdController.text.trim()

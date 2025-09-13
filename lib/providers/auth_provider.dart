@@ -55,17 +55,24 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> createUserWithEmailAndPassword(
-      String email,
-      String password,
-      String name,
-      app_model.UserType userType, {
-        String? contactNumber,
-        String? studentId,
-      }) async {
+  Future<bool> createUserWithEmailAndPassword({
+    required String email,
+    required String password,
+    required String name,
+    required app_model.UserType userType,
+    String? contactNumber,
+    String? studentId,
+    String? guardianName,
+    String? guardianEmail,
+    String? guardianContactNumber,
+    String? studentInfo,
+    String? teacherCode,
+    int? grade,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
+
     try {
       final AuthResponse response = await supabase.auth.signUp(
         email: email,
@@ -76,6 +83,7 @@ class AuthProvider with ChangeNotifier {
         throw Exception('User creation failed.');
       }
 
+      // Save to Supabase public.users table via UserService
       await _userService.saveUser(
         id: response.user!.id,
         email: email,
@@ -83,6 +91,12 @@ class AuthProvider with ChangeNotifier {
         userType: userType,
         contactNumber: contactNumber,
         studentId: studentId,
+        guardianName: guardianName,
+        guardianEmail: guardianEmail,
+        guardianContactNumber: guardianContactNumber,
+        studentInfo: studentInfo,
+        teacherCode: userType == app_model.UserType.teacher ? teacherCode : null,
+        grade: userType == app_model.UserType.student ? grade : null,
       );
 
       _currentUser = await _userService.getUser(response.user!.id);
@@ -95,8 +109,8 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
-    } catch (_) {
-      _error = 'An unexpected error occurred. Please try again.';
+    } catch (e) {
+      _error = 'An unexpected error occurred: $e';
       _isLoading = false;
       notifyListeners();
       return false;

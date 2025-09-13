@@ -33,6 +33,10 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   teacherId: json['teacher_id'] as String?,
   contactNumber: json['contact_number'] as String?,
   studentId: json['student_id'] as String?,
+  guardianName: json['guardian_name'] as String?,
+  guardianEmail: json['guardian_email'] as String?,
+  guardianContactNumber: json['guardian_contact_number'] as String?,
+  studentInfo: json['student_info'] as String?,
 );
 
 Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
@@ -52,6 +56,10 @@ Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
   'teacher_id': instance.teacherId,
   'contact_number': instance.contactNumber,
   'student_id': instance.studentId,
+  'guardian_name': instance.guardianName,
+  'guardian_email': instance.guardianEmail,
+  'guardian_contact_number': instance.guardianContactNumber,
+  'student_info': instance.studentInfo,
 };
 
 const _$UserTypeEnumMap = {

@@ -232,11 +232,13 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                                 student.id,
                               );
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('${student.name} accepted!'),
-                                ),
-                              );
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('${student.name} accepted!')),
+                                  );
+                                }
+                              });
                             },
                           ),
                           IconButton(
@@ -247,11 +249,13 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                                 student.id,
                               );
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('${student.name} rejected.'),
-                                ),
-                              );
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('${student.name} rejected.')),
+                                  );
+                                }
+                              });
                             },
                           ),
                         ],
@@ -411,11 +415,14 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                     listen: false,
                   );
                   await provider.removeStudent(classroomId, student.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${student.name} removed from classroom.'),
-                    ),
-                  );
+                  if (!mounted) return;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${student.name} removed from classroom.')),
+                      );
+                    }
+                  });
                 },
                 child: const Text(
                   'Remove',
