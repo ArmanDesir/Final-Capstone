@@ -40,7 +40,7 @@ class UserService {
   Future<app_model.User?> getUser(String id) async {
     final response = await _supabase
         .from('users')
-        .select('*') // <-- make sure all columns are returned
+        .select('*')
         .eq('id', id)
         .maybeSingle();
 
@@ -48,7 +48,6 @@ class UserService {
     return app_model.User.fromJson(response);
   }
 
-  /// ✅ Add this method
   Future<void> updateUser(app_model.User user) async {
     await _supabase.from('users').update({
       'name': user.name,
@@ -59,6 +58,8 @@ class UserService {
       'guardian_contact_number': user.guardianContactNumber,
       'student_info': user.studentInfo,
       'user_type': user.userType.name,
+      'photo_url': user.photoUrl,
     }).eq('id', user.id);
   }
+
 }

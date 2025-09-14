@@ -15,6 +15,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -22,6 +23,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _teacherCodeController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _studentIdController = TextEditingController();
+  final _guardianNameController = TextEditingController();
+  final _guardianEmailController = TextEditingController();
+  final _guardianContactController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -34,6 +39,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _teacherCodeController.dispose();
     _contactNumberController.dispose();
     _studentIdController.dispose();
+    _guardianNameController.dispose();
+    _guardianEmailController.dispose();
+    _guardianContactController.dispose();
+
     super.dispose();
   }
 
@@ -63,6 +72,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         contactNumber: _contactNumberController.text.trim(),
         studentId: widget.userType == UserType.student
             ? _studentIdController.text.trim()
+            : null,
+        guardianName: widget.userType == UserType.student
+            ? _guardianNameController.text.trim()
+            : null,
+        guardianEmail: widget.userType == UserType.student
+            ? _guardianEmailController.text.trim()
+            : null,
+        guardianContactNumber: widget.userType == UserType.student
+            ? _guardianContactController.text.trim()
             : null,
       );
 
@@ -260,6 +278,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       validator: (value) =>
                       value == null || value.isEmpty
                           ? 'Please enter your student ID'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _guardianNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Guardian Name',
+                        prefixIcon: Icon(Icons.person_outline),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) =>
+                      value == null || value.isEmpty
+                          ? 'Please enter guardian name'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _guardianEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Guardian Email',
+                        prefixIcon: Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter guardian email';
+                        }
+                        if (!RegExp(
+                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                        ).hasMatch(value)) {
+                          return 'Please enter a valid guardian email';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _guardianContactController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Guardian Contact Number',
+                        prefixIcon: Icon(Icons.phone_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) =>
+                      value == null || value.isEmpty
+                          ? 'Please enter guardian contact number'
                           : null,
                     ),
                     const SizedBox(height: 16),

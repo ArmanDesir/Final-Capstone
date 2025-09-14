@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/providers/auth_provider.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'quiz_screen.dart';
+import 'package:provider/provider.dart';
 
 class LessonViewScreen extends StatefulWidget {
   final String lessonTitle;
   final String explanation;
   final String videoUrl;
   final List<dynamic> quiz;
+
   const LessonViewScreen({
     Key? key,
     required this.lessonTitle,
@@ -71,13 +74,18 @@ class _LessonViewScreenState extends State<LessonViewScreen> {
               label: const Text('Take Quiz'),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
               onPressed: () {
+                final auth = context.read<AuthProvider>();
+                final userId = auth.currentUser!.id;
+                final quizId = "lesson_${widget.lessonTitle}";
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder:
-                        (_) => QuizScreen(
-                          questions: widget.quiz.cast<Map<String, dynamic>>(),
-                        ),
+                    builder: (_) => QuizScreen(
+                      questions: widget.quiz.cast<Map<String, dynamic>>(),
+                      quizId: quizId,
+                      userId: userId,
+                    ),
                   ),
                 );
               },

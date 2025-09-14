@@ -1,20 +1,30 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class QuizScreen extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
-  const QuizScreen({Key? key, required this.questions}) : super(key: key);
+  final String quizId;
+  final String userId;
+
+  const QuizScreen({
+    Key? key,
+    required this.questions,
+    required this.quizId,
+    required this.userId,
+  }) : super(key: key);
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
 }
 
 class _QuizScreenState extends State<QuizScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   int _selected = -1;
   int _score = 0;
   int _current = 0;
   bool _quizFinished = false;
+  bool _locked = false;
   late Timer _timer;
   int _remainingSeconds = 300;
   late AnimationController _animationController;
@@ -23,7 +33,8 @@ class _QuizScreenState extends State<QuizScreen>
   @override
   void initState() {
     super.initState();
-    _startTimer();
+    WidgetsBinding.instance.addObserver(this);
+    _checkAttempts();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -32,6 +43,32 @@ class _QuizScreenState extends State<QuizScreen>
       parent: _animationController,
       curve: Curves.elasticOut,
     );
+  }
+
+  Future<void> _checkAttempts() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('quiz_progress')
+          .select()
+          .eq('user_id', widget.userId)
+          .eq('quiz_id', widget.quizId)
+          .maybeSingle();
+
+      if (res != null) {
+        int count = 0;
+        if (res['try1score'] != null) count++;
+        if (res['try2score'] != null) count++;
+        if (res['try3score'] != null) count++;
+        if (count >= 3) {
+          setState(() => _locked = true);
+          return;
+        }
+      }
+      _startTimer();
+    } catch (e) {
+      debugPrint("Error checking attempts: $e");
+      _startTimer();
+    }
   }
 
   void _startTimer() {
@@ -46,11 +83,33 @@ class _QuizScreenState extends State<QuizScreen>
     });
   }
 
+  Future<void> _saveProgress() async {
+    try {
+      await Supabase.instance.client.from('quiz_progress').upsert({
+        'user_id': widget.userId,
+        'quiz_id': widget.quizId,
+        'highest_score': _score,
+      });
+    } catch (e) {
+      debugPrint("Error saving progress: $e");
+    }
+  }
+
   @override
   void dispose() {
-    _timer.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    if (!_locked) _timer.cancel();
     _animationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_locked &&
+        (state == AppLifecycleState.paused ||
+            state == AppLifecycleState.detached)) {
+      _saveProgress();
+    }
   }
 
   void _next() {
@@ -65,8 +124,10 @@ class _QuizScreenState extends State<QuizScreen>
     }
   }
 
-  void _finishQuiz() {
+  void _finishQuiz() async {
+    if (_locked) return;
     _timer.cancel();
+    await _saveProgress();
     setState(() {
       _quizFinished = true;
     });
@@ -134,9 +195,9 @@ class _QuizScreenState extends State<QuizScreen>
           children: [
             Icon(Icons.emoji_events, color: Colors.amber[700], size: 48),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Quiz Complete!',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Text(
@@ -167,68 +228,112 @@ class _QuizScreenState extends State<QuizScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_locked) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Quiz Locked")),
+        body: const Center(
+          child: Text(
+            "You have already used all 3 attempts.\nYour highest score is saved.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18),
+          ),
+        ),
+      );
+    }
+
     if (_quizFinished) {
       return const SizedBox.shrink();
     }
+
     final q = widget.questions[_current];
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Addition Quiz'),
-        backgroundColor: Colors.green,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                const Icon(Icons.timer, color: Colors.white),
-                const SizedBox(width: 4),
-                Text(
-                  _formatTime(_remainingSeconds),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
+
+    return WillPopScope(
+      onWillPop: () async {
+        final quit = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Quit Quiz?"),
+            content: const Text(
+                "If you leave now, your current attempt will be recorded."),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text("Cancel")),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text("Quit")),
+            ],
           ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Question ${_current + 1} of ${widget.questions.length}',
-              style: const TextStyle(fontSize: 18),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              q['q'],
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            ...List.generate(
-              (q['options'] as List).length,
-              (i) => Card(
-                color: _selected == i ? Colors.orangeAccent : Colors.white,
-                child: ListTile(
-                  title: Text(q['options'][i]),
-                  onTap: () => setState(() => _selected = i),
-                ),
+        );
+        if (quit == true) {
+          await _saveProgress();
+          return true;
+        }
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Addition Quiz'),
+          backgroundColor: Colors.green,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer, color: Colors.white),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatTime(_remainingSeconds),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: _selected == -1 ? null : _next,
-              child: Text(
-                _current == widget.questions.length - 1 ? 'Finish' : 'Next',
-              ),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             ),
           ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Question ${_current + 1} of ${widget.questions.length}',
+                style: const TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                q['q'],
+                style:
+                const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 24),
+              ...List.generate(
+                (q['options'] as List).length,
+                    (i) => Card(
+                  color: _selected == i ? Colors.orangeAccent : Colors.white,
+                  child: ListTile(
+                    title: Text(q['options'][i]),
+                    onTap: () => setState(() => _selected = i),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              ElevatedButton(
+                onPressed: _selected == -1 ? null : _next,
+                style:
+                ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                child: Text(
+                  _current == widget.questions.length - 1
+                      ? 'Finish'
+                      : 'Next',
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

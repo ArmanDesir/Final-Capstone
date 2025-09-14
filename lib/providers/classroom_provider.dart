@@ -37,7 +37,6 @@ class ClassroomProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// ✅ Allows switching classrooms manually from UI
   void setCurrentClassroom(Classroom? classroom) {
     _currentClassroom = classroom;
     notifyListeners();
@@ -106,7 +105,7 @@ class ClassroomProvider with ChangeNotifier {
       final response = await _supabase
           .from('classrooms')
           .select()
-          .contains('student_ids', [studentId]);  // still correct for your schema
+          .contains('student_ids', [studentId]);
 
       _studentClassrooms =
           (response as List).map((c) => Classroom.fromJson(c)).toList();
@@ -119,7 +118,7 @@ class ClassroomProvider with ChangeNotifier {
       Logger().e('Error loading student classrooms: $e');
       _setError(e.toString());
     } finally {
-      _setLoading(false); // ✅ guaranteed reset
+      _setLoading(false);
     }
   }
 

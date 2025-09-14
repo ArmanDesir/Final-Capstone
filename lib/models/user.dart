@@ -22,8 +22,6 @@ class User {
   final String? teacherId;
   final String? contactNumber;
   final String? studentId;
-
-  // ✅ New fields
   final String? guardianName;
   final String? guardianEmail;
   final String? guardianContactNumber;

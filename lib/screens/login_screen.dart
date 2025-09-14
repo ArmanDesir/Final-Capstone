@@ -30,32 +30,37 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signIn() async {
-    if (_formKey.currentState!.validate()) {
-      if (widget.userType == UserType.teacher) {
-        if (_teacherCodeController.text.trim() != 'TEACHER2025') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Invalid teacher code. Please contact administrator.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-      }
+    if (!_formKey.currentState!.validate()) return;
 
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      bool success = await authProvider.signInWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text,
+    if (widget.userType == UserType.teacher &&
+        _teacherCodeController.text.trim() != 'TEACHER2025') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid teacher code. Please contact administrator.'),
+          backgroundColor: Colors.red,
+        ),
       );
+      return;
+    }
 
-      if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      }
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    final success = await authProvider.signInWithEmailAndPassword(
+      _emailController.text.trim(),
+      _passwordController.text,
+    );
+
+    if (success && authProvider.currentUser != null && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login failed: ${authProvider.error ?? 'Unknown error'}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

@@ -83,7 +83,6 @@ class AuthProvider with ChangeNotifier {
         throw Exception('User creation failed.');
       }
 
-      // Save to Supabase public.users table via UserService
       await _userService.saveUser(
         id: response.user!.id,
         email: email,
@@ -135,6 +134,7 @@ class AuthProvider with ChangeNotifier {
     _isLoading = true;
     _error = null;
     notifyListeners();
+
     try {
       final AuthResponse response = await supabase.auth.signInWithPassword(
         email: email,
@@ -142,30 +142,35 @@ class AuthProvider with ChangeNotifier {
       );
 
       if (response.user == null) {
-        throw Exception('Sign in failed.');
+        throw Exception('Login failed: no user returned from Supabase.');
       }
 
       final user = await _userService.getUser(response.user!.id);
       if (user == null) {
-        throw Exception('User not found.');
+        throw Exception('User record not found in database.');
       }
 
       _currentUser = user;
       _isAuthenticated = true;
-      _isLoading = false;
-      notifyListeners();
       return true;
     } on AuthException catch (e) {
-      _error = e.message;
+      _error = 'Authentication error: ${e.message}';
+      return false;
+    } on PostgrestException catch (e) {
+      _error = 'Database error: ${e.message}';
+      return false;
+    } catch (e) {
+      _error = 'Unexpected error: ${e.toString()}';
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
-    } catch (_) {
-      _error = 'An unexpected error occurred. Please try again.';
-      _isLoading = false;
-      notifyListeners();
-      return false;
     }
+  }
+
+  void setError(String message) {
+    _error = message;
+    notifyListeners();
   }
 
   Future<void> signOut() async {

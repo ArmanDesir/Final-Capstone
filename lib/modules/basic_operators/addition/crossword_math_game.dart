@@ -191,7 +191,18 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen>
               TextButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  Navigator.pop(context);
+
+                  final elapsed = (widget.difficulty == 'Easy'
+                      ? 300
+                      : widget.difficulty == 'Medium'
+                      ? 420
+                      : 600) -
+                      _remainingSeconds;
+
+                  Navigator.pop(context, {
+                    'score': correct,
+                    'elapsed': elapsed,
+                  });
                 },
                 child: const Text('Go Back'),
               ),

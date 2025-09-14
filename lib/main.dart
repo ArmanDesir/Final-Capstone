@@ -73,10 +73,17 @@ class MyApp extends StatelessWidget {
           '/basic_operations': (context) => const BasicOperationsDashboard(),
           '/addition': (context) => const AdditionScreen(),
           '/addition/lessons': (context) => const LessonListScreen(),
-          '/addition/quiz': (context) => QuizScreen(
-            questions: additionLessons[0]['quiz']
-                .cast<Map<String, dynamic>>(),
-          ),
+          '/addition/quiz': (context) {
+            final auth = Provider.of<AuthProvider>(context, listen: false);
+            final userId = auth.currentUser!.id;
+            final quizId = additionLessons[0]['id'] ??
+                "placeholder_addition_quiz";
+            return QuizScreen(
+              questions: additionLessons[0]['quiz'].cast<Map<String, dynamic>>(),
+              quizId: quizId,
+              userId: userId,
+            );
+          },
           '/addition/games': (context) => const GameScreen(),
           '/subtraction': (context) => const SubtractionScreen(),
           '/subtraction/lessons': (context) =>
