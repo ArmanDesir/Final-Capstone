@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/models/user.dart';
+import 'package:offline_first_app/providers/auth_provider.dart';
+import 'package:offline_first_app/screens/home_screen.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../models/user.dart';
-import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   final UserType userType;
@@ -15,6 +15,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -22,6 +23,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _teacherCodeController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _studentIdController = TextEditingController();
+  final _guardianNameController = TextEditingController();
+  final _guardianEmailController = TextEditingController();
+  final _guardianContactController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -34,12 +39,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _teacherCodeController.dispose();
     _contactNumberController.dispose();
     _studentIdController.dispose();
+    _guardianNameController.dispose();
+    _guardianEmailController.dispose();
+    _guardianContactController.dispose();
+
     super.dispose();
   }
 
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
-      // Validate teacher code if teacher
       if (widget.userType == UserType.teacher) {
         if (_teacherCodeController.text.trim() != 'TEACHER2025') {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -55,16 +63,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
       bool success = await authProvider.createUserWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text,
-        _nameController.text.trim(),
-        widget.userType,
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+        userType: widget.userType,
         contactNumber: _contactNumberController.text.trim(),
-        studentId:
-            widget.userType == UserType.student
-                ? _studentIdController.text.trim()
-                : null,
+        studentId: widget.userType == UserType.student
+            ? _studentIdController.text.trim()
+            : null,
+        guardianName: widget.userType == UserType.student
+            ? _guardianNameController.text.trim()
+            : null,
+        guardianEmail: widget.userType == UserType.student
+            ? _guardianEmailController.text.trim()
+            : null,
+        guardianContactNumber: widget.userType == UserType.student
+            ? _guardianContactController.text.trim()
+            : null,
       );
 
       if (success && mounted) {
@@ -93,7 +110,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Form(
               key: _formKey,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Icon(
@@ -112,12 +128,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Sign up to start ${widget.userType == UserType.student ? 'learning' : 'teaching'} math',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
 
-                  // Teacher code field (only for teachers)
                   if (widget.userType == UserType.teacher) ...[
                     TextFormField(
                       controller: _teacherCodeController,
@@ -143,14 +158,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icon(Icons.person),
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your name';
-                      }
-                      return null;
-                    },
+                    validator: (value) =>
+                    value == null || value.isEmpty
+                        ? 'Please enter your name'
+                        : null,
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _contactNumberController,
                     keyboardType: TextInputType.phone,
@@ -159,14 +173,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icon(Icons.phone),
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your contact number';
-                      }
-                      return null;
-                    },
+                    validator: (value) =>
+                    value == null || value.isEmpty
+                        ? 'Please enter your contact number'
+                        : null,
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -188,6 +201,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -219,6 +233,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
@@ -233,7 +248,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         onPressed: () {
                           setState(() {
-                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                            _obscureConfirmPassword =
+                            !_obscureConfirmPassword;
                           });
                         },
                       ),
@@ -249,7 +265,97 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
+                  if (widget.userType == UserType.student) ...[
+                    TextFormField(
+                      controller: _studentIdController,
+                      decoration: const InputDecoration(
+                        labelText: 'Student ID',
+                        prefixIcon: Icon(Icons.badge),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) =>
+                      value == null || value.isEmpty
+                          ? 'Please enter your student ID'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _guardianNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Guardian Name',
+                        prefixIcon: Icon(Icons.person_outline),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) =>
+                      value == null || value.isEmpty
+                          ? 'Please enter guardian name'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _guardianEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Guardian Email',
+                        prefixIcon: Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter guardian email';
+                        }
+                        if (!RegExp(
+                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                        ).hasMatch(value)) {
+                          return 'Please enter a valid guardian email';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _guardianContactController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Guardian Contact Number',
+                        prefixIcon: Icon(Icons.phone_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) =>
+                      value == null || value.isEmpty
+                          ? 'Please enter guardian contact number'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, child) {
+                      if (authProvider.error != null) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Text(
+                              authProvider.error!,
+                              style: TextStyle(color: Colors.red.shade700),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+
                   Consumer<AuthProvider>(
                     builder: (context, authProvider, child) {
                       return ElevatedButton(
@@ -260,56 +366,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child:
-                            authProvider.isLoading
-                                ? const CircularProgressIndicator()
-                                : const Text(
-                                  'Sign Up',
-                                  style: TextStyle(fontSize: 16),
-                                ),
+                        child: authProvider.isLoading
+                            ? const CircularProgressIndicator()
+                            : const Text(
+                          'Sign Up',
+                          style: TextStyle(fontSize: 16),
+                        ),
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
-                  Consumer<AuthProvider>(
-                    builder: (context, authProvider, child) {
-                      if (authProvider.error != null) {
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.shade200),
-                          ),
-                          child: Text(
-                            authProvider.error!,
-                            style: TextStyle(color: Colors.red.shade700),
-                            textAlign: TextAlign.center,
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                  // Student ID field (only for students)
-                  if (widget.userType == UserType.student) ...[
-                    TextFormField(
-                      controller: _studentIdController,
-                      decoration: const InputDecoration(
-                        labelText: 'Student ID',
-                        prefixIcon: Icon(Icons.badge),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your student ID';
-                        }
-                        // Add more validation if needed (e.g., uniqueness)
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
                 ],
               ),
             ),

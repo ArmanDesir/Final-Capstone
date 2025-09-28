@@ -4,32 +4,36 @@ part 'user.g.dart';
 
 enum UserType { student, teacher }
 
-@JsonSerializable()
+@JsonSerializable(fieldRename: FieldRename.snake)
 class User {
   final String id;
   final String name;
-  final String email;
+  final String? email;
   final String? photoUrl;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   final bool isOnline;
   final String? lastSyncTime;
   final UserType userType;
-  final String? teacherCode; // For teacher authentication
-  final List<String> classroomIds; // For teachers
-  final String? classroomId; // For students
-  final int? grade; // For students
-  final String? teacherId; // For students
+  final String? teacherCode;
+  final List<String> classroomIds;
+  final String? classroomId;
+  final int? grade;
+  final String? teacherId;
   final String? contactNumber;
   final String? studentId;
+  final String? guardianName;
+  final String? guardianEmail;
+  final String? guardianContactNumber;
+  final String? studentInfo;
 
   User({
     required this.id,
     required this.name,
-    required this.email,
+    this.email,
     this.photoUrl,
-    required this.createdAt,
-    required this.updatedAt,
+    this.createdAt,
+    this.updatedAt,
     this.isOnline = false,
     this.lastSyncTime,
     required this.userType,
@@ -40,6 +44,10 @@ class User {
     this.teacherId,
     this.contactNumber,
     this.studentId,
+    this.guardianName,
+    this.guardianEmail,
+    this.guardianContactNumber,
+    this.studentInfo,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
@@ -62,6 +70,10 @@ class User {
     String? teacherId,
     String? contactNumber,
     String? studentId,
+    String? guardianName,
+    String? guardianEmail,
+    String? guardianContactNumber,
+    String? studentInfo,
   }) {
     return User(
       id: id ?? this.id,
@@ -80,6 +92,10 @@ class User {
       teacherId: teacherId ?? this.teacherId,
       contactNumber: contactNumber ?? this.contactNumber,
       studentId: studentId ?? this.studentId,
+      guardianName: guardianName ?? this.guardianName,
+      guardianEmail: guardianEmail ?? this.guardianEmail,
+      guardianContactNumber: guardianContactNumber ?? this.guardianContactNumber,
+      studentInfo: studentInfo ?? this.studentInfo,
     );
   }
 }

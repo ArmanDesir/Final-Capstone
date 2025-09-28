@@ -54,7 +54,6 @@ class DivisionGamesScreen extends StatelessWidget {
                     Icons.speed,
                     Colors.blue,
                     () {
-                      // TODO: Navigate to division race game
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Division Race - Coming Soon!'),
@@ -68,7 +67,6 @@ class DivisionGamesScreen extends StatelessWidget {
                     Icons.timeline,
                     Colors.green,
                     () {
-                      // TODO: Navigate to number line game
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Number Line Game - Coming Soon!'),
@@ -82,7 +80,6 @@ class DivisionGamesScreen extends StatelessWidget {
                     Icons.grid_on,
                     Colors.purple,
                     () {
-                      // TODO: Navigate to crossword game (similar to addition)
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Crossword Math - Coming Soon!'),
@@ -96,7 +93,6 @@ class DivisionGamesScreen extends StatelessWidget {
                     Icons.sports_martial_arts,
                     Colors.orange,
                     () {
-                      // TODO: Navigate to ninja math game
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Ninja Math - Coming Soon!'),

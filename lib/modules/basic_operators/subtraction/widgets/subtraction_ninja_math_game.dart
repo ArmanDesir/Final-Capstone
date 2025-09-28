@@ -63,16 +63,14 @@ class _SubtractionNinjaMathGameScreenState
 
     List<_SubtractionTargetRound> list = [];
     for (int i = 0; i < _totalRounds; i++) {
-      // Generate a starting number and numbers to subtract
       int startNumber = 10 + _random.nextInt(max);
-      int numCount = 3 + _random.nextInt(2); // 3 or 4 numbers to subtract
+      int numCount = 3 + _random.nextInt(2);
       List<int> numbersToSubtract = [];
 
-      // Generate numbers that can be subtracted without going negative
       int remaining = startNumber;
       for (int j = 0; j < numCount; j++) {
         int maxSubtract =
-            remaining ~/ (numCount - j); // Ensure we don't go negative
+            remaining ~/ (numCount - j);
         if (maxSubtract > 0) {
           int subtract = 1 + _random.nextInt(maxSubtract);
           numbersToSubtract.add(subtract);
@@ -80,7 +78,6 @@ class _SubtractionNinjaMathGameScreenState
         }
       }
 
-      // The target is what's left after subtracting some of the numbers
       int solutionCount = 1 + _random.nextInt(numbersToSubtract.length);
       List<int> solution = numbersToSubtract.sublist(0, solutionCount);
       int target = startNumber - solution.reduce((a, b) => a + b);

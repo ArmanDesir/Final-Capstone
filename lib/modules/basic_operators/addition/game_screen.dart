@@ -1,26 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'crossword_math_game.dart';
 import 'ninja_math_game.dart';
 
 class GameScreen extends StatelessWidget {
   const GameScreen({Key? key}) : super(key: key);
 
-  void _startGame(BuildContext context, String game, String difficulty) {
-    if (game == 'Crossword Math') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CrosswordMathGameScreen(difficulty: difficulty),
-        ),
-      );
-    } else if (game == 'Ninja Math') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => NinjaMathGameScreen(difficulty: difficulty),
-        ),
-      );
+  Future<void> _saveGameProgress(
+      String game,
+      String difficulty,
+      int score,
+      int elapsedSeconds,
+      ) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    final existing = await Supabase.instance.client
+        .from('game_progress')
+        .select()
+        .eq('user_id', user.id)
+        .eq('game_name', game)
+        .eq('difficulty', difficulty);
+
+    final attempts = existing.length;
+
+    if (attempts >= 3) {
+      return;
     }
+
+    await Supabase.instance.client.from('game_progress').insert({
+      'user_id': user.id,
+      'game_name': game,
+      'difficulty': difficulty,
+      'score': score,
+      'tries': attempts + 1,
+      'status': 'complete',
+      'elapsed_time': elapsedSeconds,
+    });
+  }
+
+  void _startGame(BuildContext context, String game, String difficulty) async {
+    Widget screen;
+    if (game == 'Crossword Math') {
+      screen = CrosswordMathGameScreen(difficulty: difficulty);
+    } else {
+      screen = NinjaMathGameScreen(difficulty: difficulty);
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
+
+    if (result is Map<String, dynamic>) {
+      final score = result['score'] as int? ?? 0;
+      final elapsed = result['elapsed'] as int? ?? 0;
+      await _saveGameProgress(game, difficulty, score, elapsed);
+    }
+
   }
 
   @override
@@ -32,22 +69,20 @@ class GameScreen extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
           children: [
             _GameCard(
-              title: 'Cross Math',
+              title: 'Crossword Math',
               icon: Icons.grid_on,
-              onSelect:
-                  (difficulty) =>
-                      _startGame(context, 'Crossword Math', difficulty),
+              onSelect: (difficulty) =>
+                  _startGame(context, 'Crossword Math', difficulty),
             ),
             const SizedBox(height: 24),
             _GameCard(
               title: 'Ninja Math',
               icon: Icons.sports_martial_arts,
-              onSelect:
-                  (difficulty) => _startGame(context, 'Ninja Math', difficulty),
+              onSelect: (difficulty) =>
+                  _startGame(context, 'Ninja Math', difficulty),
             ),
           ],
         ),
@@ -60,6 +95,7 @@ class _GameCard extends StatelessWidget {
   final String title;
   final IconData icon;
   final void Function(String difficulty) onSelect;
+
   const _GameCard({
     required this.title,
     required this.icon,

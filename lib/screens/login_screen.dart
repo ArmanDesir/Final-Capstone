@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/models/user.dart';
+import 'package:offline_first_app/providers/auth_provider.dart';
+import 'package:offline_first_app/screens/home_screen.dart';
+import 'package:offline_first_app/screens/register_screen.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../models/user.dart';
-import 'home_screen.dart';
-import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final UserType userType;
@@ -30,34 +30,37 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signIn() async {
-    if (_formKey.currentState!.validate()) {
-      // Validate teacher code if teacher
-      if (widget.userType == UserType.teacher) {
-        if (_teacherCodeController.text.trim() != 'TEACHER2025') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Invalid teacher code. Please contact administrator.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-      }
+    if (!_formKey.currentState!.validate()) return;
 
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      bool success = await authProvider.signInWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text,
-        widget.userType,
+    if (widget.userType == UserType.teacher &&
+        _teacherCodeController.text.trim() != 'TEACHER2025') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid teacher code. Please contact administrator.'),
+          backgroundColor: Colors.red,
+        ),
       );
+      return;
+    }
 
-      if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      }
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    final success = await authProvider.signInWithEmailAndPassword(
+      _emailController.text.trim(),
+      _passwordController.text,
+    );
+
+    if (success && authProvider.currentUser != null && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login failed: ${authProvider.error ?? 'Unknown error'}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -96,12 +99,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Sign in to continue with your ${widget.userType == UserType.student ? 'learning' : 'teaching'}',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),
 
-                // Teacher code field (only for teachers)
                 if (widget.userType == UserType.teacher) ...[
                   TextFormField(
                     controller: _teacherCodeController,
@@ -141,6 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
+
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
@@ -172,6 +175,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
+
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, child) {
+                    if (authProvider.error != null) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Text(
+                            authProvider.error!,
+                            style: TextStyle(color: Colors.red.shade700),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+
                 Consumer<AuthProvider>(
                   builder: (context, authProvider, child) {
                     return ElevatedButton(
@@ -182,37 +210,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child:
-                          authProvider.isLoading
-                              ? const CircularProgressIndicator()
-                              : const Text(
-                                'Sign In',
-                                style: TextStyle(fontSize: 16),
-                              ),
+                      child: authProvider.isLoading
+                          ? const CircularProgressIndicator()
+                          : const Text(
+                        'Sign In',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     );
                   },
                 ),
-                const SizedBox(height: 16),
-                Consumer<AuthProvider>(
-                  builder: (context, authProvider, child) {
-                    if (authProvider.error != null) {
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Text(
-                          authProvider.error!,
-                          style: TextStyle(color: Colors.red.shade700),
-                          textAlign: TextAlign.center,
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
+
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -222,9 +229,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder:
-                                (context) =>
-                                    RegisterScreen(userType: widget.userType),
+                            builder: (context) =>
+                                RegisterScreen(userType: widget.userType),
                           ),
                         );
                       },

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:offline_first_app/screens/lesson_detail_screen.dart';
 import '../models/classroom.dart';
 import '../models/content.dart';
-import '../services/content_service.dart';
 
 class StudentClassroomScreen extends StatefulWidget {
   final Classroom classroom;
@@ -11,32 +12,91 @@ class StudentClassroomScreen extends StatefulWidget {
   State<StudentClassroomScreen> createState() => _StudentClassroomScreenState();
 }
 
+class _TabInfo {
+  final String title;
+  final IconData icon;
+  final ContentType? contentType;
+
+  _TabInfo({required this.title, required this.icon, this.contentType});
+}
+
 class _StudentClassroomScreenState extends State<StudentClassroomScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final ContentService _contentService = ContentService();
-  List<Content> _contentList = [];
-  bool _isLoadingContent = false;
+  List<Content> _lessons = [];
+  List<Content> _exercises = [];
+  bool _isLoadingContent = true;
+  String? _errorMessage;
+
+  final _tabs = [
+    _TabInfo(title: 'Lessons', icon: Icons.book, contentType: ContentType.lesson),
+    _TabInfo(title: 'Exercises', icon: Icons.fitness_center, contentType: ContentType.exercise),
+    _TabInfo(title: 'Basic Operators', icon: Icons.calculate),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: _tabs.length, vsync: this);
     _loadContent();
   }
 
   Future<void> _loadContent() async {
-    setState(() => _isLoadingContent = true);
+    setState(() {
+      _isLoadingContent = true;
+      _errorMessage = null;
+    });
+
     try {
-      _contentList = await _contentService.getContentByClassroom(
-        widget.classroom.id,
-      );
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+
+      final data = await Supabase.instance.client
+          .rpc('get_lessons_with_access', params: {
+        'p_user_id': userId,
+        'p_classroom_id': widget.classroom.id,
+      }) as List<dynamic>;
+
+      final allContent = data.map((e) {
+        return Content(
+          id: e['lesson_id'] as String,
+          classroomId: e['classroom_id'] as String,
+          title: e['title'] as String,
+          description: e['description'] as String?,
+          type: _mapType(e['type'] as String?),
+          fileSize: e['file_size'] as int?,
+          fileUrl: e['file_url'] as String?,
+          createdAt: DateTime.parse(e['created_at'] as String),
+          updatedAt: DateTime.parse(e['updated_at'] as String),
+          isUnlocked: e['is_unlocked'] as bool? ?? false,
+        );
+      }).toList();
+
+      _lessons = allContent.where((c) => c.type == ContentType.lesson).toList();
+      _exercises = allContent.where((c) => c.type == ContentType.exercise).toList();
+
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load content: $e')));
+      print('Error loading content: $e');
+      if (!mounted) return;
+
+      _errorMessage = 'Failed to load content. Please try again later.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     } finally {
-      setState(() => _isLoadingContent = false);
+      if (mounted) setState(() => _isLoadingContent = false);
+    }
+  }
+
+  ContentType _mapType(String? type) {
+    switch (type) {
+      case 'lesson':
+        return ContentType.lesson;
+      case 'exercise':
+        return ContentType.exercise;
+      case 'quiz':
+        return ContentType.quiz;
+      default:
+        return ContentType.lesson;
     }
   }
 
@@ -57,37 +117,61 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(icon: Icon(Icons.book), text: 'Lessons'),
-            Tab(icon: Icon(Icons.quiz), text: 'Quizzes'),
-            Tab(icon: Icon(Icons.fitness_center), text: 'Exercises'),
-          ],
+          tabs: _tabs.map((tab) => Tab(icon: Icon(tab.icon), text: tab.title)).toList(),
         ),
       ),
-      body:
-          _isLoadingContent
-              ? const Center(child: CircularProgressIndicator())
-              : TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildContentTab(ContentType.lesson, 'Lessons'),
-                  _buildContentTab(ContentType.quiz, 'Quizzes'),
-                  _buildContentTab(ContentType.exercise, 'Exercises'),
-                ],
-              ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoadingContent) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              Text(_errorMessage!, style: const TextStyle(fontSize: 16), textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadContent,
+                child: const Text('Retry'),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+    return TabBarView(
+      controller: _tabController,
+      children: _tabs.map((tab) {
+        if (tab.contentType != null) {
+          return _buildContentTab(tab.contentType!, tab.title);
+        } else {
+          return _buildBasicOperatorsTab();
+        }
+      }).toList(),
     );
   }
 
   Widget _buildContentTab(ContentType contentType, String title) {
-    final filteredContent =
-        _contentList.where((content) => content.type == contentType).toList();
+    final filteredContent = switch (contentType) {
+      ContentType.lesson => _lessons,
+      ContentType.exercise => _exercises,
+      ContentType.quiz => <Content>[],
+    };
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Classroom info
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -112,8 +196,6 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
             ),
           ),
           const SizedBox(height: 24),
-
-          // Content list
           Row(
             children: [
               Text(
@@ -131,7 +213,6 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
             ],
           ),
           const SizedBox(height: 12),
-
           if (filteredContent.isEmpty)
             _buildEmptyState(contentType)
           else
@@ -144,6 +225,29 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
                 return _buildContentCard(content);
               },
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBasicOperatorsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Card(
+            color: Colors.orange[50],
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListTile(
+              leading: const Icon(Icons.calculate, color: Colors.orange),
+              title: const Text('Basic Operators'),
+              subtitle: const Text('Practice Addition, Subtraction, and more!'),
+              onTap: () {
+                Navigator.pushNamed(context, '/basic_operations');
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -180,10 +284,7 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
             Icon(
               icon,
               size: 64,
-              color: Color.alphaBlend(
-                color.withAlpha((0.5 * 255).toInt()),
-                Colors.white,
-              ),
+              color: color.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -207,94 +308,91 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
   }
 
   Widget _buildContentCard(Content content) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Color.alphaBlend(
-            _getContentColor(content.type).withAlpha((0.1 * 255).toInt()),
-            Colors.white,
-          ),
-          child: Icon(
-            _getContentIcon(content.type),
-            color: _getContentColor(content.type),
-          ),
-        ),
-        title: Text(
-          content.title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(content.description),
-            const SizedBox(height: 4),
-            Row(
+    final isLocked = !content.isUnlocked;
+
+    return Stack(
+      children: [
+        Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          color: isLocked ? Colors.grey[200] : Colors.white,
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: content.type.color.withOpacity(isLocked ? 0.05 : 0.1),
+              child: Icon(
+                content.type.icon,
+                color: isLocked ? Colors.grey : content.type.color,
+              ),
+            ),
+            title: Text(
+              content.title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isLocked ? Colors.grey : Colors.black,
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.file_present, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  _formatFileSize(content.fileSize),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDate(content.createdAt),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                if (content.type != ContentType.quiz && content.description != null) ...[
+                  Text(
+                    content.description!,
+                    style: TextStyle(color: isLocked ? Colors.grey : Colors.black),
+                  ),
+                  const SizedBox(height: 4),
+                ],
+                Row(
+                  children: [
+                    if (content.type != ContentType.quiz && content.fileSize != null) ...[
+                      Icon(Icons.file_present, size: 16, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatFileSize(content.fileSize!),
+                        style: TextStyle(fontSize: 12, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
+                      ),
+                      const SizedBox(width: 16),
+                    ],
+                    Icon(Icons.calendar_today, size: 16, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatDate(content.createdAt),
+                      style: TextStyle(fontSize: 12, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+            isThreeLine: true,
+            trailing: Icon(
+              Icons.chevron_right,
+              color: isLocked ? Colors.grey : Colors.black,
+            ),
+            onTap: content.isUnlocked
+                ? () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LessonDetailScreen(content: content),
+                ),
+              );
+            }
+                : null,
+          ),
         ),
-        isThreeLine: true,
-        trailing: IconButton(
-          icon: const Icon(Icons.download),
-          onPressed: () => _downloadContent(content),
-        ),
-      ),
+        if (isLocked)
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 16, color: Colors.white),
+            ),
+          ),
+      ],
     );
-  }
-
-  void _downloadContent(Content content) {
-    // TODO: Implement PDF download/viewing
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Opening ${content.title}...'),
-        action: SnackBarAction(
-          label: 'View',
-          onPressed: () {
-            // TODO: Open PDF viewer
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('PDF viewer coming soon!')));
-          },
-        ),
-      ),
-    );
-  }
-
-  Color _getContentColor(ContentType type) {
-    switch (type) {
-      case ContentType.lesson:
-        return Colors.blue;
-      case ContentType.quiz:
-        return Colors.purple;
-      case ContentType.exercise:
-        return Colors.orange;
-    }
-  }
-
-  IconData _getContentIcon(ContentType type) {
-    switch (type) {
-      case ContentType.lesson:
-        return Icons.book;
-      case ContentType.quiz:
-        return Icons.quiz;
-      case ContentType.exercise:
-        return Icons.fitness_center;
-    }
   }
 
   String _formatFileSize(int bytes) {

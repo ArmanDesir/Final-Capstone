@@ -92,7 +92,6 @@ class TaskProvider with ChangeNotifier {
       );
       await updateTask(updatedTask);
     } catch (e) {
-      // Task not found, ignore
     }
   }
 
@@ -119,8 +118,6 @@ class TaskProvider with ChangeNotifier {
     _clearError();
 
     try {
-      // This would trigger a manual sync
-      // The sync service handles this automatically, but we can trigger it manually
       _setLoading(false);
     } catch (e) {
       _setError('Sync failed: ${e.toString()}');
