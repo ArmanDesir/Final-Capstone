@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/screens/create_lesson_screen.dart';
+import 'package:offline_first_app/screens/create_quiz_screen.dart';
+import 'package:offline_first_app/screens/lesson_detail_screen.dart';
 import 'package:provider/provider.dart';
 import '../models/classroom.dart';
 import '../providers/classroom_provider.dart';
@@ -26,12 +29,17 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    Provider.of<ClassroomProvider>(
-      context,
-      listen: false,
-    ).loadClassroomDetails(widget.classroom.id);
-    _loadContent();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ClassroomProvider>(
+        context,
+        listen: false,
+      ).loadClassroomDetails(widget.classroom.id);
+
+      _loadContent();
+    });
   }
+
 
   Future<void> _loadContent() async {
     setState(() => _isLoadingContent = true);
@@ -282,18 +290,72 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
           const SizedBox(height: 16),
           _buildContentCard(
             'Lessons',
-            'Upload PDF lessons and materials',
+            'Create and manage lessons',
             Icons.book,
             Colors.blue,
-            () => _showUploadDialog('lesson', ContentType.lesson),
+                () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CreateLessonScreen(
+                    classroomId: classroom.id,
+                  ),
+                ),
+              ).then((created) {
+                if (created == true) {
+                  _loadContent();
+                }
+              });
+            },
           ),
           const SizedBox(height: 12),
           _buildContentCard(
             'Quizzes',
-            'Create and upload quiz materials',
+            'Create and manage quizzes',
             Icons.quiz,
             Colors.purple,
-            () => _showUploadDialog('quiz', ContentType.quiz),
+                () async {
+              final allContents = await _contentService.getContentByClassroom(classroom.id);
+              if (!mounted) return;
+              final classroomLessons = allContents.where((c) => c.type == ContentType.lesson).toList();
+              if (classroomLessons.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('No lessons available in this classroom.')),
+                );
+                return;
+              }
+
+              final selectedLesson = await showDialog<Content>(
+                context: context,
+                builder: (context) {
+                  return SimpleDialog(
+                    title: const Text("Choose Lesson"),
+                    children: classroomLessons.map((lesson) {
+                      return SimpleDialogOption(
+                        onPressed: () => Navigator.pop(context, lesson),
+                        child: Text(lesson.title),
+                      );
+                    }).toList(),
+                  );
+                },
+              );
+
+              if (selectedLesson != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreateQuizScreen(
+                      classroomId: classroom.id,
+                      lessonId: selectedLesson.id,
+                    ),
+                  ),
+                ).then((created) {
+                  if (created == true) {
+                    _loadContent();
+                  }
+                });
+              }
+            },
           ),
           const SizedBox(height: 12),
           _buildContentCard(
@@ -330,39 +392,53 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                 ),
               )
               : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _contentList.length,
-                itemBuilder: (context, index) {
-                  final content = _contentList[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Color.alphaBlend(
-                          _getContentColor(
-                            content.type,
-                          ).withAlpha((0.1 * 255).toInt()),
-                          Colors.white,
-                        ),
-                        child: Icon(
-                          _getContentIcon(content.type),
-                          color: _getContentColor(content.type),
-                        ),
-                      ),
-                      title: Text(content.title),
-                      subtitle: Text(
-                        '${content.description}\n${_formatFileSize(content.fileSize)} • ${_formatDate(content.createdAt)}',
-                      ),
-                      isThreeLine: true,
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _showDeleteContentDialog(content),
-                      ),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _contentList.length,
+            itemBuilder: (context, index) {
+              final content = _contentList[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Color.alphaBlend(
+                      _getContentColor(content.type).withAlpha((0.1 * 255).toInt()),
+                      Colors.white,
                     ),
-                  );
-                },
-              ),
+                    child: Icon(
+                      _getContentIcon(content.type),
+                      color: _getContentColor(content.type),
+                    ),
+                  ),
+                  title: Text(content.title),
+                  subtitle: Text(
+                    '${content.description ?? ''}\n'
+                        '${_formatFileSize(content.fileSize ?? 0)} • ${_formatDate(content.createdAt)}',
+                  ),
+                  isThreeLine: true,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _showDeleteContentDialog(content),
+                  ),
+                  onTap: () {
+                    if (content.type == ContentType.lesson) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LessonDetailScreen(content: content),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Opening for ${content.type} not yet implemented")),
+                      );
+                    }
+                  },
+                ),
+              );
+            },
+          )
+          ,
         ],
       ),
     );
@@ -440,60 +516,76 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(
-              'Upload ${contentType[0].toUpperCase() + contentType.substring(1)}',
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Add ${contentType[0].toUpperCase() + contentType.substring(1)}',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.upload_file),
+              label: const Text("Upload New File"),
+              onPressed: () {
+                Navigator.pop(context);
+                _showUploadForm(type, contentType, titleController, descController);
+              },
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title',
-                    hintText: 'Enter content title',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: descController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    hintText: 'Enter content description',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await _uploadPDFFile(
-                      type,
-                      titleController.text,
-                      descController.text,
-                    );
-                  },
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Choose PDF File'),
-                ),
-              ],
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.content_copy),
+              label: const Text("Use Existing Content"),
+              onPressed: () {
+                Navigator.pop(context);
+                _showSelectExistingContent(type);
+              },
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
+        ],
+      ),
     );
   }
 
-  Future<void> _uploadPDFFile(
-    ContentType type,
-    String title,
-    String description,
-  ) async {
+  void _showConfirmDialog(ContentType type, String title, String description, File file,) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Upload'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Title: $title'),
+            const SizedBox(height: 8),
+            Text('Description: $description'),
+            const SizedBox(height: 8),
+            Text('File: ${file.path.split('/').last}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _uploadPDFFile(type, title, description, file);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _uploadPDFFile(ContentType type, String title, String description, File file,) async {
     try {
       final result = await _contentService.pickPDFFile();
       if (result != null && result.files.isNotEmpty) {
@@ -526,42 +618,157 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
     }
   }
 
+  void _showSelectExistingContent(ContentType type) async {
+    try {
+      final allContents = await _contentService.getAllContents(type: type);
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Select Existing Content"),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: allContents.length,
+              itemBuilder: (context, index) {
+                final content = allContents[index];
+                return ListTile(
+                  leading: Icon(_getContentIcon(content.type)),
+                  title: Text(content.title),
+                  subtitle: Text(content.description ?? ''),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _contentService.attachExistingContent(
+                      classroomId: widget.classroom.id,
+                      contentId: content.id,
+                    );
+                    await _loadContent();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${content.title} added to this classroom!')),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to fetch existing content: $e')),
+      );
+    }
+  }
+
+  void _showUploadForm(ContentType type, String contentType, TextEditingController titleController, TextEditingController descController,) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Upload ${contentType[0].toUpperCase() + contentType.substring(1)}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                labelText: 'Title *',
+                hintText: 'Enter content title',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Description *',
+                hintText: 'Enter content description',
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () async {
+                if (titleController.text.trim().isEmpty ||
+                    descController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Title and description are required.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                final result = await _contentService.pickPDFFile();
+                if (result != null && result.files.isNotEmpty) {
+                  final file = File(result.files.first.path!);
+                  Navigator.pop(context);
+                  _showConfirmDialog(
+                    type,
+                    titleController.text.trim(),
+                    descController.text.trim(),
+                    file,
+                  );
+                }
+              },
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Choose PDF File'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDeleteContentDialog(Content content) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Delete Content'),
-            content: Text(
-              'Are you sure you want to delete "${content.title}"?',
+      builder: (dialogContext) {
+        final messenger = ScaffoldMessenger.of(context);
+
+        return AlertDialog(
+          title: const Text('Delete Content'),
+          content: Text('Are you sure you want to delete "${content.title}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await _contentService.deleteContent(
+                    contentId: content.id,
+                    type: content.type,
+                  );
+                  await _loadContent();
+                  Navigator.pop(dialogContext);
+
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('${content.title} deleted.')),
+                  );
+                } catch (e) {
+                  Navigator.pop(dialogContext);
+
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('Failed to delete: $e')),
+                  );
+                }
+              },
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
               ),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  try {
-                    await _contentService.deleteContent(content.id);
-                    await _loadContent();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${content.title} deleted.')),
-                    );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to delete: $e')),
-                    );
-                  }
-                },
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
+        );
+      },
     );
   }
 

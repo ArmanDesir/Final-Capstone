@@ -1,5 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/providers/lesson_provider.dart';
+import 'package:offline_first_app/providers/quiz_provider.dart';
 import 'package:offline_first_app/screens/student_dashboard.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -56,6 +58,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => TaskProvider()),
         ChangeNotifierProvider(create: (_) => ClassroomProvider()),
+        ChangeNotifierProvider(create: (_) => LessonProvider()),
+        ChangeNotifierProvider(create: (_) => QuizProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

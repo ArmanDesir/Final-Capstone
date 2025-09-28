@@ -2,35 +2,39 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'lesson.g.dart';
 
-enum MathOperator { add, subtract, multiply, divide }
-
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true, fieldRename: FieldRename.snake)
 class Lesson {
-  final String id;
+  final String? id;
   final String title;
-  final String description;
+  final String? description;
   final String classroomId;
-  final MathOperator operator;
-  final int difficulty;
+  final String? fileUrl;
+  final String? storagePath;
+  final String? fileName;
+  final String? youtubeUrl;
   final List<String> exerciseIds;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   final bool isActive;
 
   Lesson({
-    required this.id,
+    this.id,
     required this.title,
-    required this.description,
+    this.description,
     required this.classroomId,
-    required this.operator,
-    required this.difficulty,
+    this.fileUrl,
+    this.storagePath,
+    this.fileName,
+    this.youtubeUrl,
     this.exerciseIds = const [],
-    required this.createdAt,
-    required this.updatedAt,
+    this.createdAt,
+    this.updatedAt,
     this.isActive = true,
   });
 
-  factory Lesson.fromJson(Map<String, dynamic> json) => _$LessonFromJson(json);
+  factory Lesson.fromJson(Map<String, dynamic> json) =>
+      _$LessonFromJson(json);
+
   Map<String, dynamic> toJson() => _$LessonToJson(this);
 
   Lesson copyWith({
@@ -38,8 +42,10 @@ class Lesson {
     String? title,
     String? description,
     String? classroomId,
-    MathOperator? operator,
-    int? difficulty,
+    String? fileUrl,
+    String? storagePath,
+    String? fileName,
+    String? youtubeUrl,
     List<String>? exerciseIds,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -50,8 +56,10 @@ class Lesson {
       title: title ?? this.title,
       description: description ?? this.description,
       classroomId: classroomId ?? this.classroomId,
-      operator: operator ?? this.operator,
-      difficulty: difficulty ?? this.difficulty,
+      fileUrl: fileUrl ?? this.fileUrl,
+      storagePath: storagePath ?? this.storagePath,
+      fileName: fileName ?? this.fileName,
+      youtubeUrl: youtubeUrl ?? this.youtubeUrl,
       exerciseIds: exerciseIds ?? this.exerciseIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

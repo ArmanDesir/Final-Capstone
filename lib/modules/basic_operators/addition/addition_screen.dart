@@ -62,24 +62,6 @@ class AdditionScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              icon: const Icon(Icons.quiz),
-              label: const Text('Quiz'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                textStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onPressed: () => Navigator.pushNamed(context, '/addition/quiz'),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
               icon: const Icon(Icons.videogame_asset),
               label: const Text('Exercises (Game)'),
               style: ElevatedButton.styleFrom(

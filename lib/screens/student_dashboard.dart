@@ -341,11 +341,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildQuickActions(ClassroomProvider classroomProvider, User? user) {
-    final classroom = classroomProvider.currentClassroom;
-    final hasActiveClassroom =
-        classroom != null &&
-        user != null &&
-        classroom.studentIds.contains(user.id);
+    final classrooms = classroomProvider.studentClassrooms;
+    final hasActiveClassrooms =
+        user != null && classrooms.any((c) => c.studentIds.contains(user.id));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,7 +353,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        if (!hasActiveClassroom)
+
+        if (!hasActiveClassrooms)
           Card(
             child: ListTile(
               leading: const Icon(Icons.add_circle, color: Colors.blue),
@@ -371,38 +370,52 @@ class _StudentDashboardState extends State<StudentDashboard> {
               },
             ),
           )
-        else ...[
+        else
           Card(
             child: ListTile(
               leading: const Icon(Icons.book, color: Colors.blue),
-              title: const Text('View Classroom'),
-              subtitle: const Text('Access your learning materials'),
+              title: const Text('View Classrooms'),
+              subtitle: const Text('Choose a classroom to enter'),
               onTap: () {
+                _showClassroomPicker(context, classrooms, user!);
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showClassroomPicker(BuildContext context, List<Classroom> classrooms, User user,) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        final joined = classrooms.where((c) => c.studentIds.contains(user.id));
+        if (joined.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(20),
+            child: Text('No classrooms joined yet'),
+          );
+        }
+
+        return ListView(
+          children: joined.map((classroom) {
+            return ListTile(
+              leading: const Icon(Icons.class_),
+              title: Text(classroom.name),
+              subtitle: Text('Code: ${classroom.code ?? ''}'),
+              onTap: () {
+                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder:
-                        (_) => StudentClassroomScreen(classroom: classroom),
+                    builder: (_) => StudentClassroomScreen(classroom: classroom),
                   ),
                 );
               },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            color: Colors.orange[50],
-            child: ListTile(
-              leading: const Icon(Icons.calculate, color: Colors.orange),
-              title: const Text('Basic Operators'),
-              subtitle: const Text('Practice Addition, Subtraction, and more!'),
-              onTap: () {
-                Navigator.pushNamed(context, '/basic_operations');
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ],
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
