@@ -12,7 +12,6 @@ class LessonProvider with ChangeNotifier {
   bool isLoading = false;
   String? error;
 
-  /// Upload a file and return both publicUrl and storagePath
   Future<(String publicUrl, String storagePath)> uploadLessonFile(
       File file, String classroomId) async {
     final storagePath =

@@ -18,7 +18,7 @@ class UserService {
     String? teacherCode,
     int? grade,
   }) async {
-    await Supabase.instance.client.from('users').insert({
+    final response = await _supabase.from('users').insert({
       'id': id,
       'email': email,
       'name': name,
@@ -34,7 +34,13 @@ class UserService {
       'grade': grade,
       'is_online': true,
       'last_sync_time': DateTime.now().toIso8601String(),
-    });
+    }).select().maybeSingle();
+
+    if (response == null) {
+      throw Exception('Insert failed: no record returned');
+    }
+
+    print('[UserService] Inserted user: $response');
   }
 
   Future<app_model.User?> getUser(String id) async {
