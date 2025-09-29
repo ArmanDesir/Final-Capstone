@@ -85,10 +85,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        await authProvider.signOut();
+
+        Navigator.of(context).pushReplacementNamed('/welcome');
+
       }
+
     }
   }
 
