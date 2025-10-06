@@ -15,17 +15,36 @@ class StudentDashboard extends StatefulWidget {
 }
 
 class _StudentDashboardState extends State<StudentDashboard> {
+  int _completedLessons = 0;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.currentUser;
       if (user != null) {
-        Provider.of<ClassroomProvider>(
-          context,
-          listen: false,
-        ).loadStudentClassrooms(user.id);
+        final classroomProvider =
+        Provider.of<ClassroomProvider>(context, listen: false);
+        await classroomProvider.loadStudentClassrooms(user.id);
+        for (var c in classroomProvider.studentClassrooms) {
+        }
+        final currentClassroom = classroomProvider.studentClassrooms.isNotEmpty
+            ? classroomProvider.studentClassrooms.first
+            : null;
+
+        if (currentClassroom != null) {
+          final completed = await classroomProvider.getCompletedLessonsCount(
+            studentId: user.id,
+            classroomId: currentClassroom.id,
+          );
+
+          setState(() {
+            _completedLessons = completed;
+          });
+        } else {
+        }
+      } else {
       }
     });
   }
@@ -57,26 +76,25 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ),
         ],
       ),
-      body:
-          classroomProvider.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildWelcomeBanner(user?.name ?? 'Student'),
-                    const SizedBox(height: 24),
-                    _buildQuickStats(classroomProvider, user),
-                    const SizedBox(height: 24),
-                    _buildClassroomStatus(classroomProvider, user),
-                    const SizedBox(height: 24),
-                    _buildQuickActions(classroomProvider, user),
-                    const SizedBox(height: 24),
-                    _buildRecentActivity(),
-                  ],
-                ),
-              ),
+      body: classroomProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildWelcomeBanner(user?.name ?? 'Student'),
+            const SizedBox(height: 24),
+            _buildQuickStats(classroomProvider, user),
+            const SizedBox(height: 24),
+            _buildClassroomStatus(classroomProvider, user),
+            const SizedBox(height: 24),
+            _buildQuickActions(classroomProvider, user),
+            const SizedBox(height: 24),
+            _buildRecentActivity(),
+          ],
+        ),
+      ),
     );
   }
 
@@ -130,7 +148,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       children: [
         _buildStatCard(joinedClassrooms.toString(), 'Classrooms', Colors.blue),
         _buildStatCard(contentCount.toString(), 'Content', Colors.green),
-        _buildStatCard('0', 'Completed', Colors.orange),
+        _buildStatCard(_completedLessons.toString(), 'Completed', Colors.orange),
       ],
     );
   }
@@ -175,9 +193,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildClassroomStatus(
-      ClassroomProvider classroomProvider,
-      User? user,
-      ) {
+      ClassroomProvider classroomProvider, User? user) {
     final classroom = classroomProvider.currentClassroom;
 
     if (user?.classroomId == null) {
@@ -321,8 +337,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (_) => StudentClassroomScreen(classroom: classroom),
+                      builder: (_) =>
+                          StudentClassroomScreen(classroom: classroom),
                     ),
                   );
                 },
@@ -353,7 +369,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-
         if (!hasActiveClassrooms)
           Card(
             child: ListTile(
@@ -385,7 +400,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  void _showClassroomPicker(BuildContext context, List<Classroom> classrooms, User user,) {
+  void _showClassroomPicker(
+      BuildContext context, List<Classroom> classrooms, User user) {
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -408,7 +424,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => StudentClassroomScreen(classroom: classroom),
+                    builder: (_) =>
+                        StudentClassroomScreen(classroom: classroom),
                   ),
                 );
               },

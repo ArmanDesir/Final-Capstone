@@ -276,7 +276,6 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
       ),
     );
   }
-
   Widget _buildContentTab(Classroom classroom) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),

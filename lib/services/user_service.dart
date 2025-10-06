@@ -39,8 +39,6 @@ class UserService {
     if (response == null) {
       throw Exception('Insert failed: no record returned');
     }
-
-    print('[UserService] Inserted user: $response');
   }
 
   Future<app_model.User?> getUser(String id) async {

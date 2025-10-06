@@ -49,10 +49,7 @@ class LessonDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print("Fetched YouTube URL: ${content.youtubeUrl}");
     final youtubeId = _getYoutubeId(content.youtubeUrl);
-    print("Extracted YouTube ID: $youtubeId");
-
     return Scaffold(
       appBar: AppBar(
         title: Text(content.title),

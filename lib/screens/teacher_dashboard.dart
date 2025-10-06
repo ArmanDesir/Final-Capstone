@@ -8,8 +8,6 @@ import 'package:offline_first_app/screens/classroom_details_screen.dart';
 import 'package:offline_first_app/screens/manage_classrooms_screen.dart';
 import 'package:provider/provider.dart';
 
-
-
 class CreateClassroomScreen extends StatelessWidget {
   final String teacherId;
   const CreateClassroomScreen({super.key, required this.teacherId});
@@ -82,33 +80,36 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final classroomProvider =
-      Provider.of<ClassroomProvider>(context, listen: false);
+      final classroomProvider = Provider.of<ClassroomProvider>(context, listen: false);
 
-      await classroomProvider.loadTeacherClassrooms();
+      final teacherId = authProvider.currentUser?.id ?? '';
 
-      final counts = await classroomProvider.getContentCountsForTeacher(
-        authProvider.currentUser?.id ?? '',
-      );
-      if (mounted) {
-        setState(() {
-          _lessonsCount = counts['lessons'] ?? 0;
-          _quizzesCount = counts['quizzes'] ?? 0;
-        });
+      try {
+        await classroomProvider.loadTeacherClassrooms();
+        final counts = await classroomProvider.getContentCountsForTeacher(teacherId);
+
+        if (mounted) {
+          setState(() {
+            _lessonsCount = counts['lessons'] ?? 0;
+            _quizzesCount = counts['quizzes'] ?? 0;
+          });
+        }
+
+      } catch (e, stack) {
+        print(stack);
       }
     });
   }
 
   void _scrollToClassrooms() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = _classroomListKey.currentContext;
-      if (context != null) {
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 500),
-        );
-      }
-    });
+    if (_classroomListKey.currentContext != null) {
+      Scrollable.ensureVisible(
+        _classroomListKey.currentContext!,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    } else {
+    }
   }
 
   @override

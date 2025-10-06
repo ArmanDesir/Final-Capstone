@@ -283,9 +283,6 @@ class _ProfileScaffold extends StatelessWidget {
             const SizedBox(height: 16),
             _ProfileField(label: 'Email', value: user.email ?? 'N/A'),
             const SizedBox(height: 16),
-            _ProfileField(
-                label: 'Contact Number', value: user.contactNumber ?? 'N/A'),
-            const SizedBox(height: 16),
             _ProfileField(label: 'Guardian Name', value: user.guardianName ?? 'N/A'),
             const SizedBox(height: 16),
             _ProfileField(label: 'Guardian Email', value: user.guardianEmail ?? 'N/A'),

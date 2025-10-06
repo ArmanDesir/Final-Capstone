@@ -65,8 +65,7 @@ class _LessonQuizzesScreenState extends State<LessonQuizzesScreen> {
                   MaterialPageRoute(
                     builder: (_) => QuizScreen(
                       quizId: quiz['id'],
-                      questions: List<Map<String, dynamic>>.from(
-                          quiz['questions']),
+                      questions: List<Map<String, dynamic>>.from(quiz['questions'] ?? []),
                       userId: widget.userId,
                     ),
                   ),
