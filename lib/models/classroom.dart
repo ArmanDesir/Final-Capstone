@@ -2,7 +2,7 @@ class Classroom {
   final String id;
   final String name;
   final String teacherId;
-  final String description;
+  final String? description;
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<String> studentIds;
@@ -12,12 +12,13 @@ class Classroom {
   final String? code;
   final bool isActive;
   final bool isSynced;
+  int studentCount;
 
   Classroom({
     required this.id,
     required this.name,
     required this.teacherId,
-    required this.description,
+    this.description,
     required this.createdAt,
     required this.updatedAt,
     this.studentIds = const [],
@@ -27,6 +28,7 @@ class Classroom {
     this.code,
     this.isActive = true,
     this.isSynced = false,
+    this.studentCount = 0,
   });
 
   factory Classroom.fromJson(Map<String, dynamic> json) {
@@ -39,7 +41,7 @@ class Classroom {
       id: json['id'] as String,
       name: json['name'] as String,
       teacherId: json['teacher_id'] as String,
-      description: json['description'] as String,
+      description: json['description'] as String?,
       createdAt: parseDate(json['created_at']),
       updatedAt: parseDate(json['updated_at']),
       studentIds: (json['student_ids'] as List<dynamic>?)
@@ -61,6 +63,7 @@ class Classroom {
       code: json['code'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       isSynced: json['is_synced'] as bool? ?? false,
+      studentCount: 0,
     );
   }
 
@@ -94,6 +97,7 @@ class Classroom {
     String? code,
     bool? isActive,
     bool? isSynced,
+    int? studentCount,
   }) {
     return Classroom(
       id: id ?? this.id,
@@ -109,6 +113,7 @@ class Classroom {
       code: code ?? this.code,
       isActive: isActive ?? this.isActive,
       isSynced: isSynced ?? this.isSynced,
+      studentCount: studentCount ?? this.studentCount,
     );
   }
 }

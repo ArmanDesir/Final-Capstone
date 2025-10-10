@@ -87,23 +87,19 @@ class ClassroomProvider with ChangeNotifier {
           .eq('is_active', true)
           .order('created_at', ascending: false);
 
-      if (response == null) {
+      if (response == null || response is! List) {
         _teacherClassrooms = [];
-      } else if (response is List) {
-        _teacherClassrooms = response
-            .map((c) => Classroom.fromJson(Map<String, dynamic>.from(c)))
-            .toList();
       } else {
-        _teacherClassrooms = [];
+        _teacherClassrooms = response.map((c) {
+          final classroom = Classroom.fromJson(Map<String, dynamic>.from(c));
+          classroom.studentCount = classroom.studentIds?.length ?? 0;
+          return classroom;
+        }).toList();
       }
 
       notifyListeners();
     } catch (e, stack) {
-      Logger().e(
-        'Error loading teacher classrooms',
-        error: e,
-        stackTrace: stack,
-      );
+      Logger().e('Error loading teacher classrooms', error: e, stackTrace: stack);
       _setError(e.toString());
       _teacherClassrooms = [];
     } finally {
@@ -114,20 +110,11 @@ class ClassroomProvider with ChangeNotifier {
   Future<void> loadStudentClassrooms(String studentId) async {
     _setLoading(true);
     try {
-      final response = await _supabase
-          .from('classrooms')
-          .select()
-          .contains('student_ids', [studentId]);
-
-      _studentClassrooms =
-          (response as List).map((c) => Classroom.fromJson(c)).toList();
-
-      _currentClassroom =
-      _studentClassrooms.isNotEmpty ? _studentClassrooms.first : null;
-
+      _studentClassrooms = await _service.getStudentClassrooms(studentId);
+      _currentClassroom = _studentClassrooms.isNotEmpty ? _studentClassrooms.first : null;
       notifyListeners();
-    } catch (e) {
-      Logger().e('Error loading student classrooms: $e');
+    } catch (e, stack) {
+      Logger().e('Error loading student classrooms', error: e, stackTrace: stack);
       _setError(e.toString());
     } finally {
       _setLoading(false);
@@ -144,15 +131,34 @@ class ClassroomProvider with ChangeNotifier {
         await _databaseHelper.insertClassroom(classroom);
         _acceptedStudents = await _service.getAcceptedStudents(classroomId);
         _pendingStudents = await _service.getPendingStudents(classroomId);
+        _acceptedStudents.sort((a, b) => a.name.compareTo(b.name));
+        _pendingStudents.sort((a, b) => a.name.compareTo(b.name));
       }
-
       notifyListeners();
-    } catch (e) {
-      Logger().e('Error loading classroom details: $e');
+    } catch (e, stack) {
+      Logger().e('Error loading classroom details', error: e, stackTrace: stack);
       _setError(e.toString());
     } finally {
       _setLoading(false);
     }
+  }
+
+  Future<List<User>> getAcceptedStudentsFromIds(Classroom classroom) async {
+    final ids = classroom.studentIds ?? [];
+    if (ids.isEmpty) return [];
+
+    final response = await _supabase
+        .from('users')
+        .select()
+        .filter('id', 'in', '(${ids.map((e) => "'$e'").join(',')})')
+        .eq('user_type', 'student');
+
+    if (response == null || response is! List) return [];
+
+    return response
+        .map((u) => User.fromJson(Map<String, dynamic>.from(u)))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
   }
 
   Future<int> getCompletedLessonsCount({
@@ -190,29 +196,84 @@ class ClassroomProvider with ChangeNotifier {
     return completedCount;
   }
 
-  Future<void> acceptStudent(String classroomId, String studentId) async {
-    await _service.acceptStudent(
-      classroomId: classroomId,
-      studentId: studentId,
-    );
-    await loadClassroomDetails(classroomId);
-    await loadTeacherClassrooms();
+  Future<void> acceptStudent({
+    required String classroomId,
+    required String studentId,
+  }) async {
+    _setLoading(true);
+    try {
+      final updated = await _service.acceptStudent(
+        classroomId: classroomId,
+        studentId: studentId,
+      );
+      final response = await _supabase
+          .from('classrooms')
+          .select('student_ids')
+          .eq('id', classroomId)
+          .single();
+      final studentIds = List<String>.from(response['student_ids'] ?? []);
+      if (!studentIds.contains(studentId)) {
+        studentIds.add(studentId);
+        await _supabase
+            .from('classrooms')
+            .update({'student_ids': studentIds})
+            .eq('id', classroomId);
+      }
+      await loadClassroomDetails(classroomId);
+    } catch (e, stack) {
+      Logger().e('Error accepting student', error: e, stackTrace: stack);
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
   }
 
   Future<void> rejectStudent(String classroomId, String studentId) async {
-    await _service.rejectStudent(
-      classroomId: classroomId,
-      studentId: studentId,
-    );
+    await _service.rejectStudent(classroomId: classroomId, studentId: studentId);
+    final response = await _supabase
+        .from('classrooms')
+        .select('student_ids')
+        .eq('id', classroomId)
+        .single();
+
+    final studentIds = List<String>.from(response['student_ids'] ?? []);
+    studentIds.remove(studentId);
+    await _supabase
+        .from('classrooms')
+        .update({'student_ids': studentIds})
+        .eq('id', classroomId);
+
     await loadClassroomDetails(classroomId);
   }
 
   Future<void> removeStudent(String classroomId, String studentId) async {
-    await _service.removeStudent(
-      classroomId: classroomId,
-      studentId: studentId,
-    );
+    await _service.removeStudent(classroomId: classroomId, studentId: studentId);
+    final response = await _supabase
+        .from('classrooms')
+        .select('student_ids')
+        .eq('id', classroomId)
+        .single();
+
+    final studentIds = List<String>.from(response['student_ids'] ?? []);
+    studentIds.remove(studentId);
+    await _supabase
+        .from('classrooms')
+        .update({'student_ids': studentIds})
+        .eq('id', classroomId);
+
     await loadClassroomDetails(classroomId);
+    await loadTeacherClassrooms();
+  }
+
+  Future<Map<String, List<User>>> getStudentsGroupedByClassroom() async {
+    Map<String, List<User>> classroomStudents = {};
+
+    for (var classroom in _teacherClassrooms) {
+      final students = await _service.getAcceptedStudents(classroom.id);
+      classroomStudents[classroom.id] = students;
+    }
+
+    return classroomStudents;
   }
 
   Future<List<User>> getAcceptedStudentsForAllClassrooms() async {

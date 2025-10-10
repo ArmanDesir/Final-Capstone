@@ -70,7 +70,8 @@ class ClassroomService {
       'joined_at': DateTime.now().toIso8601String(),
     })
         .eq('classroom_id', classroomId)
-        .eq('user_id', studentId);
+        .eq('user_id', studentId)
+        .select();
 
     if (updated.isEmpty) {
       throw Exception('Student not found in pending list');
@@ -118,27 +119,63 @@ class ClassroomService {
     return Classroom.fromJson(response);
   }
 
-  Future<List<app_model.User>> getAcceptedStudents(String classroomId) async {
+  /// Fetch classrooms where a student has accepted the invitation
+  Future<List<Classroom>> getStudentClassrooms(String studentId) async {
     final response = await _supabase
         .from('user_classrooms')
-        .select('users(*)')
+        .select('classrooms(*)')
+        .eq('user_id', studentId)
+        .eq('status', 'accepted');
+
+    if (response == null || response is! List) return [];
+
+    return response.map((e) {
+      final classroomData = Map<String, dynamic>.from(e['classrooms']);
+      return Classroom.fromJson(classroomData);
+    }).toList();
+  }
+
+  Future<List<app_model.User>> getAcceptedStudents(String classroomId) async {
+    final userIdsResponse = await _supabase
+        .from('user_classrooms')
+        .select('user_id')
         .eq('classroom_id', classroomId)
         .eq('status', 'accepted');
 
-    return response
-        .map<app_model.User>((data) => app_model.User.fromJson(data['users']))
+    final userIds = (userIdsResponse as List)
+        .map((e) => e['user_id'] as String)
+        .toList();
+    if (userIds.isEmpty) return [];
+
+    final response = await _supabase
+        .from('users')
+        .select()
+        .filter('id', 'in', '(${userIds.join(",")})');
+
+    return (response as List)
+        .map((u) => app_model.User.fromJson(Map<String, dynamic>.from(u)))
         .toList();
   }
 
   Future<List<app_model.User>> getPendingStudents(String classroomId) async {
-    final response = await _supabase
+    final userIdsResponse = await _supabase
         .from('user_classrooms')
-        .select('users(*)')
+        .select('user_id')
         .eq('classroom_id', classroomId)
         .eq('status', 'pending');
 
-    return response
-        .map<app_model.User>((data) => app_model.User.fromJson(data['users']))
+    final userIds = (userIdsResponse as List)
+        .map((e) => e['user_id'] as String)
+        .toList();
+    if (userIds.isEmpty) return [];
+
+    final response = await _supabase
+        .from('users')
+        .select()
+        .filter('id', 'in', '(${userIds.join(",")})');
+
+    return (response as List)
+        .map((u) => app_model.User.fromJson(Map<String, dynamic>.from(u)))
         .toList();
   }
 

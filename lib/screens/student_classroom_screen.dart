@@ -240,9 +240,9 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
                     ),
                     const SizedBox(height: 8),
                     Text('Code: ${widget.classroom.code ?? ''}'),
-                    if (widget.classroom.description.isNotEmpty) ...[
+                    if ((widget.classroom.description ?? '').isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      Text(widget.classroom.description),
+                      Text(widget.classroom.description!),
                     ],
                   ],
                 ),

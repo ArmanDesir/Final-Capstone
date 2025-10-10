@@ -402,10 +402,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   void _showClassroomPicker(
       BuildContext context, List<Classroom> classrooms, User user) {
+    final joined = classrooms
+        .where((c) => c.studentIds.contains(user.id))
+        .toList();
+
     showModalBottomSheet(
       context: context,
       builder: (context) {
-        final joined = classrooms.where((c) => c.studentIds.contains(user.id));
         if (joined.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(20),
@@ -413,8 +416,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
           );
         }
 
-        return ListView(
-          children: joined.map((classroom) {
+        return ListView.builder(
+          itemCount: joined.length,
+          itemBuilder: (context, index) {
+            final classroom = joined[index];
             return ListTile(
               leading: const Icon(Icons.class_),
               title: Text(classroom.name),
@@ -424,13 +429,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        StudentClassroomScreen(classroom: classroom),
+                    builder: (_) => StudentClassroomScreen(classroom: classroom),
                   ),
                 );
               },
             );
-          }).toList(),
+          },
         );
       },
     );
