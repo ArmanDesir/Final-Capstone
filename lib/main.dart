@@ -5,9 +5,11 @@ import 'package:offline_first_app/providers/quiz_provider.dart';
 import 'package:offline_first_app/screens/student_dashboard.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'providers/auth_provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/classroom_provider.dart';
+import 'providers/activity_provider.dart';
 import 'models/user.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/home_screen.dart';
@@ -60,6 +62,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ClassroomProvider()),
         ChangeNotifierProvider(create: (_) => LessonProvider()),
         ChangeNotifierProvider(create: (_) => QuizProvider()),
+        ChangeNotifierProvider(create: (_) => ActivityProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -76,7 +79,7 @@ class MyApp extends StatelessWidget {
           '/profile': (context) => const ProfileScreen(),
           '/basic_operations': (context) => const BasicOperationsDashboard(),
           '/addition': (context) => const AdditionScreen(),
-          '/addition/lessons': (context) => const LessonListScreen(),
+          '/addition/lessons': (context) => const LessonListScreen(classroomId: '',),
           '/addition/quiz': (context) {
             final auth = Provider.of<AuthProvider>(context, listen: false);
             final userId = auth.currentUser!.id;

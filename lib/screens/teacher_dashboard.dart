@@ -6,6 +6,7 @@ import 'package:offline_first_app/providers/quiz_provider.dart';
 import 'package:offline_first_app/screens/QuizDetailsScreen.dart';
 import 'package:offline_first_app/screens/classroom_details_screen.dart';
 import 'package:offline_first_app/screens/manage_classrooms_screen.dart';
+import 'package:offline_first_app/screens/activity_logs_screen.dart';
 import 'package:provider/provider.dart';
 
 class CreateClassroomScreen extends StatelessWidget {
@@ -73,7 +74,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   final ScrollController _scrollController = ScrollController();
   int _lessonsCount = 0;
   int _quizzesCount = 0;
+
+  /// This holds the **deduped** list you’ll render.
   List<app_model.User> _acceptedStudents = [];
+
+  /// Keeping this in case other parts of your UI use it.
   Map<String, List<app_model.User>> _studentsByClassroom = {};
 
   @override
@@ -91,20 +96,34 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         final counts = await classroomProvider.getContentCountsForTeacher(teacherId);
         final acceptedStudents = await classroomProvider.getAcceptedStudentsForAllClassrooms();
         final groupedStudents = await classroomProvider.getStudentsGroupedByClassroom();
+        final uniqueStudents = _dedupeUsers(acceptedStudents)
+          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
 
         if (mounted) {
           setState(() {
             _lessonsCount = counts['lessons'] ?? 0;
             _quizzesCount = counts['quizzes'] ?? 0;
-            _acceptedStudents = acceptedStudents;
+            _acceptedStudents = uniqueStudents;
             _studentsByClassroom = groupedStudents;
           });
         }
-
       } catch (e, stack) {
         print(stack);
       }
     });
+  }
+
+  /// De-duplicate by id; if missing, fall back to email.
+  List<app_model.User> _dedupeUsers(List<app_model.User> users) {
+    final seen = <String>{};
+    final unique = <app_model.User>[];
+    for (final u in users) {
+      final key = (u.id ?? 'email:${u.email ?? ''}').trim();
+      if (key.isEmpty || seen.contains(key)) continue;
+      seen.add(key);
+      unique.add(u);
+    }
+    return unique;
   }
 
   void _scrollToClassrooms() {
@@ -117,13 +136,71 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     }
   }
 
+  /// Open a picker to choose which classroom’s activity to view
+  Future<void> _openActivityLogsPicker(BuildContext context) async {
+    final classroomProvider = Provider.of<ClassroomProvider>(context, listen: false);
+    final classrooms = classroomProvider.teacherClassrooms;
+
+    if (classrooms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No classrooms available.')),
+      );
+      return;
+    }
+
+    final chosen = await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                leading: Icon(Icons.school),
+                title: Text('Select a classroom'),
+                subtitle: Text('Open student activity for the selected class'),
+              ),
+              const Divider(height: 0),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: classrooms.length,
+                  itemBuilder: (_, i) {
+                    final c = classrooms[i];
+                    return ListTile(
+                      leading: const Icon(Icons.class_),
+                      title: Text(c.name),
+                      subtitle: Text('Code: ${c.code ?? ''} • Students: ${c.studentIds.length}'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () => Navigator.pop(sheetCtx, c),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (chosen != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ActivityLogsScreen(classroomId: chosen.id),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final classroomProvider = Provider.of<ClassroomProvider>(context);
     final quizProvider = Provider.of<QuizProvider>(context);
-
-    final acceptedStudentsCount = classroomProvider.teacherClassrooms
-        .fold<int>(0, (sum, c) => sum + c.studentIds.length);
+    final acceptedStudentsCount = _acceptedStudents.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -194,21 +271,40 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 'Manage Classroom',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              subtitle: const Text(
-                'Create, update, or delete your classrooms',
-              ),
+              subtitle: const Text('Create, update, or delete your classrooms'),
               onTap: () async {
                 await Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => ManageClassroomsScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => ManageClassroomsScreen()),
                 );
-                Provider.of<ClassroomProvider>(
-                  context,
-                  listen: false,
-                ).loadTeacherClassrooms();
+                Provider.of<ClassroomProvider>(context, listen: false)
+                    .loadTeacherClassrooms();
               },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.history, color: Colors.orange),
+              title: const Text(
+                'Student Activity',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text('View student activity logs for monitoring'),
+              onTap: () => _openActivityLogsPicker(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.calculate, color: Colors.indigo),
+              title: const Text(
+                'Basic Operations',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text('Addition, Subtraction, Multiplication, Division'),
+              onTap: () => Navigator.pushNamed(context, '/basic_operations'),
             ),
           ),
           const SizedBox(height: 24),
@@ -239,16 +335,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Colors.green.shade100,
-                      child: const Icon(
-                        Icons.class_,
-                        color: Colors.green,
-                      ),
+                      child: const Icon(Icons.class_, color: Colors.green),
                     ),
                     title: Text(
                       classroom.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
                       'Code: ${classroom.code ?? ''}\nStudents: ${classroom.studentIds.length}',
@@ -258,9 +349,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ClassroomDetailsScreen(
-                            classroom: classroom,
-                          ),
+                          builder: (_) => ClassroomDetailsScreen(classroom: classroom),
                         ),
                       );
                     },
@@ -273,9 +362,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => ManageClassroomsScreen(),
-                    ),
+                    MaterialPageRoute(builder: (_) => ManageClassroomsScreen()),
                   );
                 },
                 child: const Text('See All Classrooms'),
@@ -299,8 +386,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               children: _acceptedStudents.map((student) {
                 return Card(
                   child: ListTile(
-                    leading:
-                    const Icon(Icons.person, color: Colors.green),
+                    leading: const Icon(Icons.person, color: Colors.green),
                     title: Text(student.name ?? 'Unknown'),
                     subtitle: Text(student.email ?? 'No email'),
                     trailing: IconButton(
@@ -338,8 +424,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 child: ListTile(
                   leading: const Icon(Icons.quiz, color: Colors.purple),
                   title: Text(quiz['title'] ?? 'Untitled Quiz'),
-                  subtitle:
-                  Text('${quiz['questions']?.length ?? 0} Questions'),
+                  subtitle: Text('${quiz['questions']?.length ?? 0} Questions'),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -362,29 +447,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       height: 80,
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withAlpha((0.08 * 255).toInt()),
-          Colors.white,
-        ),
+        color: Color.alphaBlend(color.withAlpha((0.08 * 255).toInt()), Colors.white),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Color.alphaBlend(
-            color.withAlpha((0.2 * 255).toInt()),
-            Colors.white,
-          ),
+          color: Color.alphaBlend(color.withAlpha((0.2 * 255).toInt()), Colors.white),
         ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
+          Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 4),
           Text(label, style: TextStyle(fontSize: 16, color: color)),
         ],

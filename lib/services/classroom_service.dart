@@ -121,18 +121,17 @@ class ClassroomService {
 
   /// Fetch classrooms where a student has accepted the invitation
   Future<List<Classroom>> getStudentClassrooms(String studentId) async {
-    final response = await _supabase
-        .from('user_classrooms')
-        .select('classrooms(*)')
-        .eq('user_id', studentId)
-        .eq('status', 'accepted');
+    final rows = await _supabase
+        .from('classrooms')
+        .select()
+        .contains('student_ids', [studentId])
+        .eq('is_active', true)
+        .order('created_at', ascending: false);
 
-    if (response == null || response is! List) return [];
-
-    return response.map((e) {
-      final classroomData = Map<String, dynamic>.from(e['classrooms']);
-      return Classroom.fromJson(classroomData);
-    }).toList();
+    if (rows is! List) return [];
+    return rows
+        .map((c) => Classroom.fromJson(Map<String, dynamic>.from(c)))
+        .toList();
   }
 
   Future<List<app_model.User>> getAcceptedStudents(String classroomId) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'mock_data.dart';
 import 'lesson_view_screen.dart';
+import 'package:offline_first_app/models/lesson.dart';
 
 class LessonListScreen extends StatelessWidget {
   const LessonListScreen({Key? key}) : super(key: key);
@@ -15,20 +16,27 @@ class LessonListScreen extends StatelessWidget {
       body: ListView.builder(
         itemCount: additionLessons.length,
         itemBuilder: (context, index) {
-          final lesson = additionLessons[index];
+          final m = additionLessons[index] as Map<String, dynamic>;
+
+          final lesson = Lesson(
+            id: null,
+            title: m['title'] as String,
+            description: m['explanation'] as String?,
+            classroomId: 'mock-classroom',
+            youtubeUrl: m['videoUrl'] as String?,
+          );
+
+          final quizQuestions =
+              (m['quiz'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             color: Colors.orange[50],
             child: ListTile(
-              title: Text(
-                lesson['title'],
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+              title: Text(lesson.title, style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text(
-                lesson['explanation'],
+                lesson.description ?? '',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -37,13 +45,10 @@ class LessonListScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder:
-                        (_) => LessonViewScreen(
-                          lessonTitle: lesson['title'],
-                          explanation: lesson['explanation'],
-                          videoUrl: lesson['videoUrl'],
-                          quiz: lesson['quiz'],
-                        ),
+                    builder: (_) => LessonViewScreen(
+                      lesson: lesson,
+                      quizQuestions: quizQuestions,
+                    ),
                   ),
                 );
               },
