@@ -108,6 +108,11 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
         'p_classroom_id': widget.classroom.id,
       }) as List<dynamic>;
 
+      print('RPC rows: ${data.length}');
+      for (final e in data) {
+        print('RPC row -> title=${e['title']}, type=${e['type']}');
+      }
+
       final allContent = data.map((e) {
         return Content(
           id: e['lesson_id'] as String,
@@ -361,13 +366,16 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
     final isLocked = !content.isUnlocked;
 
     return Stack(
+      alignment: Alignment.center,
       children: [
         Card(
+          elevation: isLocked ? 0 : 2,
           margin: const EdgeInsets.only(bottom: 12),
-          color: isLocked ? Colors.grey[200] : Colors.white,
+          color: isLocked ? Colors.grey[100] : Colors.white,
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: content.type.color.withOpacity(isLocked ? 0.05 : 0.1),
+              backgroundColor:
+              content.type.color.withOpacity(isLocked ? 0.05 : 0.15),
               child: Icon(
                 content.type.icon,
                 color: isLocked ? Colors.grey : content.type.color,
@@ -377,42 +385,43 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
               content.title,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: isLocked ? Colors.grey : Colors.black,
+                color: isLocked ? Colors.grey[500] : Colors.black,
               ),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (content.type != ContentType.quiz && content.description != null) ...[
-                  Text(
-                    content.description!,
-                    style: TextStyle(color: isLocked ? Colors.grey : Colors.black),
+                if (content.description != null && content.description!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
+                    child: Text(
+                      content.description!,
+                      style: TextStyle(
+                        color: isLocked ? Colors.grey[400] : Colors.grey[700],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                ],
                 Row(
                   children: [
-                    if (content.type != ContentType.quiz && content.fileSize != null) ...[
-                      Icon(Icons.file_present, size: 16, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatFileSize(content.fileSize!),
-                        style: TextStyle(fontSize: 12, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
-                      ),
-                      const SizedBox(width: 16),
-                    ],
-                    Icon(Icons.calendar_today, size: 16, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
+                    Icon(Icons.calendar_today,
+                        size: 14,
+                        color: isLocked ? Colors.grey[400] : Colors.grey[600]),
                     const SizedBox(width: 4),
                     Text(
                       _formatDate(content.createdAt),
-                      style: TextStyle(fontSize: 12, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isLocked ? Colors.grey[400] : Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
             isThreeLine: true,
-            trailing: Icon(Icons.chevron_right, color: isLocked ? Colors.grey : Colors.black),
+            trailing: isLocked
+                ? const Icon(Icons.lock_outline, color: Colors.redAccent)
+                : const Icon(Icons.chevron_right),
             onTap: content.isUnlocked
                 ? () {
               Navigator.push(
@@ -422,17 +431,27 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
                 ),
               );
             }
-                : null,
+                : () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Lesson locked. Complete the previous quiz to unlock.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
           ),
         ),
+
         if (isLocked)
-          Positioned(
-            top: 0,
-            right: 0,
+          Positioned.fill(
             child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-              child: const Icon(Icons.close, size: 16, color: Colors.white),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Icon(Icons.lock, color: Colors.white, size: 40),
+              ),
             ),
           ),
       ],

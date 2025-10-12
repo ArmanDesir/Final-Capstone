@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/models/activity_progress.dart';
+import 'package:offline_first_app/models/classroom.dart';
+import 'package:offline_first_app/models/user.dart' as local;
+import 'package:offline_first_app/providers/auth_provider.dart';
+import 'package:offline_first_app/providers/classroom_provider.dart';
+import 'package:offline_first_app/screens/join_classroom_screen.dart';
+import 'package:offline_first_app/screens/student_classroom_screen.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../providers/classroom_provider.dart';
-import '../models/classroom.dart';
-import '../models/user.dart';
-import 'student_classroom_screen.dart';
-import 'join_classroom_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -16,37 +18,61 @@ class StudentDashboard extends StatefulWidget {
 
 class _StudentDashboardState extends State<StudentDashboard> {
   int _completedLessons = 0;
+  List<ActivityProgress> _recentActivities = [];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final user = authProvider.currentUser;
-      if (user != null) {
-        final classroomProvider =
-        Provider.of<ClassroomProvider>(context, listen: false);
-        await classroomProvider.loadStudentClassrooms(user.id);
-        for (var c in classroomProvider.studentClassrooms) {
-        }
-        final currentClassroom = classroomProvider.studentClassrooms.isNotEmpty
-            ? classroomProvider.studentClassrooms.first
-            : null;
+    _initializeDashboard();
+  }
 
-        if (currentClassroom != null) {
-          final completed = await classroomProvider.getCompletedLessonsCount(
-            studentId: user.id,
-            classroomId: currentClassroom.id,
-          );
+  Future<void> _initializeDashboard() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.currentUser;
 
-          setState(() {
-            _completedLessons = completed;
-          });
-        } else {
-        }
-      } else {
+    if (user == null) return;
+
+    final classroomProvider =
+    Provider.of<ClassroomProvider>(context, listen: false);
+
+    await classroomProvider.loadStudentClassrooms(user.id);
+    await _loadRecentActivity(user.id);
+
+    final currentClassroom = classroomProvider.studentClassrooms.isNotEmpty
+        ? classroomProvider.studentClassrooms.first
+        : null;
+
+    if (currentClassroom != null) {
+      final completed = await classroomProvider.getCompletedLessonsCount(
+        studentId: user.id,
+        classroomId: currentClassroom.id,
+      );
+
+      if (mounted) {
+        setState(() {
+          _completedLessons = completed;
+        });
       }
-    });
+    }
+  }
+
+  Future<void> _loadRecentActivity(String userId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('activity_progress_by_classroom')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(5);
+
+      final data = response as List;
+      setState(() {
+        _recentActivities =
+            data.map((json) => ActivityProgress.fromJson(json)).toList();
+      });
+    } catch (e) {
+      debugPrint('❌ Failed to load recent activity: $e');
+    }
   }
 
   @override
@@ -138,9 +164,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  Widget _buildQuickStats(ClassroomProvider classroomProvider, User? user) {
+  Widget _buildQuickStats(
+      ClassroomProvider classroomProvider, local.User? user) {
     final joinedClassrooms = classroomProvider.studentClassrooms.length;
-
     final contentCount = 0;
 
     return Row(
@@ -193,7 +219,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildClassroomStatus(
-      ClassroomProvider classroomProvider, User? user) {
+      ClassroomProvider classroomProvider, local.User? user) {
     final classroom = classroomProvider.currentClassroom;
 
     if (user?.classroomId == null) {
@@ -356,7 +382,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  Widget _buildQuickActions(ClassroomProvider classroomProvider, User? user) {
+  Widget _buildQuickActions(
+      ClassroomProvider classroomProvider, local.User? user) {
     final classrooms = classroomProvider.studentClassrooms;
     final hasActiveClassrooms =
         user != null && classrooms.any((c) => c.studentIds.contains(user.id));
@@ -401,10 +428,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   void _showClassroomPicker(
-      BuildContext context, List<Classroom> classrooms, User user) {
-    final joined = classrooms
-        .where((c) => c.studentIds.contains(user.id))
-        .toList();
+      BuildContext context, List<Classroom> classrooms, local.User user) {
+    final joined =
+    classrooms.where((c) => c.studentIds.contains(user.id)).toList();
 
     showModalBottomSheet(
       context: context,
@@ -429,7 +455,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => StudentClassroomScreen(classroom: classroom),
+                    builder: (_) =>
+                        StudentClassroomScreen(classroom: classroom),
                   ),
                 );
               },
@@ -449,28 +476,68 @@ class _StudentDashboardState extends State<StudentDashboard> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Icon(Icons.history, size: 48, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                const Text(
-                  'No recent activity',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Your learning progress will appear here',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ],
+        if (_recentActivities.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Icon(Icons.history, size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No recent activity',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Your learning progress will appear here',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                ],
+              ),
             ),
+          )
+        else
+          Column(
+            children: _recentActivities.map((activity) {
+              return Card(
+                child: ListTile(
+                  leading: Icon(
+                    _iconForEntityType(activity.entityType),
+                    color: Colors.blueAccent,
+                  ),
+                  title: Text(activity.entityTitle ?? 'Unknown'),
+                  subtitle: Text(
+                      '${activity.entityType.toUpperCase()} · ${_formatTimeAgo(activity.createdAt)}'),
+                  trailing: activity.score != null
+                      ? Text('Score: ${activity.score}')
+                      : null,
+                ),
+              );
+            }).toList(),
           ),
-        ),
       ],
     );
+  }
+
+  IconData _iconForEntityType(String type) {
+    switch (type.toLowerCase()) {
+      case 'lesson':
+        return Icons.menu_book;
+      case 'quiz':
+        return Icons.quiz;
+      case 'exercise':
+        return Icons.description;
+      default:
+        return Icons.history;
+    }
+  }
+
+  String _formatTimeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) return '${diff.inHours} hrs ago';
+    return '${diff.inDays} days ago';
   }
 }

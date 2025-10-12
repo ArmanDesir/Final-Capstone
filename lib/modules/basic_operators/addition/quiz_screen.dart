@@ -81,32 +81,35 @@ class _QuizScreenState extends State<QuizScreen>
   Future<void> _saveProgress() async {
     try {
       final client = Supabase.instance.client;
-      final res = await client
+      final total = widget.questions.length;
+      final percent = (_score / total * 100).round();
+
+      final existing = await client
           .from('quiz_progress')
           .select()
           .eq('user_id', widget.userId)
           .eq('quiz_id', widget.quizId)
           .maybeSingle();
 
-      final total = widget.questions.length;
-      final percent = (_score / total * 100).round();
-
-      if (res == null) {
+      if (existing == null || existing.isEmpty) {
         await client.from('quiz_progress').insert({
           'user_id': widget.userId,
           'quiz_id': widget.quizId,
           'try1_score': percent,
           'highest_score': percent,
           'attempts_count': 1,
+          'updated_at': DateTime.now().toIso8601String(),
         });
       } else {
-        int attempts = (res['attempts_count'] ?? 0) + 1;
-        int try1 = res['try1_score'] ?? 0;
-        int try2 = res['try2_score'] ?? 0;
-        int try3 = res['try3_score'] ?? 0;
+        int attempts = (existing['attempts_count'] ?? 0) + 1;
+        if (attempts > 3) attempts = 3;
 
-        if (attempts == 2) try2 = percent;
-        if (attempts == 3) try3 = percent;
+        int try1 = existing['try1_score'] ?? 0;
+        int try2 = existing['try2_score'] ?? 0;
+        int try3 = existing['try3_score'] ?? 0;
+
+        if (attempts == 2 && try2 == 0) try2 = percent;
+        if (attempts == 3 && try3 == 0) try3 = percent;
 
         final highest = [try1, try2, try3, percent].reduce((a, b) => a > b ? a : b);
 
@@ -119,7 +122,11 @@ class _QuizScreenState extends State<QuizScreen>
           'updated_at': DateTime.now().toIso8601String(),
         }).eq('user_id', widget.userId).eq('quiz_id', widget.quizId);
       }
-    } catch (_) {}
+
+      debugPrint('✅ Quiz progress saved: $percent%');
+    } catch (e, st) {
+      debugPrint('❌ Failed to save quiz progress: $e\n$st');
+    }
   }
 
   @override

@@ -62,7 +62,10 @@ class ClassroomService {
     });
   }
 
-  Future<void> acceptStudent({required String classroomId, required String studentId,}) async {
+  Future<void> acceptStudent({
+    required String classroomId,
+    required String studentId,
+  }) async {
     final updated = await _supabase
         .from('user_classrooms')
         .update({
@@ -76,6 +79,24 @@ class ClassroomService {
     if (updated.isEmpty) {
       throw Exception('Student not found in pending list');
     }
+
+    final classroom = await _supabase
+        .from('classrooms')
+        .select('student_ids')
+        .eq('id', classroomId)
+        .single();
+    final studentIds = List<String>.from(classroom['student_ids'] ?? const []);
+
+    if (!studentIds.contains(studentId)) {
+      studentIds.add(studentId);
+      await _supabase
+          .from('classrooms')
+          .update({
+        'student_ids': studentIds,
+        'updated_at': DateTime.now().toIso8601String(),
+      })
+          .eq('id', classroomId);
+    }
   }
 
   Future<void> rejectStudent({required String classroomId, required String studentId,}) async {
@@ -87,13 +108,32 @@ class ClassroomService {
         .eq('status', 'pending');
   }
 
-  Future<void> removeStudent({required String classroomId, required String studentId,}) async {
+  Future<void> removeStudent({
+    required String classroomId,
+    required String studentId,
+  }) async {
     await _supabase
         .from('user_classrooms')
         .delete()
         .eq('classroom_id', classroomId)
         .eq('user_id', studentId)
         .eq('status', 'accepted');
+    final classroom = await _supabase
+        .from('classrooms')
+        .select('student_ids')
+        .eq('id', classroomId)
+        .maybeSingle();
+
+    if (classroom != null) {
+      final List<dynamic> studentIds =
+      (classroom['student_ids'] as List<dynamic>? ?? []).toList();
+      studentIds.remove(studentId);
+
+      await _supabase.from('classrooms').update({
+        'student_ids': studentIds,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', classroomId);
+    }
   }
 
   Future<Classroom?> getClassroomByCode(String code) async {

@@ -202,23 +202,7 @@ class ClassroomProvider with ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      final updated = await _service.acceptStudent(
-        classroomId: classroomId,
-        studentId: studentId,
-      );
-      final response = await _supabase
-          .from('classrooms')
-          .select('student_ids')
-          .eq('id', classroomId)
-          .single();
-      final studentIds = List<String>.from(response['student_ids'] ?? []);
-      if (!studentIds.contains(studentId)) {
-        studentIds.add(studentId);
-        await _supabase
-            .from('classrooms')
-            .update({'student_ids': studentIds})
-            .eq('id', classroomId);
-      }
+      await _service.acceptStudent(classroomId: classroomId, studentId: studentId);
       await loadClassroomDetails(classroomId);
     } catch (e, stack) {
       Logger().e('Error accepting student', error: e, stackTrace: stack);
