@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/models/classroom.dart';
+import 'package:offline_first_app/models/content.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:offline_first_app/screens/lesson_detail_screen.dart';
-import '../models/classroom.dart';
-import '../models/content.dart';
 
 class StudentClassroomScreen extends StatefulWidget {
   final Classroom classroom;
