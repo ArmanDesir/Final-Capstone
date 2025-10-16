@@ -6,7 +6,13 @@ import 'game_theme.dart';
 
 class NinjaMathGameScreen extends StatefulWidget {
   final String difficulty;
-  const NinjaMathGameScreen({super.key, required this.difficulty});
+  final Map<String, dynamic>? config; // ✅ new dynamic config
+
+  const NinjaMathGameScreen({
+    super.key,
+    required this.difficulty,
+    this.config, required String operator,
+  });
 
   @override
   State<NinjaMathGameScreen> createState() => _NinjaMathGameScreenState();
@@ -26,27 +32,21 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   @override
   void initState() {
     super.initState();
-    _setTimer();
+    _applyConfig();
     _rounds = _generateRounds();
     _startTimer();
   }
 
-  void _setTimer() {
-    if (widget.difficulty == 'Easy') {
-      _remainingSeconds = 300;
-    } else if (widget.difficulty == 'Medium') {
-      _remainingSeconds = 420;
-    } else {
-      _remainingSeconds = 600;
-    }
+  void _applyConfig() {
+    final cfg = widget.config ?? {};
+    final timeSec = cfg['timeSec'] ?? 300;
+    _remainingSeconds = timeSec;
   }
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
-        setState(() {
-          _remainingSeconds--;
-        });
+        setState(() => _remainingSeconds--);
       } else {
         _finishGame();
       }
@@ -54,14 +54,17 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   }
 
   List<_TargetRound> _generateRounds() {
-    int max = 10;
-    if (widget.difficulty == 'Medium') max = 20;
-    if (widget.difficulty == 'Hard') max = 50;
+    final cfg = widget.config ?? {};
+    final min = cfg['min'] ?? 1;
+    final max = cfg['max'] ?? 10;
+
     List<_TargetRound> list = [];
     for (int i = 0; i < _totalRounds; i++) {
       int numCount = 4 + _random.nextInt(2);
-      List<int> numbers = List.generate(numCount, (_) => 1 + _random.nextInt(max));
+      List<int> numbers =
+      List.generate(numCount, (_) => min + _random.nextInt(max - min + 1));
       numbers.shuffle();
+
       int solutionCount = 2 + _random.nextInt(numCount - 1);
       List<int> solution = numbers.sublist(0, solutionCount);
       int target = solution.reduce((a, b) => a + b);
@@ -72,16 +75,10 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
 
   void _finishGame() {
     if (_timer.isActive) _timer.cancel();
-    setState(() {
-      _gameFinished = true;
-    });
+    setState(() => _gameFinished = true);
 
-    final elapsed = (widget.difficulty == 'Easy'
-        ? 300
-        : widget.difficulty == 'Medium'
-        ? 420
-        : 600) -
-        _remainingSeconds;
+    final elapsed =
+        (widget.config?['timeSec'] ?? 300) - _remainingSeconds;
 
     showDialog(
       context: context,
@@ -148,16 +145,13 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   Widget build(BuildContext context) {
     if (_gameFinished) return const SizedBox.shrink();
     final round = _rounds[_current];
-    final currentSum = _selectedIndices.fold(0, (a, i) => a + round.numbers[i]);
+    final currentSum =
+    _selectedIndices.fold(0, (a, i) => a + round.numbers[i]);
 
     return WillPopScope(
       onWillPop: () async {
-        final elapsed = (widget.difficulty == 'Easy'
-            ? 300
-            : widget.difficulty == 'Medium'
-            ? 420
-            : 600) -
-            _remainingSeconds;
+        final elapsed =
+            (widget.config?['timeSec'] ?? 300) - _remainingSeconds;
         Navigator.pop(context, {
           'score': _score,
           'elapsed': elapsed,
@@ -200,18 +194,16 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
               const SizedBox(height: 12),
               _buildTarget(round.target),
               const SizedBox(height: 16),
-              Text(
-                'Current sum: $currentSum',
-                style: GameTheme.tileText,
-              ),
+              Text('Current sum: $currentSum', style: GameTheme.tileText),
               const SizedBox(height: 32),
               _buildNumberBank(round.numbers),
               const SizedBox(height: 32),
               GameButton(
                 text: 'Submit',
                 onTap: _selectedIndices.isNotEmpty ? _submit : () {},
-                color:
-                _selectedIndices.isNotEmpty ? GameTheme.primary : GameTheme.tile,
+                color: _selectedIndices.isNotEmpty
+                    ? GameTheme.primary
+                    : GameTheme.tile,
               ),
             ],
           ),
@@ -227,7 +219,8 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
         CircleAvatar(
           backgroundColor: GameTheme.mascot,
           radius: 28,
-          child: Icon(Icons.sports_martial_arts, color: Colors.white, size: 36),
+          child:
+          const Icon(Icons.sports_martial_arts, color: Colors.white, size: 36),
         ),
         const SizedBox(width: 12),
         Text('Be a Math Ninja!', style: GameTheme.mascotText),

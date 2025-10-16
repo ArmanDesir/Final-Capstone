@@ -6,7 +6,7 @@ import 'package:offline_first_app/providers/basic_operator_quiz_provider.dart';
 import 'package:offline_first_app/providers/basic_operator_exercise_provider.dart';
 import 'package:offline_first_app/providers/lesson_provider.dart';
 import 'package:offline_first_app/providers/quiz_provider.dart';
-import 'package:offline_first_app/screens/basic_operator_lessonandquiz_page.dart';
+import 'package:offline_first_app/screens/basic_operator_module_page.dart';
 import 'package:offline_first_app/screens/create_content_screen.dart';
 import 'package:offline_first_app/screens/student_dashboard.dart';
 import 'package:provider/provider.dart';
@@ -79,7 +79,7 @@ class MyApp extends StatelessWidget {
           if (validOperators.contains(settings.name?.replaceFirst('/', ''))) {
             final operatorName = settings.name!.replaceFirst('/', '');
             return MaterialPageRoute(
-              builder: (_) => BasicOperatorLessonAndQuizPage(operatorName: operatorName),
+              builder: (_) => BasicOperatorModulePage(operatorName: operatorName),
             );
           }
           return null;

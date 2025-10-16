@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:offline_first_app/screens/basic_operator_create_game.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:offline_first_app/screens/basic_operator_lessonandquiz_page.dart';
+import 'package:offline_first_app/screens/basic_operator_module_page.dart';
 
 class BasicOperationsDashboard extends StatefulWidget {
   const BasicOperationsDashboard({super.key});
@@ -132,17 +133,16 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
                 backgroundColor: color,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                textStyle: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
+                textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        BasicOperatorLessonAndQuizPage(operatorName: operatorName),
+                    builder: (_) => BasicOperatorModulePage(
+                      operatorName: operatorName,
+                    ),
                   ),
                 );
               },
@@ -187,6 +187,18 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
                     ),
                     child: const Text('Create Exercise'),
                   ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BasicOperatorCreateGamePage(
+                          operatorKey: operatorName,
+                        ),
+                      ),
+                    ),
+                    child: const Text('Create Game'),
+                  ),
                 ],
               ),
             ),
@@ -220,7 +232,7 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
             context,
             MaterialPageRoute(
               builder: (_) =>
-                  BasicOperatorLessonAndQuizPage(operatorName: operatorName),
+                  BasicOperatorModulePage(operatorName: operatorName),
             ),
           );
         },

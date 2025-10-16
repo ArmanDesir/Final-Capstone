@@ -1,16 +1,29 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'crossword_cell.dart';
-import 'crossword_grid_generator.dart';
-import 'game_theme.dart';
+import 'package:offline_first_app/modules/basic_operators/addition/crossword_cell.dart';
+import 'package:offline_first_app/modules/basic_operators/addition/crossword_grid_generator.dart';
+import 'package:offline_first_app/modules/basic_operators/addition/game_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 class CrosswordMathGameScreen extends StatefulWidget {
+  final String operator;
   final String difficulty;
-  const CrosswordMathGameScreen({super.key, required this.difficulty});
+  final Map<String, dynamic>? config;
+  final String? classroomId; // optional
+
+  const CrosswordMathGameScreen({
+    super.key,
+    required this.operator,
+    required this.difficulty,
+    this.config,
+    this.classroomId,
+  });
 
   @override
-  State<CrosswordMathGameScreen> createState() => _CrosswordMathGameScreenState();
+  State<CrosswordMathGameScreen> createState() =>
+      _CrosswordMathGameScreenState();
 }
 
 class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
@@ -18,11 +31,13 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
   Timer? _timer;
 
   late List<List<CrosswordCell>> _grid;
-  late List<BankNumber> _bank;
-
   bool _finished = false;
   int _correct = 0;
   int _totalBlanks = 0;
+  bool _isLoading = true;
+
+  final Map<String, TextEditingController> _controllers = {};
+  final supabase = Supabase.instance.client;
 
   @override
   void initState() {
@@ -30,17 +45,61 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     _bootstrap();
   }
 
-  void _bootstrap() {
-    final gen = CrosswordGridGenerator.additionGrid(widget.difficulty);
-    _grid = gen.grid;
-    _bank = gen.bank;
+  Future<void> _bootstrap() async {
+    final min = widget.config?['min'] ?? 1;
+    final max = widget.config?['max'] ?? 10;
+    final timeSec = widget.config?['timeSec'] ?? 180;
 
-    _totalBlanks = _grid
-        .expand((r) => r)
-        .where((c) => c.type == CellType.blank)
-        .length;
-    _remainingSeconds = CrosswordGridGenerator.timers(widget.difficulty)['timeSec']!;
-    _startTimer();
+    try {
+      final puzzle = await supabase
+          .from('crossword_puzzles')
+          .select()
+          .eq('operator', widget.operator)
+          .eq('difficulty', widget.difficulty.toLowerCase())
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (puzzle != null) {
+        debugPrint('🧩 Loaded puzzle for ${widget.operator} (${widget.difficulty})');
+        final gridData = puzzle['grid'] as List;
+        _grid = gridData
+            .map((r) => (r as List)
+            .map((c) => CrosswordCell.fromJson(c as Map<String, dynamic>))
+            .toList())
+            .toList();
+      } else {
+        debugPrint('⚙️ No puzzle found, generating random...');
+        final gen = CrosswordGridGenerator.generate(
+          operator: widget.operator,
+          difficulty: widget.difficulty,
+          minVal: min,
+          maxVal: max,
+        );
+        _grid = gen.grid;
+      }
+
+      _totalBlanks =
+          _grid.expand((r) => r).where((c) => c.type == CellType.blank).length;
+
+      _remainingSeconds = timeSec;
+      _isLoading = false;
+      _startTimer();
+      setState(() {});
+    } catch (e, st) {
+      debugPrint('❌ Failed to load puzzle: $e\n$st');
+      final gen = CrosswordGridGenerator.generate(
+        operator: widget.operator,
+        difficulty: widget.difficulty,
+        minVal: min,
+        maxVal: max,
+      );
+      _grid = gen.grid;
+      _remainingSeconds = timeSec;
+      _isLoading = false;
+      _startTimer();
+      setState(() {});
+    }
   }
 
   void _startTimer() {
@@ -54,12 +113,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
   void _finish() {
     _timer?.cancel();
     setState(() => _finished = true);
@@ -67,50 +120,144 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     _showResultDialog();
   }
 
+  /// ✅ Validate each equation row
   int _countCorrect() {
     int ok = 0;
-    for (final cell in _grid.expand((r) => r)) {
-      if (cell.type == CellType.blank && cell.value != null) {
-        final v = int.tryParse(cell.value!);
-        if (v != null && v == cell.answer) ok++;
+    for (final row in _grid) {
+      final numCell = row.firstWhere(
+            (c) => c.type == CellType.number,
+        orElse: () => CrosswordCell(row: -1, col: -1, type: CellType.empty),
+      );
+      final opCell = row.firstWhere(
+            (c) => c.type == CellType.operator,
+        orElse: () => CrosswordCell(row: -1, col: -1, type: CellType.empty),
+      );
+      final blankCell = row.firstWhere(
+            (c) => c.type == CellType.blank,
+        orElse: () => CrosswordCell(row: -1, col: -1, type: CellType.empty),
+      );
+      final ansCell = row.firstWhere(
+            (c) => c.type == CellType.answer,
+        orElse: () => CrosswordCell(row: -1, col: -1, type: CellType.empty),
+      );
+
+      if (blankCell.row == -1) continue;
+
+      final left = int.tryParse(numCell.value ?? '');
+      final right = int.tryParse(blankCell.value ?? '');
+      final expected = int.tryParse(ansCell.value ?? '');
+      final op = opCell.value;
+
+      if (left == null || right == null || expected == null || op == null) continue;
+
+      bool correct = false;
+      switch (op) {
+        case '+':
+          correct = (left + right == expected);
+          break;
+        case '-':
+          correct = (left - right == expected);
+          break;
+        case '×':
+        case '*':
+          correct = (left * right == expected);
+          break;
+        case '÷':
+        case '/':
+          if (right != 0) correct = (left / right == expected);
+          break;
       }
+
+      blankCell.isCorrect = correct;
+      if (correct) ok++;
     }
     return ok;
   }
 
-  void _checkAnswers() {
-    HapticFeedback.lightImpact();
+  /// ✅ Record game and activity progress
+  Future<void> _recordGameProgress(int score, int elapsed) async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
 
-    int ok = 0;
-    for (final cell in _grid.expand((r) => r)) {
-      if (cell.type == CellType.blank) {
-        final v = int.tryParse(cell.value ?? '');
-        final correct = (v != null && v == cell.answer);
-        cell.isCorrect = correct;
-        if (correct) ok++;
+      final gameName = '${widget.operator}_crossmath';
+      final difficulty = widget.difficulty.toLowerCase();
+      final status = score == _totalBlanks ? 'completed' : 'incomplete';
+      final sourceId = const Uuid().v4();
+
+      // 1️⃣ Insert into game_progress
+      await supabase.from('game_progress').insert({
+        'user_id': user.id,
+        'game_name': gameName,
+        'difficulty': difficulty,
+        'score': score,
+        'elapsed_time': elapsed,
+        'status': status,
+        'tries': 1,
+      });
+
+      // 2️⃣ Insert into activity_progress_by_classroom (if applicable)
+      if (widget.classroomId != null) {
+        await supabase.from('activity_progress_by_classroom').insert({
+          'source': 'game',
+          'source_id': sourceId,
+          'user_id': user.id,
+          'entity_type': 'crossmath',
+          'entity_id': null,
+          'entity_title': gameName,
+          'stage': difficulty,
+          'score': score,
+          'status': status,
+          'classroom_id': widget.classroomId,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        });
       }
+
+      debugPrint('✅ Progress saved: $score / $_totalBlanks');
+    } catch (e) {
+      debugPrint('❌ Failed to record progress: $e');
     }
+  }
+
+  /// ✅ Automatically record on submit
+  void _checkAnswers() async {
+    HapticFeedback.lightImpact();
+    final ok = _countCorrect();
     setState(() => _correct = ok);
+
+    // Record immediately upon checking answers (before dialog)
+    final elapsed = (widget.config?['timeSec'] ?? 180) - _remainingSeconds;
+    await _recordGameProgress(ok, elapsed);
+
     _showResultDialog();
   }
 
   void _showResultDialog() {
-    final elapsed = CrosswordGridGenerator.timers(widget.difficulty)['timeSec']! - _remainingSeconds;
+    final elapsed = (widget.config?['timeSec'] ?? 180) - _remainingSeconds;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: Text(_correct == _totalBlanks ? 'Amazing!' : 'Nice Work!'),
-        content: Text('You got $_correct / $_totalBlanks.\nTime: ${_fmt(_remainingSeconds)} left.'),
+        content: Text(
+          'You got $_correct / $_totalBlanks.\nTime left: ${_fmt(_remainingSeconds)}.',
+        ),
         actions: [
           TextButton(
-            onPressed: () { Navigator.pop(context); _reset(); },
+            onPressed: () {
+              Navigator.pop(context);
+              _reset(); // try again but progress already saved
+            },
             child: const Text('Try Again'),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pop(context, {'score': _correct, 'elapsed': elapsed});
+              Navigator.pop(context, {
+                'score': _correct,
+                'elapsed': elapsed,
+              });
             },
             child: const Text('Go Back'),
           ),
@@ -127,30 +274,51 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
           c.isCorrect = false;
         }
       }
-      for (final b in _bank) { b.used = false; }
       _correct = 0;
       _finished = false;
-      _remainingSeconds = CrosswordGridGenerator.timers(widget.difficulty)['timeSec']!;
+      _remainingSeconds = widget.config?['timeSec'] ?? 180;
       _startTimer();
     });
   }
 
-  String _fmt(int s) => '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+  String _fmt(int s) =>
+      '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final timeText = _fmt(_remainingSeconds);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.difficulty} CrossMath'),
+        title: Text(
+          '${widget.operator[0].toUpperCase()}${widget.operator.substring(1)} - ${widget.difficulty} CrossMath',
+        ),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
-              child: Text(timeText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              child: Text(
+                timeText,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
             ),
           ),
         ],
@@ -169,34 +337,23 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
                   ],
                 ),
               const SizedBox(height: 24),
-
-              const Text('Drag numbers to fill the blanks:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.deepPurple)),
-              const SizedBox(height: 12),
-
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (final n in _bank.where((b) => !b.used))
-                    _draggableNumber(n),
-                ],
-              ),
+              _buildLegend(),
               const SizedBox(height: 24),
-
               ElevatedButton(
                 onPressed: _checkAnswers,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                 ),
                 child: const Text('Check Answers', style: TextStyle(fontSize: 18)),
               ),
-
               const SizedBox(height: 8),
-              Text('Correct: $_correct / $_totalBlanks', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                'Correct: $_correct / $_totalBlanks',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
         ),
@@ -204,93 +361,119 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     );
   }
 
+  Widget _buildLegend() {
+    return Column(
+      children: [
+        const Text(
+          '🧭 LEGEND',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _legendTile(Colors.purple[100]!, 'Given Number / Answer'),
+            _legendTile(Colors.blue[100]!, 'Operator (+, -, ×, ÷)'),
+            _legendTile(Colors.green[100]!, 'Equal (=)'),
+            _legendTile(Colors.grey[100]!, 'Your Answer (type here)'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _legendTile(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 14)),
+      ],
+    );
+  }
+
   Widget _buildCell(CrosswordCell cell) {
     switch (cell.type) {
       case CellType.blank:
-        return _dropTarget(cell);
+        return _editableCell(cell);
       default:
         return _staticTile(cell);
     }
   }
 
-  Widget _dropTarget(CrosswordCell cell) {
-    return DragTarget<BankNumber>(
-      onWillAccept: (data) => true,
-      onAccept: (data) {
-        setState(() {
-          final prev = int.tryParse(cell.value ?? '');
-          if (prev != null) {
-            final maybe = _bank.firstWhere(
-                  (b) => b.value == prev && b.used == true,
-              orElse: () => BankNumber(id: -1, value: -1, used: false),
-            );
-            if (maybe.id != -1) maybe.used = false;
-          }
-          cell.value = data.value.toString();
-          data.used = true;
-          cell.isCorrect = (cell.answer == data.value);
-          HapticFeedback.selectionClick();
-        });
-      },
-      builder: (context, cand, rej) {
-        final hovered = cand.isNotEmpty;
-        final border = cell.isCorrect ? GameTheme.correct : (hovered ? Colors.blue : Colors.grey);
-        final fill   = cell.isCorrect ? Colors.green[100] : (hovered ? Colors.blue[50] : Colors.grey[100]);
-        return Container(
-          width: 60, height: 60, margin: const EdgeInsets.all(4),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(GameTheme.borderRadius),
-            border: Border.all(color: border, width: 2),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 4, offset: const Offset(0, 2))],
-          ),
-          child: Text(cell.value ?? '', style: GameTheme.tileText),
-        );
-      },
+  Widget _editableCell(CrosswordCell cell) {
+    final key = '${cell.row}-${cell.col}';
+    if (!_controllers.containsKey(key)) {
+      _controllers[key] = TextEditingController(text: cell.value ?? '');
+    }
+    final controller = _controllers[key]!;
+
+    return Container(
+      width: 60,
+      height: 60,
+      margin: const EdgeInsets.all(4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: cell.isCorrect == true ? Colors.green[100] : Colors.grey[100],
+        borderRadius: BorderRadius.circular(GameTheme.borderRadius),
+        border: Border.all(
+          color: cell.isCorrect == true ? GameTheme.correct : Colors.grey,
+          width: 2,
+        ),
+      ),
+      child: TextField(
+        controller: controller,
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: const InputDecoration(border: InputBorder.none),
+        style: GameTheme.tileText.copyWith(fontSize: 22),
+        onChanged: (val) {
+          cell.value = val;
+          setState(() {});
+        },
+      ),
     );
   }
 
   Widget _staticTile(CrosswordCell cell) {
     Color bg, fg;
     switch (cell.type) {
-      case CellType.operator: bg = Colors.blue[100]!;  fg = Colors.blue[800]!; break;
-      case CellType.equals:   bg = Colors.green[100]!; fg = Colors.green[800]!; break;
+      case CellType.operator:
+        bg = Colors.blue[100]!;
+        fg = Colors.blue[800]!;
+        break;
+      case CellType.equals:
+        bg = Colors.green[100]!;
+        fg = Colors.green[800]!;
+        break;
       case CellType.number:
-      case CellType.answer:   bg = Colors.purple[100]!; fg = Colors.purple[800]!; break;
-      default:                bg = Colors.white;       fg = Colors.black;
+      case CellType.answer:
+        bg = Colors.purple[100]!;
+        fg = Colors.purple[800]!;
+        break;
+      default:
+        bg = Colors.white;
+        fg = Colors.black;
     }
     return Container(
-      width: 60, height: 60, margin: const EdgeInsets.all(4),
+      width: 60,
+      height: 60,
+      margin: const EdgeInsets.all(4),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(GameTheme.borderRadius),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Text(cell.value ?? '', style: GameTheme.tileText.copyWith(color: fg)),
-    );
-  }
-
-  Widget _draggableNumber(BankNumber n) {
-    final chip = Container(
-      width: 60, height: 60,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.yellow[100],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4, offset: const Offset(0, 2))],
-      ),
-      child: Text('${n.value}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-    );
-
-    return LongPressDraggable<BankNumber>(
-      data: n,
-      feedback: Material(color: Colors.transparent, child: chip),
-      childWhenDragging: Opacity(opacity: .35, child: chip),
-      child: chip,
-      onDragStarted: () => HapticFeedback.lightImpact(),
     );
   }
 }

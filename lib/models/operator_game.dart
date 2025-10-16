@@ -13,7 +13,7 @@ class OperatorGameVariant {
     return OperatorGameVariant(
       id: json['id'] as String,
       difficulty: json['difficulty'] as String,
-      config: (json['config'] as Map?)?.cast<String, dynamic>() ?? {},
+      config: Map<String, dynamic>.from(json['config'] ?? {}),
     );
   }
 }
@@ -38,17 +38,17 @@ class OperatorGame {
   });
 
   factory OperatorGame.fromJson(Map<String, dynamic> json) {
-    final vars = (json['variants'] as List? ?? [])
-        .cast<Map<String, dynamic>>()
-        .map(OperatorGameVariant.fromJson)
+    final vars = (json['operator_game_variants_game_id_fkey'] as List? ?? [])
+        .map((v) => OperatorGameVariant.fromJson(v as Map<String, dynamic>))
         .toList();
+
     return OperatorGame(
       id: json['id'] as String,
       operatorKey: json['operator'] as String,
       gameKey: json['game_key'] as String,
       title: json['title'] as String,
       description: json['description'] as String?,
-      isActive: (json['is_active'] as bool?) ?? true,
+      isActive: json['is_active'] ?? true,
       variants: vars,
     );
   }
