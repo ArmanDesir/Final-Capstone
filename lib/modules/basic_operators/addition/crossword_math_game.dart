@@ -11,7 +11,7 @@ class CrosswordMathGameScreen extends StatefulWidget {
   final String operator;
   final String difficulty;
   final Map<String, dynamic>? config;
-  final String? classroomId; // optional
+  final String? classroomId;
 
   const CrosswordMathGameScreen({
     super.key,
@@ -185,7 +185,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       final status = score == _totalBlanks ? 'completed' : 'incomplete';
       final sourceId = const Uuid().v4();
 
-      // 1️⃣ Insert into game_progress
       await supabase.from('game_progress').insert({
         'user_id': user.id,
         'game_name': gameName,
@@ -196,7 +195,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
         'tries': 1,
       });
 
-      // 2️⃣ Insert into activity_progress_by_classroom (if applicable)
       if (widget.classroomId != null) {
         await supabase.from('activity_progress_by_classroom').insert({
           'source': 'game',
@@ -220,13 +218,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
   }
 
-  /// ✅ Automatically record on submit
   void _checkAnswers() async {
     HapticFeedback.lightImpact();
     final ok = _countCorrect();
     setState(() => _correct = ok);
 
-    // Record immediately upon checking answers (before dialog)
     final elapsed = (widget.config?['timeSec'] ?? 180) - _remainingSeconds;
     await _recordGameProgress(ok, elapsed);
 
@@ -247,7 +243,7 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _reset(); // try again but progress already saved
+              _reset();
             },
             child: const Text('Try Again'),
           ),
