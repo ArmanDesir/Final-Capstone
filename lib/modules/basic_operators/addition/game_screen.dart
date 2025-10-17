@@ -5,10 +5,9 @@ import 'crossword_math_game.dart';
 import 'ninja_math_game.dart';
 
 class GameScreen extends StatelessWidget {
-  final String operatorKey; // e.g., 'addition', 'subtraction', etc.
+  final String operatorKey;
   const GameScreen({Key? key, required this.operatorKey}) : super(key: key);
 
-  /// ✅ Save progress per game + difficulty
   Future<void> _saveGameProgress(
       String game,
       String difficulty,
@@ -26,7 +25,7 @@ class GameScreen extends StatelessWidget {
         .eq('difficulty', difficulty);
 
     final attempts = existing.length;
-    if (attempts >= 3) return; // limit 3 tries
+    if (attempts >= 3) return;
 
     await Supabase.instance.client.from('game_progress').insert({
       'user_id': user.id,
@@ -55,7 +54,6 @@ class GameScreen extends StatelessWidget {
       final svc = OperatorGameService();
       final games = await svc.getGamesForOperator(operatorKey);
 
-      // Match Supabase game_key
       final gameKey = gameName == 'Crossword Math' ? 'crossmath' : 'ninjamath';
 
       final gameData = games.firstWhere(
@@ -74,26 +72,22 @@ class GameScreen extends StatelessWidget {
       );
 
       final config = variant.config;
-
-      // ✅ Pass operatorKey into the screen (fixes the error)
       Widget screen;
       if (gameKey == 'crossmath') {
         screen = CrosswordMathGameScreen(
-          operator: operatorKey, // 🔥 required param
+          operator: operatorKey,
           difficulty: difficulty,
           config: config,
         );
       } else {
         screen = NinjaMathGameScreen(
-          operator: operatorKey, // optional, for consistency
+          operator: operatorKey,
           difficulty: difficulty,
           config: config,
         );
       }
 
-      Navigator.pop(context); // remove loader
-
-      // Await result (score + time)
+      Navigator.pop(context);
       final result = await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => screen),

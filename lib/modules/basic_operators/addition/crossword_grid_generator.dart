@@ -40,10 +40,7 @@ class CrosswordGridGenerator {
     }
   }
 
-  // --------------------------------------------------------------------------
-  // ✅ ADDITION
-  // --------------------------------------------------------------------------
-  static ({
+ static ({
   List<List<CrosswordCell>> grid,
   List<BankNumber> bank,
   }) additionGrid(
@@ -92,9 +89,6 @@ class CrosswordGridGenerator {
     return (grid: g, bank: bank);
   }
 
-  // --------------------------------------------------------------------------
-  // ✅ SUBTRACTION
-  // --------------------------------------------------------------------------
   static ({
   List<List<CrosswordCell>> grid,
   List<BankNumber> bank,
@@ -140,9 +134,6 @@ class CrosswordGridGenerator {
     return (grid: g, bank: bank);
   }
 
-  // --------------------------------------------------------------------------
-  // ✅ MULTIPLICATION
-  // --------------------------------------------------------------------------
   static ({
   List<List<CrosswordCell>> grid,
   List<BankNumber> bank,
@@ -188,9 +179,6 @@ class CrosswordGridGenerator {
     return (grid: g, bank: bank);
   }
 
-  // --------------------------------------------------------------------------
-  // ✅ DIVISION
-  // --------------------------------------------------------------------------
   static ({
   List<List<CrosswordCell>> grid,
   List<BankNumber> bank,
@@ -214,7 +202,7 @@ class CrosswordGridGenerator {
 
     int a = _rnd(minV, maxV);
     int b = _rnd(1, 9);
-    a = a - (a % b); // ensure clean division
+    a = a - (a % b);
     final c1 = _rnd(minV, maxV);
     int d1 = _rnd(1, 9);
     final s1 = (a ~/ b);
@@ -237,9 +225,6 @@ class CrosswordGridGenerator {
     return (grid: g, bank: bank);
   }
 
-  // --------------------------------------------------------------------------
-  // 🔧 Helpers
-  // --------------------------------------------------------------------------
   static List<BankNumber> _buildBank(
       List<int> answers, int decoys, int minV, int maxV) {
     final bank = <BankNumber>[

@@ -6,7 +6,7 @@ import 'game_theme.dart';
 
 class NinjaMathGameScreen extends StatefulWidget {
   final String difficulty;
-  final Map<String, dynamic>? config; // ✅ new dynamic config
+  final Map<String, dynamic>? config;
 
   const NinjaMathGameScreen({
     super.key,
