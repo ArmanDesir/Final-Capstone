@@ -7,11 +7,13 @@ import 'game_theme.dart';
 class NinjaMathGameScreen extends StatefulWidget {
   final String difficulty;
   final Map<String, dynamic>? config;
+  final String operator;
 
   const NinjaMathGameScreen({
     super.key,
     required this.difficulty,
-    this.config, required String operator,
+    required this.operator,
+    this.config,
   });
 
   @override
@@ -26,7 +28,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   int _current = 0;
   late List<_TargetRound> _rounds;
   List<int> _selectedIndices = [];
-  int _totalRounds = 10;
+  late int _totalRounds;
   final Random _random = Random();
 
   @override
@@ -39,27 +41,34 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
 
   void _applyConfig() {
     final cfg = widget.config ?? {};
-    final timeSec = cfg['timeSec'] ?? 300;
-    _remainingSeconds = timeSec;
+    _remainingSeconds = cfg['timeSec'] ?? 300;
+    _totalRounds = cfg['rounds'] ?? 10;
+
+    // 🟢 Optional new setting for enabled rounds
+    final active = cfg['activeRounds'];
+    if (active != null && active is List) {
+      _rounds = _generateRounds()
+          .asMap()
+          .entries
+          .where((entry) => active.contains(entry.key))
+          .map((e) => e.value)
+          .toList();
+    } else {
+      _rounds = _generateRounds();
+    }
   }
 
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
-        setState(() => _remainingSeconds--);
-      } else {
-        _finishGame();
-      }
-    });
-  }
-
-  List<_TargetRound> _generateRounds() {
+  List<_TargetRound> _generateRounds({List<bool>? enabledFlags}) {
     final cfg = widget.config ?? {};
     final min = cfg['min'] ?? 1;
     final max = cfg['max'] ?? 10;
 
     List<_TargetRound> list = [];
     for (int i = 0; i < _totalRounds; i++) {
+      if (enabledFlags != null && i < enabledFlags.length && !enabledFlags[i]) {
+        continue; // skip disabled round
+      }
+
       int numCount = 4 + _random.nextInt(2);
       List<int> numbers =
       List.generate(numCount, (_) => min + _random.nextInt(max - min + 1));
@@ -73,12 +82,21 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
     return list;
   }
 
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        setState(() => _remainingSeconds--);
+      } else {
+        _finishGame();
+      }
+    });
+  }
+
   void _finishGame() {
     if (_timer.isActive) _timer.cancel();
     setState(() => _gameFinished = true);
 
-    final elapsed =
-        (widget.config?['timeSec'] ?? 300) - _remainingSeconds;
+    final elapsed = (widget.config?['timeSec'] ?? 300) - _remainingSeconds;
 
     showDialog(
       context: context,
@@ -150,8 +168,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
 
     return WillPopScope(
       onWillPop: () async {
-        final elapsed =
-            (widget.config?['timeSec'] ?? 300) - _remainingSeconds;
+        final elapsed = (widget.config?['timeSec'] ?? 300) - _remainingSeconds;
         Navigator.pop(context, {
           'score': _score,
           'elapsed': elapsed,

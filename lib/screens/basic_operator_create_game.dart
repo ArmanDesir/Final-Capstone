@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:offline_first_app/screens/basic_operator_crossword_builder_screen.dart';
+import 'package:offline_first_app/screens/basic_operator_ninja_builder_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/operator_game_service.dart';
 
@@ -24,9 +25,9 @@ class _BasicOperatorCreateGamePageState
   String _selectedDifficulty = 'Easy';
 
   final Map<String, Map<String, dynamic>> _configs = {
-    'Easy': {'timeSec': 180, 'min': 1, 'max': 10},
-    'Medium': {'timeSec': 240, 'min': 1, 'max': 20},
-    'Hard': {'timeSec': 300, 'min': 1, 'max': 50},
+    'Easy': {'timeSec': 180, 'min': 1, 'max': 10, 'rounds': 10},
+    'Medium': {'timeSec': 240, 'min': 1, 'max': 20, 'rounds': 12},
+    'Hard': {'timeSec': 300, 'min': 1, 'max': 50, 'rounds': 15},
   };
 
   Future<void> _save() async {
@@ -34,7 +35,8 @@ class _BasicOperatorCreateGamePageState
     setState(() => _isSaving = true);
 
     try {
-      final user = Supabase.instance.client.auth.currentUser;
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('⚠️ You must be logged in.')),
@@ -42,8 +44,30 @@ class _BasicOperatorCreateGamePageState
         return;
       }
 
-      final config = _configs[_selectedDifficulty]!;
+      final config = Map<String, dynamic>.from(_configs[_selectedDifficulty]!);
 
+      if (_selectedGame == 'crossmath') config.remove('rounds');
+      List<Map<String, dynamic>>? generatedRounds;
+      if (_selectedGame == 'ninjamath') {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BasicOperatorNinjaBuilderScreen(
+              operator: widget.operatorKey,
+              config: config,
+              difficulty: _selectedDifficulty,
+              title: _titleCtrl.text.trim(),
+              description: _descCtrl.text.trim(),
+            ),
+          ),
+        );
+
+        if (result == null || result.isEmpty) {
+          setState(() => _isSaving = false);
+          return;
+        }
+        generatedRounds = List<Map<String, dynamic>>.from(result);
+      }
       final gameId = await _svc.createGame(
         operatorKey: widget.operatorKey,
         gameKey: _selectedGame,
@@ -52,10 +76,24 @@ class _BasicOperatorCreateGamePageState
             ? null
             : _descCtrl.text.trim(),
         variantsByDifficulty: {
-          _selectedDifficulty.toLowerCase(): _configs[_selectedDifficulty]!,
+          _selectedDifficulty.toLowerCase(): config,
         },
         createdBy: user.id,
       );
+      if (generatedRounds != null && generatedRounds.isNotEmpty) {
+        final rows = generatedRounds
+            .asMap()
+            .entries
+            .map((e) => {
+          'game_id': gameId,
+          'round_no': e.key + 1,
+          'numbers': e.value['numbers'],
+          'correct_answer': e.value['target'],
+        })
+            .toList();
+
+        await supabase.from('ninja_math_rounds').insert(rows);
+      }
 
       if (!mounted) return;
 
@@ -81,8 +119,9 @@ class _BasicOperatorCreateGamePageState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('❌ Failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Failed: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -91,6 +130,8 @@ class _BasicOperatorCreateGamePageState
 
   @override
   Widget build(BuildContext context) {
+    final isNinjaMath = _selectedGame == 'ninjamath';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Game'),
@@ -106,12 +147,11 @@ class _BasicOperatorCreateGamePageState
                 decoration: const InputDecoration(labelText: 'Game Type'),
                 value: _selectedGame,
                 items: const [
-                  DropdownMenuItem(
-                      value: 'crossmath', child: Text('CrossMath')),
-                  DropdownMenuItem(
-                      value: 'ninjamath', child: Text('Ninja Math')),
+                  DropdownMenuItem(value: 'crossmath', child: Text('CrossMath')),
+                  DropdownMenuItem(value: 'ninjamath', child: Text('Ninja Math')),
                 ],
-                onChanged: (v) => setState(() => _selectedGame = v ?? 'crossmath'),
+                onChanged: (v) =>
+                    setState(() => _selectedGame = v ?? 'crossmath'),
               ),
               TextFormField(
                 controller: _titleCtrl,
@@ -137,7 +177,7 @@ class _BasicOperatorCreateGamePageState
                     setState(() => _selectedDifficulty = v ?? 'Easy'),
               ),
               const SizedBox(height: 16),
-              _buildConfigCard(_selectedDifficulty),
+              if (isNinjaMath) _buildConfigCard(_selectedDifficulty),
               const SizedBox(height: 24),
               _isSaving
                   ? const Center(child: CircularProgressIndicator())
@@ -161,7 +201,6 @@ class _BasicOperatorCreateGamePageState
     );
   }
 
-  /// 🧩 Displays numeric config per difficulty
   Widget _buildConfigCard(String level) {
     final cfg = _configs[level]!;
     return Card(
@@ -174,12 +213,12 @@ class _BasicOperatorCreateGamePageState
           _numField(cfg, 'timeSec', 'Time Limit (seconds)'),
           _numField(cfg, 'min', 'Minimum number'),
           _numField(cfg, 'max', 'Maximum number'),
+          _numField(cfg, 'rounds', 'Total Rounds'),
         ],
       ),
     );
   }
 
-  /// 🧩 Single numeric field
   Widget _numField(Map<String, dynamic> cfg, String key, String label) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

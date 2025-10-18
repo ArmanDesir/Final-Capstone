@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/operator_game.dart';
 
@@ -28,7 +30,26 @@ class OperatorGameService {
 
 
     if (res is! List) return [];
-    return res.cast<Map<String, dynamic>>().map(OperatorGame.fromJson).toList();
+    return res
+        .whereType<Map<String, dynamic>>()
+        .map((g) {
+      final variants = g['operator_game_variants_game_id_fkey'] as List?;
+      if (variants != null) {
+        for (final v in variants) {
+          if (v is Map && v['config'] is String) {
+            if (v is Map && v['config'] is String) {
+              try {
+                v['config'] = jsonDecode(v['config']);
+              } catch (_) {
+                v['config'] = {};
+              }
+            }
+          }
+        }
+      }
+      return OperatorGame.fromJson(g);
+    })
+        .toList();
   }
 
   Future<String> createGame({
