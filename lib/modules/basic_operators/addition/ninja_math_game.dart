@@ -44,7 +44,6 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
     _remainingSeconds = cfg['timeSec'] ?? 300;
     _totalRounds = cfg['rounds'] ?? 10;
 
-    // 🟢 Optional new setting for enabled rounds
     final active = cfg['activeRounds'];
     if (active != null && active is List) {
       _rounds = _generateRounds()
@@ -66,7 +65,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
     List<_TargetRound> list = [];
     for (int i = 0; i < _totalRounds; i++) {
       if (enabledFlags != null && i < enabledFlags.length && !enabledFlags[i]) {
-        continue; // skip disabled round
+        continue;
       }
 
       int numCount = 4 + _random.nextInt(2);

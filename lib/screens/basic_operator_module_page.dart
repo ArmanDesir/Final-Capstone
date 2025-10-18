@@ -4,7 +4,6 @@ import 'package:offline_first_app/modules/basic_operators/addition/game_screen.d
 import 'package:offline_first_app/screens/basic_operator_lesson_view_screen.dart';
 import 'package:offline_first_app/services/basic_operator_lesson_service.dart';
 
-/// Displays all lessons and games for an operator (e.g. Addition, Subtraction)
 class BasicOperatorModulePage extends StatefulWidget {
   final String operatorName;
 
