@@ -452,7 +452,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            if (filtered.length > 3)
+            if (filtered.isNotEmpty)
               TextButton(
                 onPressed: () => _showAllActivities(filtered),
                 child: const Text(
