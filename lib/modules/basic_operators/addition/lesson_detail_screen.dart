@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'mock_data.dart';
 import 'lesson_view_screen.dart';
-import 'package:offline_first_app/models/lesson.dart';
+import 'package:pracpro/models/lesson.dart';
 
 class LessonListScreen extends StatelessWidget {
   const LessonListScreen({Key? key}) : super(key: key);

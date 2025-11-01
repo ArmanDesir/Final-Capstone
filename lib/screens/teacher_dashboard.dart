@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/user.dart' as app_model;
-import 'package:offline_first_app/providers/auth_provider.dart';
-import 'package:offline_first_app/providers/classroom_provider.dart';
-import 'package:offline_first_app/providers/quiz_provider.dart';
-import 'package:offline_first_app/screens/QuizDetailsScreen.dart';
-import 'package:offline_first_app/screens/classroom_details_screen.dart';
-import 'package:offline_first_app/screens/manage_classrooms_screen.dart';
-import 'package:offline_first_app/screens/activity_logs_screen.dart';
+import 'package:pracpro/models/user.dart' as app_model;
+import 'package:pracpro/providers/auth_provider.dart';
+import 'package:pracpro/providers/classroom_provider.dart';
+import 'package:pracpro/providers/quiz_provider.dart';
+import 'package:pracpro/screens/QuizDetailsScreen.dart';
+import 'package:pracpro/screens/classroom_details_screen.dart';
+import 'package:pracpro/screens/manage_classrooms_screen.dart';
+import 'package:pracpro/screens/activity_logs_screen.dart';
 import 'package:provider/provider.dart';
 
 class CreateClassroomScreen extends StatelessWidget {
@@ -75,10 +75,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   int _lessonsCount = 0;
   int _quizzesCount = 0;
 
-  /// This holds the **deduped** list you’ll render.
   List<app_model.User> _acceptedStudents = [];
-
-  /// Keeping this in case other parts of your UI use it.
   Map<String, List<app_model.User>> _studentsByClassroom = {};
 
   @override
@@ -113,7 +110,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     });
   }
 
-  /// De-duplicate by id; if missing, fall back to email.
   List<app_model.User> _dedupeUsers(List<app_model.User> users) {
     final seen = <String>{};
     final unique = <app_model.User>[];
@@ -136,7 +132,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     }
   }
 
-  /// Open a picker to choose which classroom’s activity to view
   Future<void> _openActivityLogsPicker(BuildContext context) async {
     final classroomProvider = Provider.of<ClassroomProvider>(context, listen: false);
     final classrooms = classroomProvider.teacherClassrooms;

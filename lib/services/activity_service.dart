@@ -1,4 +1,4 @@
-import 'package:offline_first_app/models/activity_progress.dart';
+import 'package:pracpro/models/activity_progress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ActivityService {

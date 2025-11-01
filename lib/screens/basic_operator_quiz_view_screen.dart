@@ -26,7 +26,6 @@ class _BasicOperatorQuizViewScreenState
     _checkUserRole();
   }
 
-  /// ✅ Detect if current user is teacher
   Future<void> _checkUserRole() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;

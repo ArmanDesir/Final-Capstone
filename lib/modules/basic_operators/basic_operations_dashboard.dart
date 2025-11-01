@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/screens/basic_operator_create_game.dart';
+import 'package:pracpro/screens/basic_operator_create_game.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:offline_first_app/screens/basic_operator_module_page.dart';
+import 'package:pracpro/screens/basic_operator_module_page.dart';
 
 class BasicOperationsDashboard extends StatefulWidget {
   const BasicOperationsDashboard({super.key});

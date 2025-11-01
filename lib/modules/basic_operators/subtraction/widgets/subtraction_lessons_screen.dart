@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/modules/basic_operators/subtraction/widgets/subtraction_view_screen.dart';
+import 'package:pracpro/modules/basic_operators/subtraction/widgets/subtraction_view_screen.dart';
 import 'subtraction_mock_data.dart';
 
 class SubtractionLessonsScreen extends StatelessWidget {

@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/crossword_cell.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/crossword_grid_generator.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/game_theme.dart';
+import 'package:pracpro/modules/basic_operators/addition/crossword_cell.dart';
+import 'package:pracpro/modules/basic_operators/addition/crossword_grid_generator.dart';
+import 'package:pracpro/modules/basic_operators/addition/game_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -120,7 +120,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     _showResultDialog();
   }
 
-  /// ✅ Validate each equation row
   int _countCorrect() {
     int ok = 0;
     for (final row in _grid) {
@@ -174,7 +173,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     return ok;
   }
 
-  /// ✅ Record game and activity progress
   Future<void> _recordGameProgress(int score, int elapsed) async {
     try {
       final user = supabase.auth.currentUser;

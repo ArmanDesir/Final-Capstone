@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/lesson.dart';
-import 'package:offline_first_app/providers/auth_provider.dart';
+import 'package:pracpro/models/lesson.dart';
+import 'package:pracpro/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'quiz_screen.dart';

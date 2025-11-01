@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/basic_operator_lesson.dart';
-import 'package:offline_first_app/models/basic_operator_quiz.dart';
-import 'package:offline_first_app/screens/basic_operator_quiz_screen.dart';
-import 'package:offline_first_app/services/basic_operator_quiz_service.dart';
-import 'package:offline_first_app/utils/pdf_viewer.dart';
+import 'package:pracpro/models/basic_operator_lesson.dart';
+import 'package:pracpro/models/basic_operator_quiz.dart';
+import 'package:pracpro/screens/basic_operator_quiz_screen.dart';
+import 'package:pracpro/services/basic_operator_quiz_service.dart';
+import 'package:pracpro/utils/pdf_viewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

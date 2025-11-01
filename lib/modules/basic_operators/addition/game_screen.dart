@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/services/operator_game_service.dart';
+import 'package:pracpro/services/operator_game_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'crossword_math_game.dart';
 import 'ninja_math_game.dart';
@@ -38,7 +38,6 @@ class GameScreen extends StatelessWidget {
     });
   }
 
-  /// ✅ Loads the selected game and navigates to it
   Future<void> _startGame(
       BuildContext context,
       String gameName,

@@ -1,5 +1,5 @@
-import 'package:offline_first_app/models/classroom.dart';
-import 'package:offline_first_app/models/user.dart' as app_model;
+import 'package:pracpro/models/classroom.dart';
+import 'package:pracpro/models/user.dart' as app_model;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -159,19 +159,25 @@ class ClassroomService {
     return Classroom.fromJson(response);
   }
 
-  /// Fetch classrooms where a student has accepted the invitation
-  Future<List<Classroom>> getStudentClassrooms(String studentId) async {
-    final rows = await _supabase
-        .from('classrooms')
-        .select()
-        .contains('student_ids', [studentId])
-        .eq('is_active', true)
-        .order('created_at', ascending: false);
+  Future<List<Classroom>> getStudentClassrooms(
+      String studentId, {
+        int limit = 3,
+        int offset = 0,
+      }) async {
+    final response = await _supabase
+        .from('user_classrooms')
+        .select('classroom_id, classrooms(*)')
+        .eq('user_id', studentId)
+        .eq('status', 'accepted')
+        .order('joined_at', ascending: false)
+        .range(offset, offset + limit - 1);
 
-    if (rows is! List) return [];
-    return rows
-        .map((c) => Classroom.fromJson(Map<String, dynamic>.from(c)))
-        .toList();
+    if (response is! List) return [];
+
+    return response.map((item) {
+      final classroomData = Map<String, dynamic>.from(item['classrooms']);
+      return Classroom.fromJson(classroomData);
+    }).toList();
   }
 
   Future<List<app_model.User>> getAcceptedStudents(String classroomId) async {

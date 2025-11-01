@@ -16,7 +16,6 @@ class CrosswordGridGenerator {
     return {'timeSec': c['timeSec'] as int};
   }
 
-  /// ✅ Main unified generator (handles 4 operators)
   static ({
   List<List<CrosswordCell>> grid,
   List<BankNumber> bank,

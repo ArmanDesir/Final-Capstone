@@ -13,6 +13,7 @@ class ClassroomProvider with ChangeNotifier {
 
   List<Classroom> _teacherClassrooms = [];
   List<Classroom> _studentClassrooms = [];
+  List<Classroom> _archivedClassrooms = [];
   Classroom? _currentClassroom;
   List<User> _acceptedStudents = [];
   List<User> _pendingStudents = [];
@@ -21,6 +22,7 @@ class ClassroomProvider with ChangeNotifier {
 
   List<Classroom> get teacherClassrooms => _teacherClassrooms;
   List<Classroom> get studentClassrooms => _studentClassrooms;
+  List<Classroom> get archivedClassrooms => _archivedClassrooms;
   Classroom? get currentClassroom => _currentClassroom;
   List<User> get acceptedStudents => _acceptedStudents;
   List<User> get pendingStudents => _pendingStudents;
@@ -107,10 +109,10 @@ class ClassroomProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadStudentClassrooms(String studentId) async {
+  Future<void> loadStudentClassrooms(String studentId, {int limit = 3, int offset = 0}) async {
     _setLoading(true);
     try {
-      _studentClassrooms = await _service.getStudentClassrooms(studentId);
+      _studentClassrooms = await _service.getStudentClassrooms(studentId, limit: limit, offset: offset);
       _currentClassroom = _studentClassrooms.isNotEmpty ? _studentClassrooms.first : null;
       notifyListeners();
     } catch (e, stack) {
@@ -359,6 +361,81 @@ class ClassroomProvider with ChangeNotifier {
       );
       _setError(e.toString());
       return {"lessons": 0, "quizzes": 0};
+    }
+  }
+
+  Future<void> loadArchivedClassrooms() async {
+    _setLoading(true);
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        _setError("No logged-in teacher found");
+        _archivedClassrooms = [];
+        return;
+      }
+
+      final response = await _supabase
+          .from('classrooms')
+          .select()
+          .eq('teacher_id', userId)
+          .eq('is_active', false)
+          .order('created_at', ascending: false);
+
+      print('📦 Archived classrooms fetched: ${response.length}');
+
+      if (response == null || response is! List) {
+        _archivedClassrooms = [];
+      } else {
+        _archivedClassrooms = response.map((c) {
+          final classroom = Classroom.fromJson(Map<String, dynamic>.from(c));
+          classroom.studentCount = classroom.studentIds?.length ?? 0;
+          return classroom;
+        }).toList();
+      }
+
+      notifyListeners();
+    } catch (e, stack) {
+      Logger().e('Error loading archived classrooms', error: e, stackTrace: stack);
+      _setError(e.toString());
+      _archivedClassrooms = [];
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> archiveClassroom(String id) async {
+    _setLoading(true);
+    try {
+      await _supabase
+          .from('classrooms')
+          .update({'is_active': false})
+          .eq('id', id);
+
+      _teacherClassrooms.removeWhere((c) => c.id == id);
+      await loadArchivedClassrooms();
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> unarchiveClassroom(String id) async {
+    _setLoading(true);
+    try {
+      await _supabase
+          .from('classrooms')
+          .update({'is_active': true})
+          .eq('id', id);
+
+      await loadTeacherClassrooms();
+      await loadArchivedClassrooms();
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
     }
   }
 }

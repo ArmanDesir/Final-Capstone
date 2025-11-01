@@ -1,14 +1,14 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/modules/basic_operators/basic_operations_dashboard.dart';
-import 'package:offline_first_app/providers/basic_operator_lesson_provider.dart';
-import 'package:offline_first_app/providers/basic_operator_quiz_provider.dart';
-import 'package:offline_first_app/providers/basic_operator_exercise_provider.dart';
-import 'package:offline_first_app/providers/lesson_provider.dart';
-import 'package:offline_first_app/providers/quiz_provider.dart';
-import 'package:offline_first_app/screens/basic_operator_module_page.dart';
-import 'package:offline_first_app/screens/create_content_screen.dart';
-import 'package:offline_first_app/screens/student_dashboard.dart';
+import 'package:pracpro/modules/basic_operators/basic_operations_dashboard.dart';
+import 'package:pracpro/providers/basic_operator_lesson_provider.dart';
+import 'package:pracpro/providers/basic_operator_quiz_provider.dart';
+import 'package:pracpro/providers/basic_operator_exercise_provider.dart';
+import 'package:pracpro/providers/lesson_provider.dart';
+import 'package:pracpro/providers/quiz_provider.dart';
+import 'package:pracpro/screens/basic_operator_module_page.dart';
+import 'package:pracpro/screens/create_content_screen.dart';
+import 'package:pracpro/screens/student_dashboard.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

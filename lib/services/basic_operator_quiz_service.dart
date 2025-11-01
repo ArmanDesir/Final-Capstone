@@ -4,7 +4,6 @@ import '../models/basic_operator_quiz.dart';
 class BasicOperatorQuizService {
   final SupabaseClient _sb = Supabase.instance.client;
 
-  /// ✅ Fetch quizzes by operator (final stable version)
   Future<List<BasicOperatorQuiz>> getQuizzes(String operator) async {
     final data = await _sb
         .from('basic_operator_quizzes')
@@ -22,7 +21,6 @@ class BasicOperatorQuizService {
     }).toList();
   }
 
-  /// Create quiz and its questions
   Future<void> createQuiz({
     required String operator,
     required String title,
@@ -49,7 +47,6 @@ class BasicOperatorQuizService {
     }
   }
 
-  /// Delete quiz and its questions
   Future<void> deleteQuiz(String quizId) async {
     await _sb.from('basic_operator_quiz_questions').delete().eq('quiz_id', quizId);
     await _sb.from('basic_operator_quizzes').delete().eq('id', quizId);

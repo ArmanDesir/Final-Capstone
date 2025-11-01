@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/lesson.dart';
-import 'package:offline_first_app/services/lesson_service.dart';
+import 'package:pracpro/models/lesson.dart';
+import 'package:pracpro/services/lesson_service.dart';
 import 'lesson_view_screen.dart';
 
 class LessonListScreen extends StatelessWidget {

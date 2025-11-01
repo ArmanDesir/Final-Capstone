@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/basic_operator_lesson.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/game_screen.dart';
-import 'package:offline_first_app/screens/basic_operator_lesson_view_screen.dart';
-import 'package:offline_first_app/services/basic_operator_lesson_service.dart';
+import 'package:pracpro/models/basic_operator_lesson.dart';
+import 'package:pracpro/modules/basic_operators/addition/game_screen.dart';
+import 'package:pracpro/screens/basic_operator_lesson_view_screen.dart';
+import 'package:pracpro/services/basic_operator_lesson_service.dart';
 
 class BasicOperatorModulePage extends StatefulWidget {
   final String operatorName;

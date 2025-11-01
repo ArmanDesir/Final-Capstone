@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/basic_operator_lesson.dart';
-import 'package:offline_first_app/services/basic_operator_lesson_service.dart';
+import 'package:pracpro/models/basic_operator_lesson.dart';
+import 'package:pracpro/services/basic_operator_lesson_service.dart';
 
 class BasicOperatorLessonProvider with ChangeNotifier {
   final _service = BasicOperatorLessonService();

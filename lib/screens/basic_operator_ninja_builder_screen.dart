@@ -1,12 +1,9 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/game_theme.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/widgets/game_button.dart';
+import 'package:pracpro/modules/basic_operators/addition/game_theme.dart';
+import 'package:pracpro/modules/basic_operators/addition/widgets/game_button.dart';
 
-/// 🧠 Ninja Math Builder Screen
-/// Teachers can edit target totals; system randomizes valid numbers automatically.
-/// Includes per-round validation states (blue → unchecked, green → valid, red → invalid)
 class BasicOperatorNinjaBuilderScreen extends StatefulWidget {
   final String operator;
   final Map<String, dynamic> config;
@@ -65,7 +62,6 @@ class _BasicOperatorNinjaBuilderScreenState
     _max = widget.config['max'] ?? 10;
   }
 
-  /// ✅ Generates valid number sets for each target.
   List<_PreviewRound> _generateValidRounds() {
     return List.generate(
         _totalRounds, (_) {
@@ -74,7 +70,6 @@ class _BasicOperatorNinjaBuilderScreenState
     });
   }
 
-  /// 🎯 Smart number generator — “answerable if possible” with fallback.
   _PreviewRound _generateRoundWithTarget(int target) {
     int baseCount = 4;
     int maxCount = 6;
@@ -120,7 +115,6 @@ class _BasicOperatorNinjaBuilderScreenState
     return _PreviewRound(target: target, numbers: numbers);
   }
 
-  /// 🔢 Generates all unique n-element combinations of a list.
   List<List<int>> _getCombinations(List<int> items, int length) {
     if (length == 0) return [[]];
     if (items.length < length) return [];

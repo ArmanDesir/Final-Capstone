@@ -13,6 +13,7 @@ class Classroom {
   final bool isActive;
   final bool isSynced;
   int studentCount;
+  final bool isArchived;
 
   Classroom({
     required this.id,
@@ -29,6 +30,7 @@ class Classroom {
     this.isActive = true,
     this.isSynced = false,
     this.studentCount = 0,
+    this.isArchived = false,
   });
 
   factory Classroom.fromJson(Map<String, dynamic> json) {
@@ -64,6 +66,7 @@ class Classroom {
       isActive: json['is_active'] as bool? ?? true,
       isSynced: json['is_synced'] as bool? ?? false,
       studentCount: 0,
+      isArchived: json['is_archived'] as bool? ?? false,
     );
   }
 
@@ -81,6 +84,7 @@ class Classroom {
     'code': code,
     'is_active': isActive,
     'is_synced': isSynced,
+    'is_archived': isArchived,
   };
 
   Classroom copyWith({
@@ -98,6 +102,7 @@ class Classroom {
     bool? isActive,
     bool? isSynced,
     int? studentCount,
+    bool? isArchived,
   }) {
     return Classroom(
       id: id ?? this.id,
@@ -114,6 +119,7 @@ class Classroom {
       isActive: isActive ?? this.isActive,
       isSynced: isSynced ?? this.isSynced,
       studentCount: studentCount ?? this.studentCount,
+      isArchived: isArchived ?? this.isArchived,
     );
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/crossword_cell.dart';
+import 'package:pracpro/modules/basic_operators/addition/crossword_cell.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class BasicOperatorCrosswordBuilderScreen extends StatefulWidget {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/screens/student_dashboard.dart';
+import 'package:pracpro/screens/student_dashboard.dart';
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -27,6 +27,7 @@ class _QuizScreenState extends State<QuizScreen>
   bool _quizFinished = false;
   bool _locked = false;
   bool _answered = false;
+  bool _showAnswers = false;
   late Timer _timer;
   int _remainingSeconds = 300;
   late AnimationController _animationController;
@@ -111,16 +112,21 @@ class _QuizScreenState extends State<QuizScreen>
         if (attempts == 2 && try2 == 0) try2 = percent;
         if (attempts == 3 && try3 == 0) try3 = percent;
 
-        final highest = [try1, try2, try3, percent].reduce((a, b) => a > b ? a : b);
+        final highest =
+        [try1, try2, try3, percent].reduce((a, b) => a > b ? a : b);
 
-        await client.from('quiz_progress').update({
+        await client
+            .from('quiz_progress')
+            .update({
           'try1_score': try1,
           'try2_score': try2,
           'try3_score': try3,
           'highest_score': highest,
           'attempts_count': attempts,
           'updated_at': DateTime.now().toIso8601String(),
-        }).eq('user_id', widget.userId).eq('quiz_id', widget.quizId);
+        })
+            .eq('user_id', widget.userId)
+            .eq('quiz_id', widget.quizId);
       }
 
       debugPrint('✅ Quiz progress saved: $percent%');
@@ -157,7 +163,7 @@ class _QuizScreenState extends State<QuizScreen>
       if (isCorrect) _score++;
     });
 
-    Future.delayed(const Duration(seconds: 1), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (_current < widget.questions.length - 1) {
         setState(() {
           _current++;
@@ -175,23 +181,28 @@ class _QuizScreenState extends State<QuizScreen>
 
     _timer.cancel();
     await _saveProgress();
-    setState(() => _quizFinished = true);
+    setState(() {
+      _quizFinished = true;
+      _showAnswers = true;
+    });
     _animationController.forward();
 
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: false,
-      transitionDuration: const Duration(milliseconds: 400),
-      barrierLabel: 'Quiz Result',
-      pageBuilder: (context, _, __) {
-        return Center(
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: _buildResultDialog(),
-          ),
-        );
-      },
-    );
+    Future.delayed(const Duration(seconds: 2), () {
+      showGeneralDialog(
+        context: context,
+        barrierDismissible: false,
+        transitionDuration: const Duration(milliseconds: 400),
+        barrierLabel: 'Quiz Result',
+        pageBuilder: (context, _, __) {
+          return Center(
+            child: ScaleTransition(
+              scale: _scaleAnimation,
+              child: _buildResultDialog(),
+            ),
+          );
+        },
+      );
+    });
   }
 
   String _formatTime(int seconds) {
@@ -210,7 +221,11 @@ class _QuizScreenState extends State<QuizScreen>
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 16, offset: const Offset(0, 8)),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
         child: Column(
@@ -218,9 +233,15 @@ class _QuizScreenState extends State<QuizScreen>
           children: [
             Icon(Icons.emoji_events, color: Colors.amber[700], size: 48),
             const SizedBox(height: 16),
-            const Text('Quiz Complete!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text(
+              'Quiz Complete!',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
-            Text('Your score: $_score / ${widget.questions.length}', style: const TextStyle(fontSize: 18)),
+            Text(
+              'Your score: $_score / ${widget.questions.length}',
+              style: const TextStyle(fontSize: 18),
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
@@ -253,8 +274,6 @@ class _QuizScreenState extends State<QuizScreen>
       );
     }
 
-    if (_quizFinished) return const SizedBox.shrink();
-
     final rawQ = widget.questions[_current];
     final q = {
       'question_text': rawQ['question_text'] ?? 'Untitled question',
@@ -281,7 +300,11 @@ class _QuizScreenState extends State<QuizScreen>
               const SizedBox(width: 4),
               Text(
                 _formatTime(_remainingSeconds),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ]),
           ),
@@ -289,39 +312,54 @@ class _QuizScreenState extends State<QuizScreen>
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Question ${_current + 1} of ${widget.questions.length}', style: const TextStyle(fontSize: 18)),
-          const SizedBox(height: 16),
-          Text(q['question_text'], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 24),
-          ...List.generate(q['options'].length, (i) {
-            final letter = ['A', 'B', 'C'][i];
-            Color cardColor = Colors.white;
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Question ${_current + 1} of ${widget.questions.length}',
+                style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 16),
+            Text(q['question_text'],
+                style:
+                const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
+            ...List.generate(q['options'].length, (i) {
+              final letter = ['A', 'B', 'C'][i];
+              Color cardColor = Colors.white;
 
-            if (_answered) {
-              if (letter == correctLetter) cardColor = Colors.greenAccent;
-              else if (_selected == i) cardColor = Colors.redAccent;
-            } else if (_selected == i) cardColor = Colors.orangeAccent;
+              if (_showAnswers) {
+                if (letter == correctLetter) {
+                  cardColor = Colors.greenAccent;
+                } else {
+                  cardColor = Colors.redAccent.withOpacity(0.3);
+                }
+              } else if (_selected == i) {
+                cardColor = Colors.orangeAccent;
+              }
 
-            return Card(
-              color: cardColor,
-              child: ListTile(
-                title: Text(q['options'][i]),
-                onTap: _answered
-                    ? null
-                    : () => setState(() {
-                  _selected = i;
-                }),
+              return Card(
+                color: cardColor,
+                child: ListTile(
+                  title: Text(q['options'][i]),
+                  onTap: _showAnswers
+                      ? null
+                      : () => setState(() {
+                    _selected = i;
+                  }),
+                ),
+              );
+            }),
+            const Spacer(),
+            if (!_showAnswers)
+              ElevatedButton(
+                onPressed: (_selected == -1 || _answered) ? null : _next,
+                style:
+                ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                child: Text(_current == widget.questions.length - 1
+                    ? 'Finish'
+                    : 'Next'),
               ),
-            );
-          }),
-          const Spacer(),
-          ElevatedButton(
-            onPressed: (_selected == -1 || _answered) ? null : _next,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: Text(_current == widget.questions.length - 1 ? 'Finish' : 'Next'),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/user.dart';
-import 'package:offline_first_app/providers/auth_provider.dart';
-import 'package:offline_first_app/screens/home_screen.dart';
+import 'package:pracpro/models/user.dart';
+import 'package:pracpro/providers/auth_provider.dart';
+import 'package:pracpro/screens/home_screen.dart';
 import 'package:provider/provider.dart';
 
 class RegisterScreen extends StatefulWidget {

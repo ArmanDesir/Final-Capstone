@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:offline_first_app/models/activity_progress.dart';
-import 'package:offline_first_app/providers/activity_provider.dart';
+import 'package:pracpro/models/activity_progress.dart';
+import 'package:pracpro/providers/activity_provider.dart';
 import 'package:provider/provider.dart';
 
 class ActivityLogsScreen extends StatefulWidget {

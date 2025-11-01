@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/screens/basic_operator_crossword_builder_screen.dart';
-import 'package:offline_first_app/screens/basic_operator_ninja_builder_screen.dart';
+import 'package:pracpro/screens/basic_operator_crossword_builder_screen.dart';
+import 'package:pracpro/screens/basic_operator_ninja_builder_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/operator_game_service.dart';
 

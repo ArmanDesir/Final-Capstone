@@ -9,7 +9,6 @@ class LessonService {
   final SupabaseClient _sb = Supabase.instance.client;
   final String bucket;
 
-  /// List lessons by classroom (active only, newest first).
   Future<List<Lesson>> getLessons(
       String classroomId, {
         String? operatorFilter,
@@ -28,7 +27,6 @@ class LessonService {
         .toList();
   }
 
-  /// Realtime auto-refresh stream for a classroom.
   Stream<List<Lesson>> streamLessons(
       String classroomId, {
         String? operatorFilter,
@@ -83,7 +81,6 @@ class LessonService {
     return Lesson.fromJson(Map<String, dynamic>.from(inserted));
   }
 
-  /// Upload to Storage and update lesson row.
   Future<Lesson> attachFile({
     required Lesson lesson,
     required File file,
@@ -161,7 +158,6 @@ class LessonService {
   }
 }
 
-/// Tiny helper to conditionally apply a filter in a chain.
 extension _ConditionalPostgrest on PostgrestFilterBuilder {
   PostgrestFilterBuilder if_(
       bool condition,

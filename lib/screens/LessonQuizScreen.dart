@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/quiz_screen.dart';
-import 'package:offline_first_app/providers/quiz_provider.dart';
+import 'package:pracpro/modules/basic_operators/addition/quiz_screen.dart';
+import 'package:pracpro/providers/quiz_provider.dart';
 import 'package:provider/provider.dart';
 
 class LessonQuizzesScreen extends StatefulWidget {

@@ -17,7 +17,6 @@ class CrosswordCell {
     this.isCorrect = false,
   });
 
-  /// ✅ Deserialize from JSON
   factory CrosswordCell.fromJson(Map<String, dynamic> json) {
     return CrosswordCell(
       row: json['row'] is int
@@ -38,7 +37,6 @@ class CrosswordCell {
     );
   }
 
-  /// ✅ Serialize to JSON
   Map<String, dynamic> toJson() => {
     'row': row,
     'col': col,
@@ -49,7 +47,6 @@ class CrosswordCell {
   };
 }
 
-/// ✅ Optional bank model for storing number choices
 class BankNumber {
   final int id;
   final int value;

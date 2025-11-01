@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:offline_first_app/models/activity_progress.dart';
-import 'package:offline_first_app/services/activity_service.dart';
+import 'package:pracpro/models/activity_progress.dart';
+import 'package:pracpro/services/activity_service.dart';
 
 class ActivityProvider with ChangeNotifier {
   final ActivityService _service = ActivityService();

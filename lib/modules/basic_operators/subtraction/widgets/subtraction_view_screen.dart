@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:offline_first_app/modules/basic_operators/subtraction/widgets/subtraction_quiz_screen.dart';
+import 'package:pracpro/modules/basic_operators/subtraction/widgets/subtraction_quiz_screen.dart';
 
 class SubtractionLessonViewScreen extends StatefulWidget {
   final String lessonTitle;

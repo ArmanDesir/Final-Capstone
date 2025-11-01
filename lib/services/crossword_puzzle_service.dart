@@ -1,4 +1,4 @@
-import 'package:offline_first_app/models/crossword_puzzles.dart';
+import 'package:pracpro/models/crossword_puzzles.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CrosswordPuzzleService {

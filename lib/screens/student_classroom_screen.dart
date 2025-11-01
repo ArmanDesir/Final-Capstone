@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/classroom.dart';
-import 'package:offline_first_app/models/content.dart';
+import 'package:pracpro/models/classroom.dart';
+import 'package:pracpro/models/content.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:offline_first_app/screens/lesson_detail_screen.dart';
+import 'package:pracpro/screens/lesson_detail_screen.dart';
 
 class StudentClassroomScreen extends StatefulWidget {
   final Classroom classroom;
@@ -103,7 +103,7 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
     try {
       final userId = _supabase.auth.currentUser!.id;
 
-      final data = await _supabase.rpc('get_lessons_with_access', params: {
+      final data = await _supabase.rpc('get_lessons_with_access_v2', params: {
         'p_user_id': userId,
         'p_classroom_id': widget.classroom.id,
       }) as List<dynamic>;

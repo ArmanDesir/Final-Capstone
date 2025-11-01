@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/activity_progress.dart';
-import 'package:offline_first_app/models/classroom.dart';
-import 'package:offline_first_app/models/user.dart' as local;
-import 'package:offline_first_app/providers/auth_provider.dart';
-import 'package:offline_first_app/providers/classroom_provider.dart';
-import 'package:offline_first_app/screens/join_classroom_screen.dart';
-import 'package:offline_first_app/screens/student_classroom_screen.dart';
+import 'package:pracpro/models/activity_progress.dart';
+import 'package:pracpro/models/classroom.dart';
+import 'package:pracpro/models/user.dart' as local;
+import 'package:pracpro/providers/auth_provider.dart';
+import 'package:pracpro/providers/classroom_provider.dart';
+import 'package:pracpro/screens/join_classroom_screen.dart';
+import 'package:pracpro/screens/student_classroom_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -194,26 +194,31 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   Widget _buildClassroomStatus(
       ClassroomProvider classroomProvider, local.User? user) {
-    final classroom = classroomProvider.currentClassroom;
+    final classrooms = classroomProvider.studentClassrooms;
 
-    if (user?.classroomId == null) {
-      return _buildNoClassroomCard();
-    }
-
-    if (classroom == null) {
+    if (classroomProvider.isLoading) {
       return _buildLoadingClassroomCard();
     }
 
-    if (classroom.pendingStudentIds.contains(user!.id)) {
-      return _buildPendingStatusCard(classroom);
+    if (classrooms.isEmpty || user == null) {
+      return _buildNoClassroomCard();
     }
 
-    if (classroom.studentIds.contains(user.id)) {
-      return _buildActiveClassroomCard(classroom);
+    final activeClassrooms =
+    classrooms.where((c) => c.studentIds.contains(user.id)).toList();
+
+    if (activeClassrooms.isEmpty) {
+      final pending = classrooms.firstWhere(
+            (c) => c.pendingStudentIds.contains(user.id),
+        orElse: () => classrooms.first,
+      );
+      return _buildPendingStatusCard(pending);
     }
 
-    return _buildNoClassroomCard();
+    final classroom = activeClassrooms.first;
+    return _buildActiveClassroomCard(classroom);
   }
+
 
   Widget _buildNoClassroomCard() {
     return Card(

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
 
-import 'package:offline_first_app/modules/basic_operators/addition/game_theme.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/widgets/game_button.dart';
+import 'package:pracpro/modules/basic_operators/addition/game_theme.dart';
+import 'package:pracpro/modules/basic_operators/addition/widgets/game_button.dart';
 
 class MultiplicationNinjaMathGameScreen extends StatefulWidget {
   final String difficulty;
