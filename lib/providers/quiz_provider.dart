@@ -12,28 +12,53 @@ class QuizProvider with ChangeNotifier {
     try {
       final data = await supabase
           .from('quizzes')
-          .select(
-          'id, title, classroom_id, quiz_questions(id, question_text, choice_a, choice_b, choice_c, correct_choice)')
+          .select('''
+            id,
+            title,
+            classroom_id,
+            quiz_questions (
+              id,
+              question_text,
+              choice_a,
+              choice_b,
+              choice_c,
+              correct_choice
+            )
+          ''')
           .eq('lesson_id', lessonId);
 
-      lessonQuizzes = (data as List<dynamic>).map((q) {
+      if (data == null || (data is List && data.isEmpty)) {
+        lessonQuizzes = [];
+        notifyListeners();
+        return;
+      }
+
+      lessonQuizzes = (data as List).map((quiz) {
+        final rawQuestions = quiz['quiz_questions'] as List<dynamic>? ?? [];
+
+        final parsedQuestions = rawQuestions.map((q) {
+          return {
+            'id': q['id'],
+            'question_text': q['question_text'] ?? 'Untitled question',
+            'options': [
+              q['choice_a'] ?? '',
+              q['choice_b'] ?? '',
+              q['choice_c'] ?? '',
+            ],
+            'correct_choice': q['correct_choice'] ?? 'A',
+          };
+        }).toList();
+
         return {
-          'id': q['id'],
-          'title': q['title'],
-          'classroom_id': q['classroom_id'],
-          'questions': (q['quiz_questions'] as List<dynamic>).map((qq) {
-            return {
-              'q': qq['question_text'],
-              'options': [qq['choice_a'], qq['choice_b'], qq['choice_c']],
-              'a': qq['correct_choice'],
-            };
-          }).toList(),
+          'id': quiz['id'],
+          'title': quiz['title'] ?? 'Untitled Quiz',
+          'classroom_id': quiz['classroom_id'],
+          'questions': parsedQuestions,
         };
       }).toList();
 
       notifyListeners();
     } catch (e) {
-      debugPrint("Error loading lesson quizzes: $e");
       rethrow;
     }
   }
@@ -45,10 +70,10 @@ class QuizProvider with ChangeNotifier {
           .select('id, title, classroom_id, quiz_questions (id)')
           .eq('created_by', teacherId);
 
-      _quizzes = (data as List<dynamic>).map((q) {
+      _quizzes = (data as List).map((q) {
         return {
           'id': q['id'],
-          'title': q['title'],
+          'title': q['title'] ?? 'Untitled Quiz',
           'classroom_id': q['classroom_id'],
           'questions': q['quiz_questions'] ?? [],
         };
@@ -56,7 +81,7 @@ class QuizProvider with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint("Error loading quizzes: $e");
+      rethrow;
     }
   }
 
@@ -76,7 +101,6 @@ class QuizProvider with ChangeNotifier {
       }).select().single();
 
       final quizId = quiz['id'];
-
       for (final q in questions) {
         await supabase.from('quiz_questions').insert({
           'quiz_id': quizId,
@@ -90,7 +114,6 @@ class QuizProvider with ChangeNotifier {
 
       await loadQuizzes(teacherId);
     } catch (e) {
-      debugPrint("Error creating quiz: $e");
       rethrow;
     }
   }

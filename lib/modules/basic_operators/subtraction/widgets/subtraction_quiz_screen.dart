@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
-import 'package:offline_first_app/modules/basic_operators/addition/game_theme.dart';
-import 'package:offline_first_app/modules/basic_operators/addition/widgets/game_button.dart';
+import 'package:pracpro/modules/basic_operators/addition/game_theme.dart';
+import 'package:pracpro/modules/basic_operators/addition/widgets/game_button.dart';
 
 class SubtractionQuizScreen extends StatefulWidget {
   final List<Map<String, dynamic>> questions;

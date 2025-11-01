@@ -1,30 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/screens/LessonQuizScreen.dart';
+import 'package:pracpro/screens/LessonQuizScreen.dart';
+import 'package:pracpro/utils/pdf_viewer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/content.dart';
 
-class LessonDetailScreen extends StatelessWidget {
+class LessonDetailScreen extends StatefulWidget {
   final Content content;
   const LessonDetailScreen({super.key, required this.content});
 
+  @override
+  State<LessonDetailScreen> createState() => _LessonDetailScreenState();
+}
+
+class _LessonDetailScreenState extends State<LessonDetailScreen> {
+  bool _hasQuiz = false;
+  bool _isLoadingQuizCheck = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfQuizExists();
+  }
+
+  Future<void> _checkIfQuizExists() async {
+    try {
+      final quiz = await Supabase.instance.client
+          .from('quizzes')
+          .select('id')
+          .eq('lesson_id', widget.content.id)
+          .maybeSingle();
+
+      setState(() {
+        _hasQuiz = quiz != null;
+        _isLoadingQuizCheck = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingQuizCheck = false);
+    }
+  }
+
   Future<void> _openFile(BuildContext context) async {
-    if (content.fileUrl == null) {
+    final fileUrl = widget.content.fileUrl;
+
+    if (fileUrl == null || fileUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("No file attached.")),
       );
       return;
     }
 
-    final Uri url = Uri.parse(content.fileUrl!);
+    if (fileUrl.toLowerCase().endsWith('.pdf')) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(
+            fileUrl: fileUrl,
+            title: widget.content.title,
+          ),
+        ),
+      );
+      return;
+    }
 
-    if (!await launchUrl(
-      url,
-      mode: LaunchMode.externalApplication,
-    )) {
+    final Uri url = Uri.parse(fileUrl);
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Could not open ${content.fileName}")),
+        SnackBar(content: Text("Could not open ${widget.content.fileName ?? 'file'}")),
       );
     }
   }
@@ -41,21 +84,18 @@ class LessonDetailScreen extends StatelessWidget {
         final uri = Uri.parse(url);
         return uri.queryParameters['v'];
       }
-    } catch (e) {
-    }
+    } catch (_) {}
 
     return YoutubePlayer.convertUrlToId(url);
   }
 
   @override
   Widget build(BuildContext context) {
-    print("Fetched YouTube URL: ${content.youtubeUrl}");
-    final youtubeId = _getYoutubeId(content.youtubeUrl);
-    print("Extracted YouTube ID: $youtubeId");
+    final youtubeId = _getYoutubeId(widget.content.youtubeUrl);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(content.title),
+        title: Text(widget.content.title),
         backgroundColor: Colors.blue,
       ),
       body: SingleChildScrollView(
@@ -64,19 +104,19 @@ class LessonDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              content.title,
+              widget.content.title,
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text(content.description ?? ''),
+            Text(widget.content.description ?? ''),
             const SizedBox(height: 16),
 
-            if (content.fileUrl != null)
+            if (widget.content.fileUrl != null)
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
                   title: const Text("Open Attached File"),
-                  subtitle: Text(content.fileName ?? "Lesson document"),
+                  subtitle: Text(widget.content.fileName ?? "Lesson document"),
                   onTap: () => _openFile(context),
                 ),
               ),
@@ -98,25 +138,29 @@ class LessonDetailScreen extends StatelessWidget {
               const SizedBox(height: 16),
             ],
 
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => LessonQuizzesScreen(
-                      lessonId: content.id,
-                      classroomId: content.classroomId,
-                      userId: Supabase.instance.client.auth.currentUser!.id,
+            if (!_isLoadingQuizCheck &&
+                widget.content.type == ContentType.lesson &&
+                _hasQuiz)
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LessonQuizzesScreen(
+                        lessonId: widget.content.id,
+                        classroomId: widget.content.classroomId,
+                        userId:
+                        Supabase.instance.client.auth.currentUser!.id,
+                      ),
                     ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.quiz),
-              label: const Text("Take Quiz"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                  );
+                },
+                icon: const Icon(Icons.quiz),
+                label: const Text("Take Quiz"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                ),
               ),
-            ),
           ],
         ),
       ),

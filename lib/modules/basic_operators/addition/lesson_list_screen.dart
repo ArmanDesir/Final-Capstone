@@ -1,104 +1,103 @@
 import 'package:flutter/material.dart';
-import 'mock_data.dart';
+import 'package:pracpro/models/lesson.dart';
+import 'package:pracpro/services/lesson_service.dart';
 import 'lesson_view_screen.dart';
 
 class LessonListScreen extends StatelessWidget {
-  const LessonListScreen({Key? key}) : super(key: key);
+  const LessonListScreen({
+    super.key,
+    required this.classroomId,
+    this.operatorFilter,
+    this.difficulty,
+    this.useRealtime = false
+  });
+
+  final String classroomId;
+  final String? operatorFilter;
+  final int? difficulty;
+  final bool useRealtime;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Addition Lessons'),
-        backgroundColor: Colors.lightBlue,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              color: Colors.lightBlue[50],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Addition Lessons',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Learn the fundamentals of addition through interactive lessons!',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: ListView.builder(
-                itemCount: additionLessons.length,
-                itemBuilder: (context, index) {
-                  final lesson = additionLessons[index];
-                  return _buildLessonCard(
-                    lesson['title'],
-                    lesson['explanation'],
-                    Icons.add_circle_outline,
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (_) => LessonViewScreen(
-                                lessonTitle: lesson['title'],
-                                explanation: lesson['explanation'],
-                                videoUrl: lesson['videoUrl'],
-                                quiz: lesson['quiz'],
-                              ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    final service = LessonService();
 
-  Widget _buildLessonCard(
-    String title,
-    String description,
-    IconData icon,
-    VoidCallback onTap,
-  ) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.lightBlue,
-          child: Icon(icon, color: Colors.white),
+    Widget listBuilder(List<Lesson> lessons) {
+      if (lessons.isEmpty) {
+        return const Center(child: Text('No lessons yet.'));
+      }
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: lessons.length,
+        itemBuilder: (_, i) {
+          final l = lessons[i];
+          return Card(
+            elevation: 2,
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.lightBlue,
+                child: const Icon(Icons.add_circle_outline, color: Colors.white),
+              ),
+              title: Text(l.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(
+                l.description ?? 'No description',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => LessonViewScreen(lesson: l),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      );
+    }
+
+    if (useRealtime) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Addition Lessons'), backgroundColor: Colors.lightBlue),
+        body: StreamBuilder<List<Lesson>>(
+          stream: service.streamLessons(
+            classroomId,
+            operatorFilter: operatorFilter,
+            difficulty: difficulty,
+          ),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snap.hasError) {
+              return Center(child: Text('Error: ${snap.error}'));
+            }
+            return listBuilder(snap.data ?? const []);
+          },
         ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      );
+    } else {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Addition Lessons'), backgroundColor: Colors.lightBlue),
+        body: FutureBuilder<List<Lesson>>(
+          future: service.getLessons(
+            classroomId,
+            operatorFilter: operatorFilter,
+            difficulty: difficulty,
+          ),
+          builder: (context, snap) {
+            if (!snap.hasData) {
+              if (snap.hasError) return Center(child: Text('Error: ${snap.error}'));
+              return const Center(child: CircularProgressIndicator());
+            }
+            return listBuilder(snap.data!);
+          },
         ),
-        subtitle: Text(description),
-        trailing: const Icon(Icons.arrow_forward_ios),
-        onTap: onTap,
-      ),
-    );
+      );
+    }
   }
 }

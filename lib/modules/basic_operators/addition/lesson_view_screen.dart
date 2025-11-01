@@ -1,22 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/providers/auth_provider.dart';
+import 'package:pracpro/models/lesson.dart';
+import 'package:pracpro/providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'quiz_screen.dart';
-import 'package:provider/provider.dart';
 
 class LessonViewScreen extends StatefulWidget {
-  final String lessonTitle;
-  final String explanation;
-  final String videoUrl;
-  final List<dynamic> quiz;
+  final Lesson lesson;
+  final List<Map<String, dynamic>> quizQuestions;
 
   const LessonViewScreen({
-    Key? key,
-    required this.lessonTitle,
-    required this.explanation,
-    required this.videoUrl,
-    required this.quiz,
-  }) : super(key: key);
+    super.key,
+    required this.lesson,
+    this.quizQuestions = const [],
+  });
 
   @override
   State<LessonViewScreen> createState() => _LessonViewScreenState();
@@ -29,7 +26,7 @@ class _LessonViewScreenState extends State<LessonViewScreen> {
   void initState() {
     super.initState();
     _controller = YoutubePlayerController(
-      initialVideoId: YoutubePlayer.convertUrlToId(widget.videoUrl) ?? '',
+      initialVideoId: YoutubePlayer.convertUrlToId(widget.lesson.youtubeUrl ?? '') ?? '',
       flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
     );
   }
@@ -42,9 +39,11 @@ class _LessonViewScreenState extends State<LessonViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lesson = widget.lesson;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.lessonTitle),
+        title: Text(lesson.title),
         backgroundColor: Colors.lightBlue,
       ),
       body: Padding(
@@ -52,44 +51,43 @@ class _LessonViewScreenState extends State<LessonViewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              widget.lessonTitle,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
+            Text(lesson.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            Text(widget.explanation, style: const TextStyle(fontSize: 16)),
+            Text(lesson.description ?? '', style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 16),
-            YoutubePlayer(
-              controller: _controller,
-              showVideoProgressIndicator: true,
-              progressIndicatorColor: Colors.blueAccent,
-              progressColors: const ProgressBarColors(
-                playedColor: Colors.blue,
-                handleColor: Colors.blueAccent,
+            if ((lesson.youtubeUrl ?? '').isNotEmpty)
+              YoutubePlayer(
+                controller: _controller,
+                showVideoProgressIndicator: true,
+                progressIndicatorColor: Colors.blueAccent,
+                progressColors: const ProgressBarColors(
+                  playedColor: Colors.blue,
+                  handleColor: Colors.blueAccent,
+                ),
               ),
-            ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.quiz),
-              label: const Text('Take Quiz'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              onPressed: () {
-                final auth = context.read<AuthProvider>();
-                final userId = auth.currentUser!.id;
-                final quizId = "lesson_${widget.lessonTitle}";
+            if (widget.quizQuestions.isNotEmpty)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.quiz),
+                label: const Text('Take Quiz'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                onPressed: () {
+                  final auth = context.read<AuthProvider>();
+                  final userId = auth.currentUser!.id;
+                  final quizId = "lesson_${lesson.id ?? lesson.title}";
 
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => QuizScreen(
-                      questions: widget.quiz.cast<Map<String, dynamic>>(),
-                      quizId: quizId,
-                      userId: userId,
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => QuizScreen(
+                        questions: widget.quizQuestions,
+                        quizId: quizId,
+                        userId: userId,
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               icon: const Icon(Icons.videogame_asset),

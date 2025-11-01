@@ -95,7 +95,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     ),
                     child: Column(
                       children: [
-                        const Icon(Icons.school, size: 80, color: Colors.blue),
+                        Image.asset(
+                          'assets/Logo.png',
+                          width: 80,
+                          height: 80,
+                        ),
                         const SizedBox(height: 16),
                         const Text(
                           'PracPro',

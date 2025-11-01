@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/user.dart' as app_model;
-import 'package:offline_first_app/providers/auth_provider.dart';
-import 'package:offline_first_app/providers/classroom_provider.dart';
-import 'package:offline_first_app/providers/quiz_provider.dart';
-import 'package:offline_first_app/screens/QuizDetailsScreen.dart';
-import 'package:offline_first_app/screens/classroom_details_screen.dart';
-import 'package:offline_first_app/screens/manage_classrooms_screen.dart';
+import 'package:pracpro/models/user.dart' as app_model;
+import 'package:pracpro/providers/auth_provider.dart';
+import 'package:pracpro/providers/classroom_provider.dart';
+import 'package:pracpro/providers/quiz_provider.dart';
+import 'package:pracpro/screens/QuizDetailsScreen.dart';
+import 'package:pracpro/screens/classroom_details_screen.dart';
+import 'package:pracpro/screens/manage_classrooms_screen.dart';
+import 'package:pracpro/screens/activity_logs_screen.dart';
 import 'package:provider/provider.dart';
-
-
 
 class CreateClassroomScreen extends StatelessWidget {
   final String teacherId;
@@ -73,59 +72,130 @@ class TeacherDashboard extends StatefulWidget {
 class _TeacherDashboardState extends State<TeacherDashboard> {
   final GlobalKey _classroomListKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
-
   int _lessonsCount = 0;
   int _quizzesCount = 0;
+
+  List<app_model.User> _acceptedStudents = [];
+  Map<String, List<app_model.User>> _studentsByClassroom = {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final classroomProvider =
-      Provider.of<ClassroomProvider>(context, listen: false);
+      final classroomProvider = Provider.of<ClassroomProvider>(context, listen: false);
 
-      await classroomProvider.loadTeacherClassrooms();
+      final teacherId = authProvider.currentUser?.id ?? '';
 
-      final counts = await classroomProvider.getContentCountsForTeacher(
-        authProvider.currentUser?.id ?? '',
-      );
-      if (mounted) {
-        setState(() {
-          _lessonsCount = counts['lessons'] ?? 0;
-          _quizzesCount = counts['quizzes'] ?? 0;
-        });
+      try {
+        await classroomProvider.loadTeacherClassrooms();
+
+        final counts = await classroomProvider.getContentCountsForTeacher(teacherId);
+        final acceptedStudents = await classroomProvider.getAcceptedStudentsForAllClassrooms();
+        final groupedStudents = await classroomProvider.getStudentsGroupedByClassroom();
+        final uniqueStudents = _dedupeUsers(acceptedStudents)
+          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+
+        if (mounted) {
+          setState(() {
+            _lessonsCount = counts['lessons'] ?? 0;
+            _quizzesCount = counts['quizzes'] ?? 0;
+            _acceptedStudents = uniqueStudents;
+            _studentsByClassroom = groupedStudents;
+          });
+        }
+      } catch (e, stack) {
+        print(stack);
       }
     });
   }
 
+  List<app_model.User> _dedupeUsers(List<app_model.User> users) {
+    final seen = <String>{};
+    final unique = <app_model.User>[];
+    for (final u in users) {
+      final key = (u.id ?? 'email:${u.email ?? ''}').trim();
+      if (key.isEmpty || seen.contains(key)) continue;
+      seen.add(key);
+      unique.add(u);
+    }
+    return unique;
+  }
+
   void _scrollToClassrooms() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = _classroomListKey.currentContext;
-      if (context != null) {
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 500),
+    if (_classroomListKey.currentContext != null) {
+      Scrollable.ensureVisible(
+        _classroomListKey.currentContext!,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  Future<void> _openActivityLogsPicker(BuildContext context) async {
+    final classroomProvider = Provider.of<ClassroomProvider>(context, listen: false);
+    final classrooms = classroomProvider.teacherClassrooms;
+
+    if (classrooms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No classrooms available.')),
+      );
+      return;
+    }
+
+    final chosen = await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                leading: Icon(Icons.school),
+                title: Text('Select a classroom'),
+                subtitle: Text('Open student activity for the selected class'),
+              ),
+              const Divider(height: 0),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: classrooms.length,
+                  itemBuilder: (_, i) {
+                    final c = classrooms[i];
+                    return ListTile(
+                      leading: const Icon(Icons.class_),
+                      title: Text(c.name),
+                      subtitle: Text('Code: ${c.code ?? ''} • Students: ${c.studentIds.length}'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () => Navigator.pop(sheetCtx, c),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         );
-      }
-    });
+      },
+    );
+
+    if (chosen != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ActivityLogsScreen(classroomId: chosen.id),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
     final classroomProvider = Provider.of<ClassroomProvider>(context);
     final quizProvider = Provider.of<QuizProvider>(context);
-
-    final teacherId = authProvider.currentUser?.id ?? '';
-
-    final acceptedStudents = classroomProvider.teacherClassrooms
-        .expand((c) => c.studentIds)
-        .toSet()
-        .length;
-
-    final lessonsCount = _lessonsCount;
-    final quizzesCount = _quizzesCount;
+    final acceptedStudentsCount = _acceptedStudents.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -169,7 +239,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 ),
               ),
               _buildStatCard(
-                '$acceptedStudents',
+                '$acceptedStudentsCount',
                 'Students',
                 Colors.green,
               ),
@@ -179,10 +249,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildStatCard(
-                  '$lessonsCount', 'Lessons', Colors.orange),
-              _buildStatCard(
-                  '$quizzesCount', 'Quizzes', Colors.purple),
+              _buildStatCard('$_lessonsCount', 'Lessons', Colors.orange),
+              _buildStatCard('$_quizzesCount', 'Quizzes', Colors.purple),
             ],
           ),
           const SizedBox(height: 24),
@@ -198,21 +266,40 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 'Manage Classroom',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              subtitle: const Text(
-                'Create, update, or delete your classrooms',
-              ),
+              subtitle: const Text('Create, update, or delete your classrooms'),
               onTap: () async {
                 await Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => ManageClassroomsScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => ManageClassroomsScreen()),
                 );
-                Provider.of<ClassroomProvider>(
-                  context,
-                  listen: false,
-                ).loadTeacherClassrooms();
+                Provider.of<ClassroomProvider>(context, listen: false)
+                    .loadTeacherClassrooms();
               },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.history, color: Colors.orange),
+              title: const Text(
+                'Student Activity',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text('View student activity logs for monitoring'),
+              onTap: () => _openActivityLogsPicker(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.calculate, color: Colors.indigo),
+              title: const Text(
+                'Basic Operations',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text('Addition, Subtraction, Multiplication, Division'),
+              onTap: () => Navigator.pushNamed(context, '/basic_operations'),
             ),
           ),
           const SizedBox(height: 24),
@@ -225,15 +312,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             Center(
               child: Text(
                 'No classrooms yet. Tap "Create Classroom" to add one!',
-                style:
-                TextStyle(fontSize: 16, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               ),
             )
-          else
-            ...classroomProvider.teacherClassrooms.map(
+          else ...[
+            ...classroomProvider.teacherClassrooms.take(3).map(
                   (classroom) => Container(
-                key: classroom ==
-                    classroomProvider.teacherClassrooms.first
+                key: classroom == classroomProvider.teacherClassrooms.first
                     ? _classroomListKey
                     : null,
                 child: Card(
@@ -245,16 +330,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Colors.green.shade100,
-                      child: const Icon(
-                        Icons.class_,
-                        color: Colors.green,
-                      ),
+                      child: const Icon(Icons.class_, color: Colors.green),
                     ),
                     title: Text(
                       classroom.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
                       'Code: ${classroom.code ?? ''}\nStudents: ${classroom.studentIds.length}',
@@ -264,9 +344,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ClassroomDetailsScreen(
-                            classroom: classroom,
-                          ),
+                          builder: (_) => ClassroomDetailsScreen(classroom: classroom),
                         ),
                       );
                     },
@@ -274,69 +352,53 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 ),
               ),
             ),
+            if (classroomProvider.teacherClassrooms.length > 3)
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ManageClassroomsScreen()),
+                  );
+                },
+                child: const Text('See All Classrooms'),
+              ),
+          ],
           const SizedBox(height: 24),
           const Text(
             'Accepted Students',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          if (classroomProvider.teacherClassrooms
-              .expand((c) => c.studentIds)
-              .isEmpty)
+          if (acceptedStudentsCount == 0)
             Center(
               child: Text(
                 'No accepted students yet.',
-                style:
-                TextStyle(fontSize: 16, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               ),
             )
           else
-            FutureBuilder<List<app_model.User>>(
-              future: classroomProvider
-                  .getAcceptedStudentsForAllClassrooms(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const Center(
-                      child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No accepted students yet.',
-                      style: TextStyle(
-                          fontSize: 16, color: Colors.grey[600]),
+            Column(
+              children: _acceptedStudents.map((student) {
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.person, color: Colors.green),
+                    title: Text(student.name ?? 'Unknown'),
+                    subtitle: Text(student.email ?? 'No email'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.arrow_forward),
+                      onPressed: () {
+                        if (student.id != null) {
+                          Navigator.pushNamed(
+                            context,
+                            '/profile',
+                            arguments: student.id,
+                          );
+                        }
+                      },
                     ),
-                  );
-                }
-
-                final students = snapshot.data!;
-
-                return Column(
-                  children: students.map((student) {
-                    return Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.person,
-                            color: Colors.green),
-                        title: Text(student.name ?? 'Unknown'),
-                        subtitle: Text(student.email ?? 'No email'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.arrow_forward),
-                          onPressed: () {
-                            if (student.id != null) {
-                              Navigator.pushNamed(
-                                context,
-                                '/profile',
-                                arguments: student.id,
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                  ),
                 );
-              },
+              }).toList(),
             ),
           const SizedBox(height: 24),
           const Text(
@@ -348,25 +410,21 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             Center(
               child: Text(
                 'No quizzes yet. Tap "Create Quiz" to add one!',
-                style:
-                TextStyle(fontSize: 16, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               ),
             )
           else
             ...quizProvider.quizzes.map(
                   (quiz) => Card(
                 child: ListTile(
-                  leading: const Icon(Icons.quiz,
-                      color: Colors.purple),
+                  leading: const Icon(Icons.quiz, color: Colors.purple),
                   title: Text(quiz['title'] ?? 'Untitled Quiz'),
-                  subtitle: Text(
-                      '${quiz['questions']?.length ?? 0} Questions'),
+                  subtitle: Text('${quiz['questions']?.length ?? 0} Questions'),
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            QuizDetailsScreen(quiz: quiz),
+                        builder: (_) => QuizDetailsScreen(quiz: quiz),
                       ),
                     );
                   },
@@ -384,29 +442,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       height: 80,
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withAlpha((0.08 * 255).toInt()),
-          Colors.white,
-        ),
+        color: Color.alphaBlend(color.withAlpha((0.08 * 255).toInt()), Colors.white),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Color.alphaBlend(
-            color.withAlpha((0.2 * 255).toInt()),
-            Colors.white,
-          ),
+          color: Color.alphaBlend(color.withAlpha((0.2 * 255).toInt()), Colors.white),
         ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
+          Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 4),
           Text(label, style: TextStyle(fontSize: 16, color: color)),
         ],

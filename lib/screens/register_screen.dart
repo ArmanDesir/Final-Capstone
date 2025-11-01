@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/models/user.dart';
-import 'package:offline_first_app/providers/auth_provider.dart';
-import 'package:offline_first_app/screens/home_screen.dart';
+import 'package:pracpro/models/user.dart';
+import 'package:pracpro/providers/auth_provider.dart';
+import 'package:pracpro/screens/home_screen.dart';
 import 'package:provider/provider.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -21,7 +21,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _teacherCodeController = TextEditingController();
-  final _contactNumberController = TextEditingController();
   final _studentIdController = TextEditingController();
   final _guardianNameController = TextEditingController();
   final _guardianEmailController = TextEditingController();
@@ -37,7 +36,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _teacherCodeController.dispose();
-    _contactNumberController.dispose();
     _studentIdController.dispose();
     _guardianNameController.dispose();
     _guardianEmailController.dispose();
@@ -69,7 +67,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text,
         name: _nameController.text.trim(),
         userType: widget.userType,
-        contactNumber: _contactNumberController.text.trim(),
         studentId: widget.userType == UserType.student
             ? _studentIdController.text.trim()
             : null,
@@ -163,21 +160,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     validator: (value) =>
                     value == null || value.isEmpty
                         ? 'Please enter your name'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _contactNumberController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'Contact Number',
-                      prefixIcon: Icon(Icons.phone),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                    value == null || value.isEmpty
-                        ? 'Please enter your contact number'
                         : null,
                   ),
                   const SizedBox(height: 16),

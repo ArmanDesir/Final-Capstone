@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:pracpro/models/classroom.dart';
+import 'package:pracpro/models/content.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:offline_first_app/screens/lesson_detail_screen.dart';
-import '../models/classroom.dart';
-import '../models/content.dart';
+import 'package:pracpro/screens/lesson_detail_screen.dart';
 
 class StudentClassroomScreen extends StatefulWidget {
   final Classroom classroom;
@@ -28,6 +28,9 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
   bool _isLoadingContent = true;
   String? _errorMessage;
 
+  final _supabase = Supabase.instance.client;
+  RealtimeChannel? _subscription;
+
   final _tabs = [
     _TabInfo(title: 'Lessons', icon: Icons.book, contentType: ContentType.lesson),
     _TabInfo(title: 'Exercises', icon: Icons.fitness_center, contentType: ContentType.exercise),
@@ -39,22 +42,76 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
     _loadContent();
+
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId != null) {
+      _subscribeToClassroomUpdates(userId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _subscription?.unsubscribe();
+    super.dispose();
+  }
+
+  void _subscribeToClassroomUpdates(String userId) {
+    _subscription?.unsubscribe();
+
+    final supabase = Supabase.instance.client;
+
+    _subscription = supabase
+        .channel('student_classroom_${widget.classroom.id}_$userId')
+        .onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'contents',
+      filter: PostgresChangeFilter(
+        column: 'classroom_id',
+        value: widget.classroom.id,
+        type: PostgresChangeFilterType.eq,
+      ),
+      callback: (payload) {
+        _loadContent();
+      },
+    )
+        .onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'classroom_access',
+      filter: PostgresChangeFilter(
+        column: 'classroom_id',
+        value: widget.classroom.id,
+        type: PostgresChangeFilterType.eq,
+      ),
+      callback: (payload) {
+        _loadContent();
+      },
+    )
+        .subscribe();
   }
 
   Future<void> _loadContent() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoadingContent = true;
       _errorMessage = null;
     });
 
     try {
-      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final userId = _supabase.auth.currentUser!.id;
 
-      final data = await Supabase.instance.client
-          .rpc('get_lessons_with_access', params: {
+      final data = await _supabase.rpc('get_lessons_with_access_v2', params: {
         'p_user_id': userId,
         'p_classroom_id': widget.classroom.id,
       }) as List<dynamic>;
+
+      print('RPC rows: ${data.length}');
+      for (final e in data) {
+        print('RPC row -> title=${e['title']}, type=${e['type']}');
+      }
 
       final allContent = data.map((e) {
         return Content(
@@ -71,19 +128,23 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
         );
       }).toList();
 
-      _lessons = allContent.where((c) => c.type == ContentType.lesson).toList();
-      _exercises = allContent.where((c) => c.type == ContentType.exercise).toList();
-
-    } catch (e) {
-      print('Error loading content: $e');
       if (!mounted) return;
 
-      _errorMessage = 'Failed to load content. Please try again later.';
+      setState(() {
+        _lessons = allContent.where((c) => c.type == ContentType.lesson).toList();
+        _exercises = allContent.where((c) => c.type == ContentType.exercise).toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Failed to load content. Please try again later.';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
     } finally {
-      if (mounted) setState(() => _isLoadingContent = false);
+      if (!mounted) return;
+      setState(() => _isLoadingContent = false);
     }
   }
 
@@ -98,12 +159,6 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
       default:
         return ContentType.lesson;
     }
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   @override
@@ -167,65 +222,69 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
       ContentType.quiz => <Content>[],
     };
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.classroom.name,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+    return RefreshIndicator(
+      onRefresh: _loadContent,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.classroom.name,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Code: ${widget.classroom.code ?? ''}'),
-                  if (widget.classroom.description.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text(widget.classroom.description),
+                    Text('Code: ${widget.classroom.code ?? ''}'),
+                    if ((widget.classroom.description ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(widget.classroom.description!),
+                    ],
                   ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const Spacer(),
-              Text(
-                '${filteredContent.length} items',
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (filteredContent.isEmpty)
-            _buildEmptyState(contentType)
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredContent.length,
-              itemBuilder: (context, index) {
-                final content = filteredContent[index];
-                return _buildContentCard(content);
-              },
             ),
-        ],
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${filteredContent.length} items',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (filteredContent.isEmpty)
+              _buildEmptyState(contentType)
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filteredContent.length,
+                itemBuilder: (context, index) {
+                  final content = filteredContent[index];
+                  return _buildContentCard(content);
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -281,11 +340,7 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
         padding: const EdgeInsets.all(32),
         child: Column(
           children: [
-            Icon(
-              icon,
-              size: 64,
-              color: color.withOpacity(0.5),
-            ),
+            Icon(icon, size: 64, color: color.withOpacity(0.5)),
             const SizedBox(height: 16),
             Text(
               message,
@@ -311,13 +366,16 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
     final isLocked = !content.isUnlocked;
 
     return Stack(
+      alignment: Alignment.center,
       children: [
         Card(
+          elevation: isLocked ? 0 : 2,
           margin: const EdgeInsets.only(bottom: 12),
-          color: isLocked ? Colors.grey[200] : Colors.white,
+          color: isLocked ? Colors.grey[100] : Colors.white,
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: content.type.color.withOpacity(isLocked ? 0.05 : 0.1),
+              backgroundColor:
+              content.type.color.withOpacity(isLocked ? 0.05 : 0.15),
               child: Icon(
                 content.type.icon,
                 color: isLocked ? Colors.grey : content.type.color,
@@ -327,45 +385,43 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
               content.title,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: isLocked ? Colors.grey : Colors.black,
+                color: isLocked ? Colors.grey[500] : Colors.black,
               ),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (content.type != ContentType.quiz && content.description != null) ...[
-                  Text(
-                    content.description!,
-                    style: TextStyle(color: isLocked ? Colors.grey : Colors.black),
+                if (content.description != null && content.description!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
+                    child: Text(
+                      content.description!,
+                      style: TextStyle(
+                        color: isLocked ? Colors.grey[400] : Colors.grey[700],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                ],
                 Row(
                   children: [
-                    if (content.type != ContentType.quiz && content.fileSize != null) ...[
-                      Icon(Icons.file_present, size: 16, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatFileSize(content.fileSize!),
-                        style: TextStyle(fontSize: 12, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
-                      ),
-                      const SizedBox(width: 16),
-                    ],
-                    Icon(Icons.calendar_today, size: 16, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
+                    Icon(Icons.calendar_today,
+                        size: 14,
+                        color: isLocked ? Colors.grey[400] : Colors.grey[600]),
                     const SizedBox(width: 4),
                     Text(
                       _formatDate(content.createdAt),
-                      style: TextStyle(fontSize: 12, color: isLocked ? Colors.grey[400] : Colors.grey[600]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isLocked ? Colors.grey[400] : Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
             isThreeLine: true,
-            trailing: Icon(
-              Icons.chevron_right,
-              color: isLocked ? Colors.grey : Colors.black,
-            ),
+            trailing: isLocked
+                ? const Icon(Icons.lock_outline, color: Colors.redAccent)
+                : const Icon(Icons.chevron_right),
             onTap: content.isUnlocked
                 ? () {
               Navigator.push(
@@ -375,20 +431,27 @@ class _StudentClassroomScreenState extends State<StudentClassroomScreen>
                 ),
               );
             }
-                : null,
+                : () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Lesson locked. Complete the previous quiz to unlock.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
           ),
         ),
+
         if (isLocked)
-          Positioned(
-            top: 0,
-            right: 0,
+          Positioned.fill(
             child: Container(
-              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.close, size: 16, color: Colors.white),
+              child: const Center(
+                child: Icon(Icons.lock, color: Colors.white, size: 40),
+              ),
             ),
           ),
       ],

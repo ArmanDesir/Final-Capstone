@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:offline_first_app/screens/create_lesson_screen.dart';
-import 'package:offline_first_app/screens/create_quiz_screen.dart';
-import 'package:offline_first_app/screens/lesson_detail_screen.dart';
+import 'package:pracpro/models/classroom.dart';
+import 'package:pracpro/models/content.dart';
+import 'package:pracpro/models/user.dart' as app_model;
+import 'package:pracpro/providers/classroom_provider.dart';
+import 'package:pracpro/screens/create_lesson_screen.dart';
+import 'package:pracpro/screens/create_quiz_screen.dart';
+import 'package:pracpro/screens/lesson_detail_screen.dart';
+import 'package:pracpro/services/content_service.dart';
+import 'package:pracpro/services/exercise_service.dart';
 import 'package:provider/provider.dart';
-import '../models/classroom.dart';
-import '../providers/classroom_provider.dart';
-import '../models/user.dart';
-import '../models/content.dart';
-import '../services/content_service.dart';
 import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ClassroomDetailsScreen extends StatefulWidget {
   final Classroom classroom;
@@ -24,6 +26,7 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
   final ContentService _contentService = ContentService();
   List<Content> _contentList = [];
   bool _isLoadingContent = false;
+  final ExerciseService _exerciseService = ExerciseService();
 
   @override
   void initState() {
@@ -99,6 +102,14 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
   }
 
   Widget _buildStudentsTab(Classroom classroom, ClassroomProvider provider) {
+    final acceptedStudents = provider.acceptedStudents
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    final pendingStudents = provider.pendingStudents
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -112,166 +123,140 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                 children: [
                   Text(
                     classroom.name,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text('Code: ${classroom.code ?? ''}'),
-                  if (classroom.description.isNotEmpty) ...[
+                  if ((classroom.description ?? '').isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text(classroom.description),
+                    Text(classroom.description!),
                   ],
                 ],
               ),
             ),
           ),
+
           const SizedBox(height: 24),
           Row(
             children: [
               const Icon(Icons.check_circle, color: Colors.green),
               const SizedBox(width: 8),
               Text(
-                'Accepted Students (${provider.acceptedStudents.length})',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                'Accepted Students (${acceptedStudents.length})',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          provider.acceptedStudents.isEmpty
+          acceptedStudents.isEmpty
               ? const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('No students have joined yet.'),
-                ),
-              )
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No students have joined yet.'),
+            ),
+          )
               : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: provider.acceptedStudents.length,
-                itemBuilder: (context, idx) {
-                  final student = provider.acceptedStudents[idx];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Color.alphaBlend(
-                          Colors.green.withAlpha((0.1 * 255).toInt()),
-                          Colors.white,
-                        ),
-                        child: Text(
-                          student.name[0].toUpperCase(),
-                          style: TextStyle(color: Colors.green[700]),
-                        ),
-                      ),
-                      title: Text(student.name),
-                      subtitle: Text(student.email ?? 'No email'),
-                      trailing: IconButton(
-                        icon: const Icon(
-                          Icons.remove_circle_outline,
-                          color: Colors.red,
-                        ),
-                        onPressed:
-                            () =>
-                                _showRemoveStudentDialog(classroom.id, student),
-                      ),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: acceptedStudents.length,
+            itemBuilder: (context, idx) {
+              final student = acceptedStudents[idx];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Color.alphaBlend(
+                      Colors.green.withAlpha((0.1 * 255).toInt()),
+                      Colors.white,
                     ),
-                  );
-                },
-              ),
+                    child: Text(
+                      student.name[0].toUpperCase(),
+                      style: TextStyle(color: Colors.green[700]),
+                    ),
+                  ),
+                  title: Text(student.name),
+                  subtitle: Text(student.email ?? 'No email'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                    onPressed: () => _showRemoveStudentDialog(classroom.id, student),
+                  ),
+                ),
+              );
+            },
+          ),
+
           const SizedBox(height: 24),
           Row(
             children: [
               const Icon(Icons.pending, color: Colors.orange),
               const SizedBox(width: 8),
               Text(
-                'Pending Requests (${provider.pendingStudents.length})',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                'Pending Requests (${pendingStudents.length})',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          provider.pendingStudents.isEmpty
+          pendingStudents.isEmpty
               ? const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('No pending requests.'),
-                ),
-              )
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No pending requests.'),
+            ),
+          )
               : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: provider.pendingStudents.length,
-                itemBuilder: (context, idx) {
-                  final student = provider.pendingStudents[idx];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Color.alphaBlend(
-                          Colors.orange.withAlpha((0.1 * 255).toInt()),
-                          Colors.white,
-                        ),
-                        child: Text(
-                          student.name[0].toUpperCase(),
-                          style: TextStyle(color: Colors.orange[700]),
-                        ),
-                      ),
-                      title: Text(student.name),
-                      subtitle: Text(student.email ?? 'No email'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.check_circle,
-                              color: Colors.green,
-                            ),
-                            onPressed: () async {
-                              await provider.acceptStudent(
-                                classroom.id,
-                                student.id,
-                              );
-                              if (!mounted) return;
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('${student.name} accepted!')),
-                                  );
-                                }
-                              });
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.cancel, color: Colors.red),
-                            onPressed: () async {
-                              await provider.rejectStudent(
-                                classroom.id,
-                                student.id,
-                              );
-                              if (!mounted) return;
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('${student.name} rejected.')),
-                                  );
-                                }
-                              });
-                            },
-                          ),
-                        ],
-                      ),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: pendingStudents.length,
+            itemBuilder: (context, idx) {
+              final student = pendingStudents[idx];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Color.alphaBlend(
+                      Colors.orange.withAlpha((0.1 * 255).toInt()),
+                      Colors.white,
                     ),
-                  );
-                },
-              ),
+                    child: Text(
+                      student.name[0].toUpperCase(),
+                      style: TextStyle(color: Colors.orange[700]),
+                    ),
+                  ),
+                  title: Text(student.name),
+                  subtitle: Text(student.email ?? 'No email'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.check_circle, color: Colors.green),
+                        onPressed: () async {
+                          await provider.acceptStudent(
+                            classroomId: classroom.id,
+                            studentId: student.id,
+                          );
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${student.name} accepted!')),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        onPressed: () async {
+                          await provider.rejectStudent(classroom.id, student.id);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${student.name} rejected.')),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -469,7 +454,7 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
     );
   }
 
-  void _showRemoveStudentDialog(String classroomId, User student) {
+  void _showRemoveStudentDialog(String classroomId, app_model.User student) {
     showDialog(
       context: context,
       builder:
@@ -587,27 +572,31 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
 
   Future<void> _uploadPDFFile(ContentType type, String title, String description, File file,) async {
     try {
-      final result = await _contentService.pickPDFFile();
-      if (result != null && result.files.isNotEmpty) {
-        final file = File(result.files.first.path!);
-
-        final content = await _contentService.createContent(
+      if (type == ContentType.exercise) {
+        await _exerciseService.createExercise(
+          classroomId: widget.classroom.id,
+          userId: Supabase.instance.client.auth.currentUser!.id,
+          title: title,
+          description: description,
+          pdfFile: file,
+        );
+      } else {
+        await _contentService.createContent(
           classroomId: widget.classroom.id,
           title: title,
           description: description,
           type: type,
           pdfFile: file,
         );
-
-        await _loadContent();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${content.title} uploaded successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
       }
+
+      await _loadContent();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$title uploaded successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
