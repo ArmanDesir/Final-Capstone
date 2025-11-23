@@ -126,7 +126,12 @@ class SupabaseService {
 
   Future<String> createClassroom(Classroom classroom) async {
     try {
-      final response = await _supabase.from('classrooms').insert(classroom.toJson()).select().single();
+      final jsonData = classroom.toJson();
+      if (jsonData.containsKey('is_archived')) {
+        jsonData['is_active'] = !(jsonData['is_archived'] as bool);
+        jsonData.remove('is_archived');
+      }
+      final response = await _supabase.from('classrooms').insert(jsonData).select().single();
       return response['id'] as String;
     } catch (e) {
       _logger.e('Error creating classroom in Supabase: $e');
@@ -136,7 +141,12 @@ class SupabaseService {
 
   Future<void> updateClassroom(Classroom classroom) async {
     try {
-      await _supabase.from('classrooms').update(classroom.toJson()).eq('id', classroom.id);
+      final jsonData = classroom.toJson();
+      if (jsonData.containsKey('is_archived')) {
+        jsonData['is_active'] = !(jsonData['is_archived'] as bool);
+        jsonData.remove('is_archived');
+      }
+      await _supabase.from('classrooms').update(jsonData).eq('id', classroom.id);
     } catch (e) {
       _logger.e('Error updating classroom in Supabase: $e');
       rethrow;
