@@ -66,7 +66,7 @@ class Classroom {
       isActive: json['is_active'] as bool? ?? true,
       isSynced: json['is_synced'] as bool? ?? false,
       studentCount: 0,
-      isArchived: json['is_archived'] as bool? ?? false,
+      isArchived: json['is_archived'] as bool? ?? !(json['is_active'] as bool? ?? true),
     );
   }
 
