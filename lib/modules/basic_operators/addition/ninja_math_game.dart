@@ -271,7 +271,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
               const SizedBox(height: 16),
               Text(
                 _selectedIndices.isNotEmpty
-                    ? currentEquation
+                    ? '$currentEquation = $currentResult'
                     : 'No numbers selected',
                 style: GameTheme.tileText,
               ),
