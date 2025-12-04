@@ -31,6 +31,7 @@ class _CreateLessonScreenState extends State<CreateLessonScreen> {
     final lessonProvider = Provider.of<LessonProvider>(context);
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(title: const Text('Create Lesson')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),

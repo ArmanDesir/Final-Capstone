@@ -4,7 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pracpro/screens/basic_operator_module_page.dart';
 
 class BasicOperationsDashboard extends StatefulWidget {
-  const BasicOperationsDashboard({super.key});
+  final String? classroomId;
+
+  const BasicOperationsDashboard({super.key, this.classroomId});
 
   @override
   State<BasicOperationsDashboard> createState() =>
@@ -142,6 +144,7 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
                   MaterialPageRoute(
                     builder: (_) => BasicOperatorModulePage(
                       operatorName: operatorName,
+                      classroomId: widget.classroomId,
                     ),
                   ),
                 );
@@ -159,6 +162,7 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
                       arguments: {
                         'operator': operatorName,
                         'contentType': 'lesson',
+                        'classroomId': widget.classroomId,
                       },
                     ),
                     child: const Text('Create Lesson'),
@@ -171,6 +175,7 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
                       arguments: {
                         'operator': operatorName,
                         'contentType': 'quiz',
+                        'classroomId': widget.classroomId,
                       },
                     ),
                     child: const Text('Create Quiz'),
@@ -183,6 +188,7 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
                       arguments: {
                         'operator': operatorName,
                         'contentType': 'exercise',
+                        'classroomId': widget.classroomId,
                       },
                     ),
                     child: const Text('Create Exercise'),
@@ -231,8 +237,10 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  BasicOperatorModulePage(operatorName: operatorName),
+              builder: (_) => BasicOperatorModulePage(
+                operatorName: operatorName,
+                classroomId: widget.classroomId,
+              ),
             ),
           );
         },

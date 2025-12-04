@@ -107,34 +107,24 @@ class GameScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final operatorTitle =
-        '${operatorKey[0].toUpperCase()}${operatorKey.substring(1)}';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('$operatorTitle Games'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            _GameCard(
-              title: 'Crossword Math',
-              icon: Icons.grid_on,
-              onSelect: (difficulty) =>
-                  _startGame(context, 'Crossword Math', difficulty),
-            ),
-            const SizedBox(height: 24),
-            _GameCard(
-              title: 'Ninja Math',
-              icon: Icons.sports_martial_arts,
-              onSelect: (difficulty) =>
-                  _startGame(context, 'Ninja Math', difficulty),
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ListView(
+        children: [
+          _GameCard(
+            title: 'Crossword Math',
+            icon: Icons.grid_on,
+            onSelect: (difficulty) =>
+                _startGame(context, 'Crossword Math', difficulty),
+          ),
+          const SizedBox(height: 24),
+          _GameCard(
+            title: 'Ninja Math',
+            icon: Icons.sports_martial_arts,
+            onSelect: (difficulty) =>
+                _startGame(context, 'Ninja Math', difficulty),
+          ),
+        ],
       ),
     );
   }

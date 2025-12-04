@@ -122,55 +122,112 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
 
   int _countCorrect() {
     int ok = 0;
+
     for (final row in _grid) {
-      final numCell = row.firstWhere(
-            (c) => c.type == CellType.number,
-        orElse: () => CrosswordCell(row: -1, col: -1, type: CellType.empty),
-      );
-      final opCell = row.firstWhere(
-            (c) => c.type == CellType.operator,
-        orElse: () => CrosswordCell(row: -1, col: -1, type: CellType.empty),
-      );
-      final blankCell = row.firstWhere(
-            (c) => c.type == CellType.blank,
-        orElse: () => CrosswordCell(row: -1, col: -1, type: CellType.empty),
-      );
-      final ansCell = row.firstWhere(
-            (c) => c.type == CellType.answer,
-        orElse: () => CrosswordCell(row: -1, col: -1, type: CellType.empty),
-      );
+      for (final cell in row) {
+        if (cell.type == CellType.blank) {
 
-      if (blankCell.row == -1) continue;
+          if (cell.answer != null) {
 
-      final left = int.tryParse(numCell.value ?? '');
-      final right = int.tryParse(blankCell.value ?? '');
-      final expected = int.tryParse(ansCell.value ?? '');
-      final op = opCell.value;
+            final studentAnswer = int.tryParse(cell.value ?? '');
+            if (studentAnswer != null && studentAnswer == cell.answer) {
+              cell.isCorrect = true;
+              ok++;
+            } else {
+              cell.isCorrect = false;
+            }
+          } else {
 
-      if (left == null || right == null || expected == null || op == null) continue;
-
-      bool correct = false;
-      switch (op) {
-        case '+':
-          correct = (left + right == expected);
-          break;
-        case '-':
-          correct = (left - right == expected);
-          break;
-        case '×':
-        case '*':
-          correct = (left * right == expected);
-          break;
-        case '÷':
-        case '/':
-          if (right != 0) correct = (left / right == expected);
-          break;
+            final patternResult = _checkPatternForBlankCell(cell);
+            if (patternResult != null) {
+              final studentAnswer = int.tryParse(cell.value ?? '');
+              if (studentAnswer != null && studentAnswer == patternResult) {
+                cell.isCorrect = true;
+                ok++;
+              } else {
+                cell.isCorrect = false;
+              }
+            } else {
+              cell.isCorrect = false;
+            }
+          }
+        }
       }
-
-      blankCell.isCorrect = correct;
-      if (correct) ok++;
     }
+
     return ok;
+  }
+
+  int? _checkPatternForBlankCell(CrosswordCell blankCell) {
+    final row = blankCell.row;
+    final col = blankCell.col;
+
+    if (col >= 4) {
+      final num1Cell = _getCell(row, col - 4);
+      final opCell = _getCell(row, col - 3);
+      final num2Cell = _getCell(row, col - 2);
+      final eqCell = _getCell(row, col - 1);
+
+      if (num1Cell?.type == CellType.number &&
+          opCell?.type == CellType.operator &&
+          num2Cell?.type == CellType.number &&
+          eqCell?.type == CellType.equals) {
+        final num1 = int.tryParse(num1Cell!.value ?? '');
+        final num2 = int.tryParse(num2Cell!.value ?? '');
+        final op = opCell!.value;
+
+        if (num1 != null && num2 != null && op != null) {
+          return _calculateAnswer(num1, num2, op);
+        }
+      }
+    }
+
+    if (row >= 4) {
+      final num1Cell = _getCell(row - 4, col);
+      final opCell = _getCell(row - 3, col);
+      final num2Cell = _getCell(row - 2, col);
+      final eqCell = _getCell(row - 1, col);
+
+      if (num1Cell?.type == CellType.number &&
+          opCell?.type == CellType.operator &&
+          num2Cell?.type == CellType.number &&
+          eqCell?.type == CellType.equals) {
+        final num1 = int.tryParse(num1Cell!.value ?? '');
+        final num2 = int.tryParse(num2Cell!.value ?? '');
+        final op = opCell!.value;
+
+        if (num1 != null && num2 != null && op != null) {
+          return _calculateAnswer(num1, num2, op);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  CrosswordCell? _getCell(int row, int col) {
+    if (row < 0 || row >= _grid.length || col < 0 || col >= _grid[row].length) {
+      return null;
+    }
+    return _grid[row][col];
+  }
+
+  int? _calculateAnswer(int num1, int num2, String op) {
+    switch (op) {
+      case '+':
+        return num1 + num2;
+      case '-':
+        return num1 - num2;
+      case '×':
+      case '*':
+        return num1 * num2;
+      case '÷':
+      case '/':
+        if (num2 != 0) return num1 ~/ num2;
+        return null;
+      default:
+        return null;
+    }
   }
 
   Future<void> _recordGameProgress(int score, int elapsed) async {
@@ -193,26 +250,17 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
         'tries': 1,
       });
 
-      if (widget.classroomId != null) {
-        await supabase.from('activity_progress_by_classroom').insert({
-          'source': 'game',
-          'source_id': sourceId,
-          'user_id': user.id,
-          'entity_type': 'crossmath',
-          'entity_id': null,
-          'entity_title': gameName,
-          'stage': difficulty,
-          'score': score,
-          'status': status,
-          'classroom_id': widget.classroomId,
-          'created_at': DateTime.now().toUtc().toIso8601String(),
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        });
-      }
-
       debugPrint('✅ Progress saved: $score / $_totalBlanks');
     } catch (e) {
-      debugPrint('❌ Failed to record progress: $e');
+
+      final errorStr = e.toString();
+      if (errorStr.contains('upsert_activity_progress') ||
+          errorStr.contains('function') && errorStr.contains('does not exist')) {
+
+        debugPrint('⚠️ Activity progress logging issue (non-critical, game progress saved): $e');
+      } else {
+        debugPrint('❌ Failed to record progress: $e');
+      }
     }
   }
 

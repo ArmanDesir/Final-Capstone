@@ -3,6 +3,8 @@ import 'package:pracpro/models/user.dart';
 import 'package:pracpro/providers/auth_provider.dart';
 import 'package:pracpro/screens/home_screen.dart';
 import 'package:pracpro/screens/register_screen.dart';
+import 'package:pracpro/widgets/error_message.dart';
+import 'package:pracpro/widgets/loading_button.dart';
 import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -67,6 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(
           '${widget.userType == UserType.student ? 'Student' : 'Teacher'} Login',
@@ -75,20 +78,19 @@ class _LoginScreenState extends State<LoginScreen> {
         elevation: 0,
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  widget.userType == UserType.student
-                      ? Icons.school
-                      : Icons.person,
-                  size: 80,
-                  color: Colors.blue,
+                const SizedBox(height: 40),
+
+                Image.asset(
+                  'assets/Logo.png',
+                  width: 80,
+                  height: 80,
                 ),
                 const SizedBox(height: 32),
                 const Text(
@@ -179,22 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Consumer<AuthProvider>(
                   builder: (context, authProvider, child) {
                     if (authProvider.error != null) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.shade200),
-                          ),
-                          child: Text(
-                            authProvider.error!,
-                            style: TextStyle(color: Colors.red.shade700),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      );
+                      return ErrorMessage(message: authProvider.error!);
                     }
                     return const SizedBox.shrink();
                   },
@@ -202,20 +189,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 Consumer<AuthProvider>(
                   builder: (context, authProvider, child) {
-                    return ElevatedButton(
-                      onPressed: authProvider.isLoading ? null : _signIn,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: authProvider.isLoading
-                          ? const CircularProgressIndicator()
-                          : const Text(
-                        'Sign In',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                    return LoadingButton(
+                      label: 'Sign In',
+                      onPressed: _signIn,
+                      isLoading: authProvider.isLoading,
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
                     );
                   },
                 ),
@@ -238,6 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 24),
               ],
             ),
           ),

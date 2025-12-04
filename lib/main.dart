@@ -9,6 +9,7 @@ import 'package:pracpro/providers/quiz_provider.dart';
 import 'package:pracpro/screens/basic_operator_module_page.dart';
 import 'package:pracpro/screens/create_content_screen.dart';
 import 'package:pracpro/screens/student_dashboard.dart';
+import 'package:pracpro/widgets/loading_wrapper.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -22,7 +23,7 @@ import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/teacher_dashboard.dart';
 
-const String supabaseUrl = 'https://iblysqwclgpkijsxfgif.supabase.co';
+const String supabaseUrl = 'https:
 const String supabaseAnonKey =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlibHlzcXdjbGdwa2lqc3hmZ2lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4ODkzMzUsImV4cCI6MjA3MjQ2NTMzNX0.QjrhspglPRecKsXQ0XHswqHyvvQuOymsuh1xUGrT5xE';
 
@@ -71,6 +72,7 @@ class MyApp extends StatelessWidget {
               builder: (_) => CreateContentScreen(
                 operator: args['operator'],
                 contentType: args['contentType'],
+                classroomId: args['classroomId'],
               ),
             );
           }
@@ -102,20 +104,14 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
-        if (authProvider.isLoading) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (!authProvider.isAuthenticated || authProvider.currentUser == null) {
-          return const WelcomeScreen();
-        }
-
-        final user = authProvider.currentUser!;
-        return user.userType == UserType.teacher
-            ? const TeacherDashboard()
-            : const StudentDashboard();
+        return LoadingWrapper(
+          isLoading: authProvider.isLoading,
+          child: !authProvider.isAuthenticated || authProvider.currentUser == null
+              ? const WelcomeScreen()
+              : authProvider.currentUser!.userType == UserType.teacher
+                  ? const TeacherDashboard()
+                  : const StudentDashboard(),
+        );
       },
     );
   }

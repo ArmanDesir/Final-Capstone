@@ -52,6 +52,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
     final quizProvider = Provider.of<QuizProvider>(context);
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(title: const Text("Create Quiz")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -154,6 +155,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 100),
             ],
           ),
         ),

@@ -10,12 +10,12 @@ class BasicOperatorLessonProvider with ChangeNotifier {
   bool isLoading = false;
   String? error;
 
-  Future<List<BasicOperatorLesson>> loadLessons(String operator) async {
+  Future<List<BasicOperatorLesson>> loadLessons(String operator, {String? classroomId}) async {
     isLoading = true;
     notifyListeners();
 
     try {
-      lessons = await _service.getLessons(operator);
+      lessons = await _service.getLessons(operator, classroomId: classroomId);
       error = null;
     } catch (e) {
       error = e.toString();
@@ -32,9 +32,12 @@ class BasicOperatorLessonProvider with ChangeNotifier {
       lessons.add(created);
       error = null;
       notifyListeners();
+      print('✅ Provider: Lesson added to list. Total lessons: ${lessons.length}');
     } catch (e) {
       error = e.toString();
+      print('❌ Provider: Error creating lesson: $e');
       notifyListeners();
+      rethrow;
     }
   }
 
@@ -45,9 +48,41 @@ class BasicOperatorLessonProvider with ChangeNotifier {
       lessons.add(created);
       error = null;
       notifyListeners();
+      print('✅ Provider: Lesson with file added to list. Total lessons: ${lessons.length}');
+    } catch (e) {
+      error = e.toString();
+      print('❌ Provider: Error creating lesson with file: $e');
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> updateLesson(BasicOperatorLesson lesson) async {
+    try {
+      final updated = await _service.updateLesson(lesson);
+      final index = lessons.indexWhere((l) => l.id == lesson.id);
+      if (index != -1) {
+        lessons[index] = updated;
+      }
+      error = null;
+      notifyListeners();
     } catch (e) {
       error = e.toString();
       notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> deleteLesson(String lessonId) async {
+    try {
+      await _service.deleteLesson(lessonId);
+      lessons.removeWhere((l) => l.id == lessonId);
+      error = null;
+      notifyListeners();
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+      rethrow;
     }
   }
 }

@@ -1,16 +1,12 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'basic_operator_quiz.dart';
-
-// **************************************************************************
-// JsonSerializableGenerator
-// **************************************************************************
 
 BasicOperatorQuiz _$BasicOperatorQuizFromJson(Map<String, dynamic> json) =>
     BasicOperatorQuiz(
       id: json['id'] as String?,
       operator: json['operator'] as String,
       title: json['title'] as String,
+      classroomId: json['classroom_id'] as String?,
       createdBy: json['created_by'] as String?,
       createdAt:
           json['created_at'] == null
@@ -32,6 +28,7 @@ Map<String, dynamic> _$BasicOperatorQuizToJson(BasicOperatorQuiz instance) =>
       'id': instance.id,
       'operator': instance.operator,
       'title': instance.title,
+      'classroom_id': instance.classroomId,
       'created_by': instance.createdBy,
       'created_at': instance.createdAt?.toIso8601String(),
       'questions': instance.questions,

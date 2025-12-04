@@ -4,12 +4,17 @@ import '../models/basic_operator_quiz.dart';
 class BasicOperatorQuizService {
   final SupabaseClient _sb = Supabase.instance.client;
 
-  Future<List<BasicOperatorQuiz>> getQuizzes(String operator) async {
-    final data = await _sb
+  Future<List<BasicOperatorQuiz>> getQuizzes(String operator, {String? classroomId}) async {
+    var query = _sb
         .from('basic_operator_quizzes')
         .select('*, basic_operator_quiz_questions(*)')
-        .eq('operator', operator)
-        .order('created_at', ascending: false);
+        .eq('operator', operator);
+
+    if (classroomId != null) {
+      query = query.eq('classroom_id', classroomId);
+    }
+
+    final data = await query.order('created_at', ascending: false);
 
     if (data == null) return [];
 
@@ -26,15 +31,47 @@ class BasicOperatorQuizService {
     required String title,
     required List<Map<String, dynamic>> questions,
     required String teacherId,
+    String? classroomId,
   }) async {
-    final quiz = await _sb.from('basic_operator_quizzes').insert({
+    final quizData = {
       'operator': operator,
       'title': title,
       'created_by': teacherId,
       'created_at': DateTime.now().toIso8601String(),
-    }).select().single();
+    };
+
+    if (classroomId != null) {
+      quizData['classroom_id'] = classroomId;
+    }
+
+    final quiz = await _sb.from('basic_operator_quizzes').insert(quizData).select().single();
 
     final quizId = quiz['id'];
+    for (final q in questions) {
+      await _sb.from('basic_operator_quiz_questions').insert({
+        'quiz_id': quizId,
+        'question_text': q['q'],
+        'choice_a': q['options'][0],
+        'choice_b': q['options'][1],
+        'choice_c': q['options'][2],
+        'correct_choice': q['a'],
+      });
+    }
+  }
+
+  Future<void> updateQuiz({
+    required String quizId,
+    required String title,
+    required List<Map<String, dynamic>> questions,
+  }) async {
+
+    await _sb.from('basic_operator_quizzes').update({
+      'title': title,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', quizId);
+
+    await _sb.from('basic_operator_quiz_questions').delete().eq('quiz_id', quizId);
+
     for (final q in questions) {
       await _sb.from('basic_operator_quiz_questions').insert({
         'quiz_id': quizId,

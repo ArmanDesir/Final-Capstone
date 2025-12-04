@@ -1,30 +1,31 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/basic_operator_quiz_service.dart';
+import '../models/basic_operator_quiz.dart';
 
 class BasicOperatorQuizProvider with ChangeNotifier {
-  final supabase = Supabase.instance.client;
+  final _service = BasicOperatorQuizService();
 
-  List<Map<String, dynamic>> _quizzes = [];
-  List<Map<String, dynamic>> get quizzes => _quizzes;
+  List<BasicOperatorQuiz> _quizzes = [];
+  List<BasicOperatorQuiz> get quizzes => _quizzes;
+  bool isLoading = false;
+  String? error;
 
-  Future<void> loadQuizzes(String operator) async {
+  Future<void> loadQuizzes(String operator, {String? classroomId}) async {
+    isLoading = true;
+    notifyListeners();
+
     try {
-      final data = await supabase
-          .from('basic_operator_quizzes')
-          .select('id, operator, title, basic_operator_quiz_questions (id)')           .eq('operator', operator);
-
-      _quizzes = (data as List).map((q) {
-        return {
-          'id': q['id'],
-          'operator': q['operator'],
-          'title': q['title'] ?? 'Untitled Quiz',
-          'questions': q['basic_operator_quiz_questions'] ?? [],
-        };
-      }).toList();
-
+      _quizzes = await _service.getQuizzes(operator, classroomId: classroomId);
+      error = null;
       notifyListeners();
     } catch (e) {
+      error = e.toString();
+      notifyListeners();
       rethrow;
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -33,28 +34,58 @@ class BasicOperatorQuizProvider with ChangeNotifier {
     required String title,
     required List<Map<String, dynamic>> questions,
     required String teacherId,
+    String? classroomId,
   }) async {
     try {
-      final quiz = await supabase.from('basic_operator_quizzes').insert({
-        'operator': operator,
-        'title': title,
-        'created_by': teacherId,
-      }).select().single();
-
-      final quizId = quiz['id'];
-      for (final q in questions) {
-        await supabase.from('basic_operator_quiz_questions').insert({
-          'quiz_id': quizId,
-          'question_text': q['q'],
-          'choice_a': q['options'][0],
-          'choice_b': q['options'][1],
-          'choice_c': q['options'][2],
-          'correct_choice': q['a'],
-        });
-      }
-
-      await loadQuizzes(operator);
+      await _service.createQuiz(
+        operator: operator,
+        title: title,
+        questions: questions,
+        teacherId: teacherId,
+        classroomId: classroomId,
+      );
+      await loadQuizzes(operator, classroomId: classroomId);
+      error = null;
+      notifyListeners();
     } catch (e) {
+      error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> updateQuiz({
+    required String quizId,
+    required String title,
+    required List<Map<String, dynamic>> questions,
+    required String operator,
+    String? classroomId,
+  }) async {
+    try {
+      await _service.updateQuiz(
+        quizId: quizId,
+        title: title,
+        questions: questions,
+      );
+      await loadQuizzes(operator, classroomId: classroomId);
+      error = null;
+      notifyListeners();
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> deleteQuiz(String quizId, String operator, {String? classroomId}) async {
+    try {
+      await _service.deleteQuiz(quizId);
+      await loadQuizzes(operator, classroomId: classroomId);
+      error = null;
+      notifyListeners();
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
       rethrow;
     }
   }

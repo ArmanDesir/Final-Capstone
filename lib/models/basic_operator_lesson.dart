@@ -8,6 +8,7 @@ class BasicOperatorLesson {
   final String title;
   final String? description;
   final String operator;
+  final String? classroomId;
   final String? fileUrl;
   final String? fileName;
   final String? storagePath;
@@ -21,6 +22,7 @@ class BasicOperatorLesson {
     this.id,
     required this.title,
     required this.operator,
+    this.classroomId,
     this.description,
     this.fileUrl,
     this.fileName,
@@ -37,17 +39,18 @@ class BasicOperatorLesson {
 
   Map<String, dynamic> toJson() => _$BasicOperatorLessonToJson(this);
 
-
   BasicOperatorLesson copyWith({
     String? fileUrl,
     String? fileName,
     String? storagePath,
+    String? classroomId,
   }) {
     return BasicOperatorLesson(
       id: id,
       title: title,
       description: description,
       operator: operator,
+      classroomId: classroomId ?? this.classroomId,
       fileUrl: fileUrl ?? this.fileUrl,
       fileName: fileName ?? this.fileName,
       storagePath: storagePath ?? this.storagePath,

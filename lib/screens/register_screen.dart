@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pracpro/models/user.dart';
 import 'package:pracpro/providers/auth_provider.dart';
 import 'package:pracpro/screens/home_screen.dart';
+import 'package:pracpro/screens/email_verification_screen.dart';
 import 'package:provider/provider.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -82,10 +83,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (success && mounted) {
-        await authProvider.signOut();
 
-        Navigator.of(context).pushReplacementNamed('/welcome');
-
+        showEmailVerificationDialog(
+          context,
+          _emailController.text.trim(),
+          timerSeconds: 5,
+        );
       }
 
     }
@@ -111,12 +114,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    widget.userType == UserType.student
-                        ? Icons.school
-                        : Icons.person,
-                    size: 80,
-                    color: Colors.blue,
+                  const SizedBox(height: 20),
+
+                  Image.asset(
+                    'assets/Logo.png',
+                    width: 80,
+                    height: 80,
                   ),
                   const SizedBox(height: 32),
                   const Text(
@@ -359,6 +362,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       );
                     },
                   ),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),

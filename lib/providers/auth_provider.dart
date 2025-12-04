@@ -30,12 +30,28 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
 
       if (event == AuthChangeEvent.signedIn && session != null) {
-        final user = await _userService.getUser(session.user.id);
-        _currentUser = user;
-        _isAuthenticated = true;
+
+        if (session.user.emailConfirmedAt != null) {
+          final user = await _userService.getUser(session.user.id);
+          _currentUser = user;
+          _isAuthenticated = true;
+        } else {
+
+          debugPrint('[AuthProvider] Email not verified, signing out');
+          await supabase.auth.signOut();
+          _currentUser = null;
+          _isAuthenticated = false;
+        }
       } else if (event == AuthChangeEvent.signedOut) {
         _currentUser = null;
         _isAuthenticated = false;
+      } else if (event == AuthChangeEvent.userUpdated && session != null) {
+
+        if (session.user.emailConfirmedAt != null && !_isAuthenticated) {
+          final user = await _userService.getUser(session.user.id);
+          _currentUser = user;
+          _isAuthenticated = true;
+        }
       }
 
       _isLoading = false;
@@ -44,14 +60,24 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _loadCurrentUser() async {
-    if (!_isAuthenticated) return;
-
     final session = supabase.auth.currentSession;
     if (session?.user != null) {
-      final user = await _userService.getUser(session!.user.id);
-      _currentUser = user;
-      _isAuthenticated = true;
-      notifyListeners();
+
+      if (session!.user.emailConfirmedAt != null) {
+        final user = await _userService.getUser(session.user.id);
+        if (user != null) {
+          _currentUser = user;
+          _isAuthenticated = true;
+          notifyListeners();
+        }
+      } else {
+
+        debugPrint('[AuthProvider] Email not verified during _loadCurrentUser, signing out');
+        await supabase.auth.signOut();
+        _currentUser = null;
+        _isAuthenticated = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -99,10 +125,11 @@ class AuthProvider with ChangeNotifier {
       );
 
       debugPrint('[AuthProvider] User data inserted into "users" table.');
-      _currentUser = await _userService.getUser(uid);
-      _isAuthenticated = true;
+      debugPrint('[AuthProvider] Email confirmation required: ${response.user?.emailConfirmedAt == null}');
 
-      debugPrint('[AuthProvider] Current user set: $_currentUser');
+      await supabase.auth.signOut();
+
+      debugPrint('[AuthProvider] User created successfully. Email verification required.');
 
       return true;
 
@@ -155,6 +182,13 @@ class AuthProvider with ChangeNotifier {
 
       if (response.user == null) {
         throw Exception('Login failed: Supabase returned no user.');
+      }
+
+      if (response.user!.emailConfirmedAt == null) {
+        await supabase.auth.signOut();
+        _error = 'Please verify your email before signing in. Check your inbox for the verification link.';
+        debugPrint('[AuthProvider] Login blocked: Email not verified');
+        return false;
       }
 
       final String uid = response.user!.id;
@@ -239,5 +273,32 @@ class AuthProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  Future<bool> resendVerificationEmail(String email) async {
+    _error = null;
+    notifyListeners();
+
+    try {
+      await supabase.auth.resend(
+        type: OtpType.signup,
+        email: email,
+      );
+      debugPrint('[AuthProvider] Verification email resent to: $email');
+      return true;
+    } on AuthException catch (e) {
+      _error = 'Failed to resend verification email: ${e.message}';
+      debugPrint('[AuthProvider] AuthException: ${e.message}');
+      return false;
+    } catch (e) {
+      _error = 'Unexpected error: ${e.toString()}';
+      debugPrint('[AuthProvider] Unexpected error: $e');
+      return false;
+    }
+  }
+
+  bool isEmailVerified() {
+    final user = supabase.auth.currentUser;
+    return user?.emailConfirmedAt != null;
   }
 }

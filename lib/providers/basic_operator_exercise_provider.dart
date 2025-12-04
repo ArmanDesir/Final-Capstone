@@ -2,25 +2,31 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/basic_operator_exercise_service.dart';
+import '../models/basic_operator_exercise.dart';
 
 class BasicOperatorExerciseProvider with ChangeNotifier {
-  final supabase = Supabase.instance.client;
+  final _service = BasicOperatorExerciseService();
 
-  List<Map<String, dynamic>> _exercises = [];
-  List<Map<String, dynamic>> get exercises => _exercises;
+  List<BasicOperatorExercise> _exercises = [];
+  List<BasicOperatorExercise> get exercises => _exercises;
+  bool isLoading = false;
+  String? error;
 
-  Future<void> loadExercises(String operator) async {
+  Future<void> loadExercises(String operator, {String? classroomId}) async {
+    isLoading = true;
+    notifyListeners();
+
     try {
-      final data = await supabase
-          .from('basic_operator_exercises')
-          .select('*')
-          .eq('operator', operator)
-          .order('created_at', ascending: false);
-
-      _exercises = List<Map<String, dynamic>>.from(data);
+      _exercises = await _service.getExercises(operator, classroomId: classroomId);
+      error = null;
       notifyListeners();
     } catch (e) {
+      error = e.toString();
+      notifyListeners();
       rethrow;
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -33,8 +39,11 @@ class BasicOperatorExerciseProvider with ChangeNotifier {
     String? fileName,
     int? fileSize,
     String? storagePath,
+    String? classroomId,
   }) async {
     try {
+
+      final supabase = Supabase.instance.client;
       await supabase.from('basic_operator_exercises').insert({
         'operator': operator,
         'title': title,
@@ -47,7 +56,8 @@ class BasicOperatorExerciseProvider with ChangeNotifier {
         'created_at': DateTime.now().toIso8601String(),
       });
 
-      await loadExercises(operator);
+      await loadExercises(operator, classroomId: classroomId);
+      notifyListeners();
     } catch (e) {
       rethrow;
     }
@@ -59,6 +69,7 @@ class BasicOperatorExerciseProvider with ChangeNotifier {
     required String lessonId,
     required File file,
     String? description,
+    String? classroomId,
   }) async {
     try {
       final service = BasicOperatorExerciseService();
@@ -70,7 +81,7 @@ class BasicOperatorExerciseProvider with ChangeNotifier {
         lessonId: lessonId,
       );
 
-      await loadExercises(operator);
+      await loadExercises(operator, classroomId: classroomId);
       notifyListeners();
       if (kDebugMode) {
         print('✅ Exercise uploaded and inserted successfully for $operator');

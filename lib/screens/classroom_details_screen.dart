@@ -4,10 +4,16 @@ import 'package:pracpro/models/content.dart';
 import 'package:pracpro/models/user.dart' as app_model;
 import 'package:pracpro/providers/classroom_provider.dart';
 import 'package:pracpro/screens/create_lesson_screen.dart';
-import 'package:pracpro/screens/create_quiz_screen.dart';
 import 'package:pracpro/screens/lesson_detail_screen.dart';
+import 'package:pracpro/screens/basic_operator_module_page.dart';
+import 'package:pracpro/screens/operator_action_selection_screen.dart';
+import 'package:pracpro/screens/student_detail_screen.dart';
 import 'package:pracpro/services/content_service.dart';
 import 'package:pracpro/services/exercise_service.dart';
+import 'package:pracpro/widgets/operator_button.dart';
+import 'package:pracpro/widgets/content_card.dart';
+import 'package:pracpro/widgets/loading_wrapper.dart';
+import 'package:pracpro/widgets/empty_state.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -43,7 +49,6 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
     });
   }
 
-
   Future<void> _loadContent() async {
     setState(() => _isLoadingContent = true);
     try {
@@ -73,28 +78,30 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
         final classroom = provider.currentClassroom ?? widget.classroom;
         return Scaffold(
           appBar: AppBar(
-            title: Text('Classroom: ${classroom.name}'),
-            backgroundColor: Colors.green,
+            title: Text(classroom.name),
+            backgroundColor: Colors.grey[100],
+            elevation: 0,
+            foregroundColor: Colors.black,
             bottom: TabBar(
               controller: _tabController,
-              indicatorColor: Colors.white,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
+              indicatorColor: Colors.black,
+              labelColor: Colors.black,
+              unselectedLabelColor: Colors.grey,
               tabs: const [
-                Tab(icon: Icon(Icons.people), text: 'Students'),
-                Tab(icon: Icon(Icons.book), text: 'Content'),
+                Tab(text: 'Student List'),
+                Tab(text: 'Basic Operator'),
               ],
             ),
           ),
-          body:
-              provider.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : TabBarView(
+          body: LoadingWrapper(
+            isLoading: provider.isLoading,
+            child: TabBarView(
                     controller: _tabController,
                     children: [
                       _buildStudentsTab(classroom, provider),
-                      _buildContentTab(classroom),
+                _buildBasicOperatorTab(classroom),
                     ],
+            ),
                   ),
         );
       },
@@ -115,28 +122,6 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    classroom.name,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Code: ${classroom.code ?? ''}'),
-                  if ((classroom.description ?? '').isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(classroom.description!),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
           Row(
             children: [
               const Icon(Icons.check_circle, color: Colors.green),
@@ -180,6 +165,17 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                     icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
                     onPressed: () => _showRemoveStudentDialog(classroom.id, student),
                   ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudentDetailScreen(
+                          student: student,
+                          classroomId: classroom.id,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               );
             },
@@ -262,6 +258,85 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
     );
   }
 
+  Widget _buildBasicOperatorTab(Classroom classroom) {
+    return Container(
+      color: Colors.grey[100],
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          OperatorButton(
+            label: 'ADDITION',
+            symbol: '+',
+            color: Colors.red,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OperatorActionSelectionScreen(
+                    operator: 'addition',
+                    classroomId: classroom.id,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          OperatorButton(
+            label: 'SUBTRACTION',
+            symbol: '−',
+            color: Colors.red,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OperatorActionSelectionScreen(
+                    operator: 'subtraction',
+                    classroomId: classroom.id,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          OperatorButton(
+            label: 'MULTIPLICATION',
+            symbol: '×',
+            color: Colors.red,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OperatorActionSelectionScreen(
+                    operator: 'multiplication',
+                    classroomId: classroom.id,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          OperatorButton(
+            label: 'DIVISION',
+            symbol: '÷',
+            color: Colors.red,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OperatorActionSelectionScreen(
+                    operator: 'division',
+                    classroomId: classroom.id,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildContentTab(Classroom classroom) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -273,12 +348,12 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 16),
-          _buildContentCard(
-            'Lessons',
-            'Create and manage lessons',
-            Icons.book,
-            Colors.blue,
-                () {
+          ContentCard(
+            title: 'Lessons',
+            subtitle: 'Create and manage lessons',
+            icon: Icons.book,
+            color: Colors.blue,
+            onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -294,61 +369,12 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
             },
           ),
           const SizedBox(height: 12),
-          _buildContentCard(
-            'Quizzes',
-            'Create and manage quizzes',
-            Icons.quiz,
-            Colors.purple,
-                () async {
-              final allContents = await _contentService.getContentByClassroom(classroom.id);
-              if (!mounted) return;
-              final classroomLessons = allContents.where((c) => c.type == ContentType.lesson).toList();
-              if (classroomLessons.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('No lessons available in this classroom.')),
-                );
-                return;
-              }
-
-              final selectedLesson = await showDialog<Content>(
-                context: context,
-                builder: (context) {
-                  return SimpleDialog(
-                    title: const Text("Choose Lesson"),
-                    children: classroomLessons.map((lesson) {
-                      return SimpleDialogOption(
-                        onPressed: () => Navigator.pop(context, lesson),
-                        child: Text(lesson.title),
-                      );
-                    }).toList(),
-                  );
-                },
-              );
-
-              if (selectedLesson != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CreateQuizScreen(
-                      classroomId: classroom.id,
-                      lessonId: selectedLesson.id,
-                    ),
-                  ),
-                ).then((created) {
-                  if (created == true) {
-                    _loadContent();
-                  }
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildContentCard(
-            'Exercises',
-            'Upload practice exercises and worksheets',
-            Icons.fitness_center,
-            Colors.orange,
-            () => _showUploadDialog('exercise', ContentType.exercise),
+          ContentCard(
+            title: 'Exercises',
+            subtitle: 'Upload practice exercises and worksheets',
+            icon: Icons.fitness_center,
+            color: Colors.orange,
+            onTap: () => _showUploadDialog('exercise', ContentType.exercise),
           ),
           const SizedBox(height: 24),
           Row(
@@ -367,14 +393,12 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
             ],
           ),
           const SizedBox(height: 12),
-          _isLoadingContent
-              ? const Center(child: CircularProgressIndicator())
-              : _contentList.isEmpty
-              ? const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('No content uploaded yet.'),
-                ),
+          LoadingWrapper(
+            isLoading: _isLoadingContent,
+            child: _contentList.isEmpty
+                ? const EmptyState(
+                    icon: Icons.folder_outlined,
+                    message: 'No content uploaded yet.',
               )
               : ListView.builder(
             shrinkWrap: true,
@@ -422,34 +446,9 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                 ),
               );
             },
-          )
-          ,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContentCard(
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return Card(
-      elevation: 2,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Color.alphaBlend(
-            color.withAlpha((0.1 * 255).toInt()),
-            Colors.white,
+                  ),
           ),
-          child: Icon(icon, color: color),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.add),
-        onTap: onTap,
+        ],
       ),
     );
   }
@@ -795,5 +794,89 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  void _showBasicOperatorDialog(Classroom classroom) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Basic Operators'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add, color: Colors.lightBlue),
+              title: const Text('Addition'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BasicOperatorModulePage(
+                      operatorName: 'addition',
+                      classroomId: classroom.id,
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.remove, color: Colors.redAccent),
+              title: const Text('Subtraction'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BasicOperatorModulePage(
+                      operatorName: 'subtraction',
+                      classroomId: classroom.id,
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.close, color: Colors.green),
+              title: const Text('Multiplication'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BasicOperatorModulePage(
+                      operatorName: 'multiplication',
+                      classroomId: classroom.id,
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.percent, color: Colors.purple),
+              title: const Text('Division'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BasicOperatorModulePage(
+                      operatorName: 'division',
+                      classroomId: classroom.id,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 }

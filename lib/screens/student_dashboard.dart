@@ -219,7 +219,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return _buildActiveClassroomCard(classroom);
   }
 
-
   Widget _buildNoClassroomCard() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

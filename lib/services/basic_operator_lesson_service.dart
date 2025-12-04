@@ -6,13 +6,18 @@ class BasicOperatorLessonService {
   final _sb = Supabase.instance.client;
   final String bucket = 'basic-operator';
 
-  Future<List<BasicOperatorLesson>> getLessons(String operator) async {
-    final rows = await _sb
+  Future<List<BasicOperatorLesson>> getLessons(String operator, {String? classroomId}) async {
+    var query = _sb
         .from('basic_operator_lessons')
         .select('*')
         .eq('operator', operator)
-        .eq('is_active', true)
-        .order('created_at', ascending: false);
+        .eq('is_active', true);
+
+    if (classroomId != null) {
+      query = query.eq('classroom_id', classroomId);
+    }
+
+    final rows = await query.order('created_at', ascending: false);
 
     return (rows as List)
         .cast<Map<String, dynamic>>()
@@ -23,14 +28,26 @@ class BasicOperatorLessonService {
   Future<BasicOperatorLesson> createLesson(BasicOperatorLesson lesson) async {
     final data = lesson.toJson()
       ..remove('id')
-      ..remove('created_at')
       ..remove('updated_at');
+
+    if (data['created_at'] == null) {
+      data['created_at'] = DateTime.now().toIso8601String();
+    }
+
+    data['is_active'] = lesson.isActive;
+
+    print('📝 Creating lesson with data:');
+    print('   Operator: ${lesson.operator}');
+    print('   Classroom ID: ${lesson.classroomId}');
+    print('   Title: ${lesson.title}');
 
     final inserted = await _sb
         .from('basic_operator_lessons')
         .insert(data)
         .select('*')
         .single();
+
+    print('✅ Lesson created successfully with ID: ${inserted['id']}');
 
     return BasicOperatorLesson.fromJson(Map<String, dynamic>.from(inserted));
   }
@@ -57,8 +74,19 @@ class BasicOperatorLessonService {
 
       final data = newLesson.toJson()
         ..remove('id')
-        ..remove('created_at')
         ..remove('updated_at');
+
+      if (data['created_at'] == null) {
+        data['created_at'] = DateTime.now().toIso8601String();
+      }
+
+      data['is_active'] = newLesson.isActive;
+
+      print('📝 Creating lesson with file:');
+      print('   Operator: ${lesson.operator}');
+      print('   Classroom ID: ${lesson.classroomId}');
+      print('   Title: ${lesson.title}');
+
       final inserted = await _sb
           .from('basic_operator_lessons')
           .insert(data)
@@ -66,11 +94,40 @@ class BasicOperatorLessonService {
           .single();
 
       print('✅ Lesson inserted into DB for operator ${lesson.operator}');
+      print('   Lesson ID: ${inserted['id']}');
 
       return BasicOperatorLesson.fromJson(Map<String, dynamic>.from(inserted));
     } catch (e) {
       print('❌ Error uploading file or inserting lesson: $e');
       rethrow;
     }
+  }
+
+  Future<BasicOperatorLesson> updateLesson(BasicOperatorLesson lesson) async {
+    if (lesson.id == null) {
+      throw Exception('Cannot update lesson without an ID');
+    }
+
+    final data = lesson.toJson()
+      ..remove('id')
+      ..remove('created_at');
+
+    data['updated_at'] = DateTime.now().toIso8601String();
+
+    final updated = await _sb
+        .from('basic_operator_lessons')
+        .update(data)
+        .eq('id', lesson.id!)
+        .select('*')
+        .single();
+
+    return BasicOperatorLesson.fromJson(Map<String, dynamic>.from(updated));
+  }
+
+  Future<void> deleteLesson(String lessonId) async {
+    await _sb
+        .from('basic_operator_lessons')
+        .update({'is_active': false})
+        .eq('id', lessonId);
   }
 }

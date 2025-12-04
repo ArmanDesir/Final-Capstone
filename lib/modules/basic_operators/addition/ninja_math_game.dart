@@ -143,10 +143,69 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
     });
   }
 
+  String _getOperatorSymbol() {
+    switch (widget.operator.toLowerCase()) {
+      case 'addition':
+      case 'add':
+        return '+';
+      case 'subtraction':
+      case 'subtract':
+        return '-';
+      case 'multiplication':
+      case 'multiply':
+        return '×';
+      case 'division':
+      case 'divide':
+        return '÷';
+      default:
+        return '+';
+    }
+  }
+
+  String _buildCurrentEquation() {
+    if (_selectedIndices.isEmpty) {
+      return 'No numbers selected';
+    }
+
+    final round = _rounds[_current];
+    final selectedNumbers = _selectedIndices.map((i) => round.numbers[i]).toList();
+    final operator = _getOperatorSymbol();
+
+    return selectedNumbers.join(' $operator ');
+  }
+
+  int _calculateCurrentResult() {
+    if (_selectedIndices.isEmpty) return 0;
+
+    final round = _rounds[_current];
+    final selectedNumbers = _selectedIndices.map((i) => round.numbers[i]).toList();
+
+    switch (widget.operator.toLowerCase()) {
+      case 'addition':
+      case 'add':
+        return selectedNumbers.fold(0, (a, b) => a + b);
+      case 'subtraction':
+      case 'subtract':
+        return selectedNumbers.length > 1
+            ? selectedNumbers[0] - selectedNumbers.sublist(1).fold(0, (a, b) => a + b)
+            : selectedNumbers[0];
+      case 'multiplication':
+      case 'multiply':
+        return selectedNumbers.fold(1, (a, b) => a * b);
+      case 'division':
+      case 'divide':
+        return selectedNumbers.length > 1
+            ? (selectedNumbers[0] / selectedNumbers.sublist(1).fold(1, (a, b) => a * b)).round()
+            : selectedNumbers[0];
+      default:
+        return selectedNumbers.fold(0, (a, b) => a + b);
+    }
+  }
+
   void _submit() {
     final round = _rounds[_current];
-    int sum = _selectedIndices.fold(0, (a, i) => a + round.numbers[i]);
-    if (sum == round.target) _score++;
+    int result = _calculateCurrentResult();
+    if (result == round.target) _score++;
 
     if (_current < _totalRounds - 1) {
       setState(() {
@@ -162,8 +221,8 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   Widget build(BuildContext context) {
     if (_gameFinished) return const SizedBox.shrink();
     final round = _rounds[_current];
-    final currentSum =
-    _selectedIndices.fold(0, (a, i) => a + round.numbers[i]);
+    final currentEquation = _buildCurrentEquation();
+    final currentResult = _calculateCurrentResult();
 
     return WillPopScope(
       onWillPop: () async {
@@ -210,7 +269,12 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
               const SizedBox(height: 12),
               _buildTarget(round.target),
               const SizedBox(height: 16),
-              Text('Current sum: $currentSum', style: GameTheme.tileText),
+              Text(
+                _selectedIndices.isNotEmpty
+                    ? currentEquation
+                    : 'No numbers selected',
+                style: GameTheme.tileText,
+              ),
               const SizedBox(height: 32),
               _buildNumberBank(round.numbers),
               const SizedBox(height: 32),

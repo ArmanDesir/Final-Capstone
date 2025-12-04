@@ -26,9 +26,9 @@ class ClassroomService {
       updatedAt: DateTime.now(),
       code: code,
     );
-    // Map is_archived to is_active column in database (is_archived column doesn't exist)
+
     final jsonData = classroom.toJson();
-    // is_archived maps to is_active (inverse: archived = not active)
+
     if (jsonData.containsKey('is_archived')) {
       jsonData['is_active'] = !(jsonData['is_archived'] as bool);
       jsonData.remove('is_archived');

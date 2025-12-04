@@ -4,6 +4,7 @@ import 'package:pracpro/models/basic_operator_quiz.dart';
 import 'package:pracpro/screens/basic_operator_quiz_screen.dart';
 import 'package:pracpro/services/basic_operator_quiz_service.dart';
 import 'package:pracpro/utils/pdf_viewer.dart';
+import 'package:pracpro/widgets/cached_video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -30,7 +31,10 @@ class _BasicOperatorLessonViewScreenState
 
   Future<void> _loadRelatedQuizzes() async {
     try {
-      final all = await _quizService.getQuizzes(widget.lesson.operator);
+      final all = await _quizService.getQuizzes(
+        widget.lesson.operator,
+        classroomId: widget.lesson.classroomId,
+      );
       _quizzes = all.where((q) => q.operator == widget.lesson.operator).toList();
     } catch (_) {}
     setState(() => _isLoading = false);
@@ -74,25 +78,13 @@ class _BasicOperatorLessonViewScreenState
     );
   }
 
-  Widget _buildYoutubePreview(BuildContext context) => GestureDetector(
-    onTap: () async {
-      final url = Uri.parse(widget.lesson.youtubeUrl!);
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      }
-    },
-    child: Container(
-      height: 200,
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.black12,
-      ),
-      child: const Center(
-        child: Icon(Icons.play_circle_fill, color: Colors.red, size: 64),
-      ),
-    ),
-  );
+  Widget _buildYoutubePreview(BuildContext context) {
+    return CachedVideoPlayer(
+      youtubeUrl: widget.lesson.youtubeUrl!,
+      autoPlay: false,
+      showControls: true,
+    );
+  }
 
   Widget _buildFileSection(BuildContext context) => ElevatedButton.icon(
     icon: const Icon(Icons.picture_as_pdf),

@@ -1,16 +1,12 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'basic_operator_lesson.dart';
-
-// **************************************************************************
-// JsonSerializableGenerator
-// **************************************************************************
 
 BasicOperatorLesson _$BasicOperatorLessonFromJson(Map<String, dynamic> json) =>
     BasicOperatorLesson(
       id: json['id'] as String?,
       title: json['title'] as String,
       operator: json['operator'] as String,
+      classroomId: json['classroom_id'] as String?,
       description: json['description'] as String?,
       fileUrl: json['file_url'] as String?,
       fileName: json['file_name'] as String?,
@@ -39,6 +35,7 @@ Map<String, dynamic> _$BasicOperatorLessonToJson(
   'title': instance.title,
   'description': instance.description,
   'operator': instance.operator,
+  'classroom_id': instance.classroomId,
   'file_url': instance.fileUrl,
   'file_name': instance.fileName,
   'storage_path': instance.storagePath,

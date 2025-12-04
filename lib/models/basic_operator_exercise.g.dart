@@ -1,10 +1,5 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'basic_operator_exercise.dart';
-
-// **************************************************************************
-// JsonSerializableGenerator
-// **************************************************************************
 
 BasicOperatorExercise _$BasicOperatorExerciseFromJson(
   Map<String, dynamic> json,

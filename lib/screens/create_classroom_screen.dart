@@ -63,6 +63,7 @@ class _CreateClassroomScreenState extends State<CreateClassroomScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Create New Classroom'),
         backgroundColor: Colors.green,
@@ -259,6 +260,7 @@ class _CreateClassroomScreenState extends State<CreateClassroomScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),

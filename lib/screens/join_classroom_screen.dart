@@ -81,6 +81,7 @@ class _JoinClassroomScreenState extends State<JoinClassroomScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Join Classroom'),
         backgroundColor: Colors.blue,
@@ -253,6 +254,7 @@ class _JoinClassroomScreenState extends State<JoinClassroomScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),

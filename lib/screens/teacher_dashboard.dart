@@ -2,65 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:pracpro/models/user.dart' as app_model;
 import 'package:pracpro/providers/auth_provider.dart';
 import 'package:pracpro/providers/classroom_provider.dart';
-import 'package:pracpro/providers/quiz_provider.dart';
-import 'package:pracpro/screens/QuizDetailsScreen.dart';
 import 'package:pracpro/screens/classroom_details_screen.dart';
 import 'package:pracpro/screens/manage_classrooms_screen.dart';
 import 'package:pracpro/screens/activity_logs_screen.dart';
 import 'package:provider/provider.dart';
-
-class CreateClassroomScreen extends StatelessWidget {
-  final String teacherId;
-  const CreateClassroomScreen({super.key, required this.teacherId});
-
-  @override
-  Widget build(BuildContext context) {
-    final nameController = TextEditingController();
-    final descController = TextEditingController();
-    final classroomProvider = Provider.of<ClassroomProvider>(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create Classroom')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Classroom Name'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.isNotEmpty) {
-                  await classroomProvider.createClassroom(
-                    name: nameController.text,
-                    description: descController.text,
-                  );
-                  Navigator.pop(context, true);
-                }
-              },
-              child: const Text('Create'),
-            ),
-            if (classroomProvider.error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Text(
-                  classroomProvider.error!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class TeacherDashboard extends StatefulWidget {
   const TeacherDashboard({super.key});
@@ -73,7 +18,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   final GlobalKey _classroomListKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
   int _lessonsCount = 0;
-  int _quizzesCount = 0;
 
   List<app_model.User> _acceptedStudents = [];
   Map<String, List<app_model.User>> _studentsByClassroom = {};
@@ -99,7 +43,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         if (mounted) {
           setState(() {
             _lessonsCount = counts['lessons'] ?? 0;
-            _quizzesCount = counts['quizzes'] ?? 0;
             _acceptedStudents = uniqueStudents;
             _studentsByClassroom = groupedStudents;
           });
@@ -194,7 +137,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   @override
   Widget build(BuildContext context) {
     final classroomProvider = Provider.of<ClassroomProvider>(context);
-    final quizProvider = Provider.of<QuizProvider>(context);
     final acceptedStudentsCount = _acceptedStudents.length;
 
     return Scaffold(
@@ -245,14 +187,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildStatCard('$_lessonsCount', 'Lessons', Colors.orange),
-              _buildStatCard('$_quizzesCount', 'Quizzes', Colors.purple),
-            ],
-          ),
           const SizedBox(height: 24),
           const Text(
             'Quick Actions',
@@ -287,19 +221,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               ),
               subtitle: const Text('View student activity logs for monitoring'),
               onTap: () => _openActivityLogsPicker(context),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.calculate, color: Colors.indigo),
-              title: const Text(
-                'Basic Operations',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text('Addition, Subtraction, Multiplication, Division'),
-              onTap: () => Navigator.pushNamed(context, '/basic_operations'),
             ),
           ),
           const SizedBox(height: 24),
@@ -399,37 +320,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   ),
                 );
               }).toList(),
-            ),
-          const SizedBox(height: 24),
-          const Text(
-            'Quizzes',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          if (quizProvider.quizzes.isEmpty)
-            Center(
-              child: Text(
-                'No quizzes yet. Tap "Create Quiz" to add one!',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              ),
-            )
-          else
-            ...quizProvider.quizzes.map(
-                  (quiz) => Card(
-                child: ListTile(
-                  leading: const Icon(Icons.quiz, color: Colors.purple),
-                  title: Text(quiz['title'] ?? 'Untitled Quiz'),
-                  subtitle: Text('${quiz['questions']?.length ?? 0} Questions'),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => QuizDetailsScreen(quiz: quiz),
-                      ),
-                    );
-                  },
-                ),
-              ),
             ),
         ],
       ),

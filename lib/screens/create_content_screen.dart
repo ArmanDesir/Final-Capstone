@@ -12,11 +12,13 @@ import '../providers/basic_operator_quiz_provider.dart';
 class CreateContentScreen extends StatefulWidget {
   final String operator;
   final String contentType;
+  final String? classroomId;
 
   const CreateContentScreen({
     super.key,
     required this.operator,
     required this.contentType,
+    this.classroomId,
   });
 
   @override
@@ -47,7 +49,7 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
     if (widget.contentType == 'exercise') {
       final provider =
       Provider.of<BasicOperatorLessonProvider>(context, listen: false);
-      _lessonFuture = provider.loadLessons(widget.operator);
+      _lessonFuture = provider.loadLessons(widget.operator, classroomId: widget.classroomId);
     }
   }
 
@@ -98,6 +100,7 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
     final now = DateTime.now();
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(
           "Create ${widget.contentType[0].toUpperCase()}${widget.contentType.substring(1)} - ${widget.operator}",
@@ -276,6 +279,7 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                       operator: widget.operator,
                       title: _lessonTitleController.text,
                       description: _lessonDescController.text,
+                      classroomId: widget.classroomId,
                       youtubeUrl: _youtubeUrlController.text,
                       fileUrl: '',
                       fileName: _lessonFileName,
@@ -285,7 +289,7 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                     await lessonProvider.createLessonWithFile(
                         lesson, _lessonFile!);
                     print(
-                        "✅ LESSON CREATED → ${widget.operator} | ${_lessonTitleController.text}");
+                        "✅ LESSON CREATED → ${widget.operator} | ${_lessonTitleController.text} | Classroom: ${widget.classroomId}");
                   }
 
                   if (widget.contentType == 'quiz') {
@@ -307,9 +311,10 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                         title: _quizTitleController.text,
                         questions: questions,
                         teacherId: teacherId,
+                        classroomId: widget.classroomId,
                       );
                       print(
-                          "✅ QUIZ CREATED → ${widget.operator} | ${_quizTitleController.text}");
+                          "✅ QUIZ CREATED → ${widget.operator} | ${_quizTitleController.text} | Classroom: ${widget.classroomId}");
                     }
                   }
 
@@ -323,6 +328,7 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                         description: _exerciseDescController.text,
                         file: _exerciseFile!,
                         lessonId: _selectedLessonId!,
+                        classroomId: widget.classroomId,
                       );
 
                       print(
@@ -339,6 +345,7 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                 },
                 child: const Text("Submit"),
               ),
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -346,3 +353,4 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
     );
   }
 }
+

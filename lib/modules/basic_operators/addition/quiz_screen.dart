@@ -28,6 +28,9 @@ class _QuizScreenState extends State<QuizScreen>
   bool _locked = false;
   bool _answered = false;
   bool _showAnswers = false;
+  bool _showReview = false;
+
+  final Map<int, String> _allSelectedAnswers = {};
   late Timer _timer;
   int _remainingSeconds = 300;
   late AnimationController _animationController;
@@ -155,8 +158,12 @@ class _QuizScreenState extends State<QuizScreen>
   void _next() {
     final currentQ = widget.questions[_current];
     final correctLetter = currentQ['correct_choice'];
-    final selectedLetter = ['A', 'B', 'C'][_selected];
+    final selectedLetter = _selected >= 0 ? ['A', 'B', 'C'][_selected] : null;
     final isCorrect = selectedLetter == correctLetter;
+
+    if (selectedLetter != null) {
+      _allSelectedAnswers[_current] = selectedLetter;
+    }
 
     setState(() {
       _answered = true;
@@ -187,21 +194,12 @@ class _QuizScreenState extends State<QuizScreen>
     });
     _animationController.forward();
 
-    Future.delayed(const Duration(seconds: 2), () {
-      showGeneralDialog(
-        context: context,
-        barrierDismissible: false,
-        transitionDuration: const Duration(milliseconds: 400),
-        barrierLabel: 'Quiz Result',
-        pageBuilder: (context, _, __) {
-          return Center(
-            child: ScaleTransition(
-              scale: _scaleAnimation,
-              child: _buildResultDialog(),
-            ),
-          );
-        },
-      );
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _showReview = true;
+        });
+      }
     });
   }
 
@@ -211,50 +209,178 @@ class _QuizScreenState extends State<QuizScreen>
     return '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
   }
 
-  Widget _buildResultDialog() {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 320,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+  Widget _buildReviewScreen() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Quiz Review'),
+        backgroundColor: Colors.green,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            color: Colors.blue[50],
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const Text(
+                    'Quiz Results',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Score: $_score / ${widget.questions.length}',
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  Text(
+                    'Percentage: ${(_score / widget.questions.length * 100).toStringAsFixed(1)}%',
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.emoji_events, color: Colors.amber[700], size: 48),
-            const SizedBox(height: 16),
-            const Text(
-              'Quiz Complete!',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          ...widget.questions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final rawQ = entry.value;
+            final q = {
+              'question_text': rawQ['question_text'] ?? 'Untitled question',
+              'options': rawQ['options'] ??
+                  [
+                    rawQ['choice_a'] ?? '',
+                    rawQ['choice_b'] ?? '',
+                    rawQ['choice_c'] ?? '',
+                  ],
+              'correct_choice': rawQ['correct_choice'] ?? 'A',
+            };
+            final correctLetter = q['correct_choice'];
+            final selectedLetter = _allSelectedAnswers[index];
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (selectedLetter == correctLetter)
+                                ? Colors.green
+                                : Colors.red,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Q${index + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          (selectedLetter == correctLetter)
+                              ? Icons.check_circle
+                              : Icons.cancel,
+                          color: (selectedLetter == correctLetter)
+                              ? Colors.green
+                              : Colors.red,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      q['question_text'],
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...List.generate(q['options'].length, (i) {
+                      final letter = ['A', 'B', 'C'][i];
+                      Color? backgroundColor;
+                      Color borderColor = Colors.grey.withOpacity(0.3);
+                      double borderWidth = 1;
+
+                      if (letter == correctLetter) {
+                        backgroundColor = Colors.green[100];
+                        borderColor = Colors.green;
+                        borderWidth = 2;
+                      } else if (letter == selectedLetter && selectedLetter != correctLetter) {
+                        backgroundColor = Colors.red[100];
+                        borderColor = Colors.red;
+                        borderWidth = 2;
+                      }
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: backgroundColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: borderColor,
+                            width: borderWidth,
+                          ),
+                        ),
+                        child: ListTile(
+                          title: Text('$letter. ${q['options'][i]}'),
+                          trailing: letter == correctLetter
+                              ? const Icon(Icons.check, color: Colors.green)
+                              : (letter == selectedLetter && selectedLetter != correctLetter)
+                                  ? const Icon(Icons.close, color: Colors.red)
+                                  : null,
+                        ),
+                      );
+                    }),
+                    if (selectedLetter != correctLetter)
+                      Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber[50],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.amber[800]),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Your answer: ${selectedLetter ?? "Not answered"} | Correct: $correctLetter',
+                                style: TextStyle(
+                                  color: Colors.amber[900],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Your score: $_score / ${widget.questions.length}',
-              style: const TextStyle(fontSize: 18),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const StudentDashboard()),
-                );
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        ),
+            child: const Text('Done', style: TextStyle(fontSize: 16)),
+          ),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
@@ -274,6 +400,14 @@ class _QuizScreenState extends State<QuizScreen>
       );
     }
 
+    if (_showReview) {
+      return _buildReviewScreen();
+    }
+
+    if (_quizFinished) {
+      return const SizedBox.shrink();
+    }
+
     final rawQ = widget.questions[_current];
     final q = {
       'question_text': rawQ['question_text'] ?? 'Untitled question',
@@ -287,6 +421,7 @@ class _QuizScreenState extends State<QuizScreen>
     };
 
     final correctLetter = q['correct_choice'];
+    final selectedLetter = _allSelectedAnswers[_current];
 
     return Scaffold(
       appBar: AppBar(
@@ -329,7 +464,7 @@ class _QuizScreenState extends State<QuizScreen>
               if (_showAnswers) {
                 if (letter == correctLetter) {
                   cardColor = Colors.greenAccent;
-                } else {
+                } else if (letter == selectedLetter && selectedLetter != correctLetter) {
                   cardColor = Colors.redAccent.withOpacity(0.3);
                 }
               } else if (_selected == i) {

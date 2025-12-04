@@ -6,7 +6,62 @@ class BasicOperatorExerciseService {
   final SupabaseClient _sb = Supabase.instance.client;
   final String bucket = 'basic-operator';
 
-  Future<List<BasicOperatorExercise>> getExercises(String operator) async {
+  Future<List<BasicOperatorExercise>> getExercises(String operator, {String? classroomId}) async {
+
+    if (classroomId != null) {
+
+      final lessonsData = await _sb
+          .from('basic_operator_lessons')
+          .select('id')
+          .eq('operator', operator)
+          .eq('classroom_id', classroomId)
+          .eq('is_active', true);
+
+      final lessonIds = (lessonsData as List).map((l) => l['id'] as String).toList();
+
+      List<Map<String, dynamic>> allExercises = [];
+
+      if (lessonIds.isNotEmpty) {
+
+        final linkedExercises = await _sb
+            .from('basic_operator_exercises')
+            .select('*')
+            .eq('operator', operator)
+            .inFilter('lesson_id', lessonIds)
+            .order('created_at', ascending: false);
+
+        allExercises.addAll((linkedExercises as List).cast<Map<String, dynamic>>());
+      }
+
+      final standaloneExercises = await _sb
+          .from('basic_operator_exercises')
+          .select('*')
+          .eq('operator', operator)
+          .isFilter('lesson_id', null)
+          .order('created_at', ascending: false);
+
+      allExercises.addAll((standaloneExercises as List).cast<Map<String, dynamic>>());
+
+      final uniqueExercises = <String, Map<String, dynamic>>{};
+      for (final ex in allExercises) {
+        if (ex['id'] != null) {
+          uniqueExercises[ex['id'] as String] = ex;
+        }
+      }
+
+      final sorted = uniqueExercises.values.toList()
+        ..sort((a, b) {
+          final aDate = a['created_at'] as String?;
+          final bDate = b['created_at'] as String?;
+          if (aDate == null || bDate == null) return 0;
+          return bDate.compareTo(aDate);
+        });
+
+      return sorted
+          .map((row) => BasicOperatorExercise.fromJson(row))
+          .toList();
+    }
+
     final data = await _sb
         .from('basic_operator_exercises')
         .select('*')
