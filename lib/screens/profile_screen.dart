@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pracpro/services/user_service.dart';
+import 'package:pracpro/services/student_quiz_progress_service.dart';
+import 'package:pracpro/widgets/quiz_progress_table.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
@@ -146,7 +148,7 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class _ProfileScaffold extends StatelessWidget {
+class _ProfileScaffold extends StatefulWidget {
   final app_model.User user;
   final bool isTeacher;
   final app_model.User? loggedInUser;
@@ -157,24 +159,76 @@ class _ProfileScaffold extends StatelessWidget {
     required this.loggedInUser,
   });
 
+  @override
+  State<_ProfileScaffold> createState() => _ProfileScaffoldState();
+}
+
+class _ProfileScaffoldState extends State<_ProfileScaffold> {
+  bool _loadingProgress = false;
+  List<QuizProgressData> _quizProgress = [];
+  List<QuizProgressData> _gameProgress = [];
+  String? _classroomId;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.user.userType == app_model.UserType.student) {
+      _loadStudentProgress();
+    }
+  }
+
+  Future<void> _loadStudentProgress() async {
+    setState(() => _loadingProgress = true);
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final classroomsResponse = await supabase
+          .from('student_classroom')
+          .select('classroom_id')
+          .eq('user_id', widget.user.id)
+          .eq('status', 'accepted')
+          .limit(1);
+      
+      if (classroomsResponse.isNotEmpty) {
+        _classroomId = classroomsResponse.first['classroom_id'];
+        
+        final service = StudentQuizProgressService();
+        final allProgress = await service.getStudentQuizProgress(
+          studentId: widget.user.id,
+          operator: 'addition',
+          classroomId: _classroomId!,
+        );
+        
+        setState(() {
+          _quizProgress = allProgress.where((p) => !p.isGame).toList();
+          _gameProgress = allProgress.where((p) => p.isGame).toList();
+        });
+      }
+    } catch (e) {
+      print('Error loading student progress: $e');
+    } finally {
+      setState(() => _loadingProgress = false);
+    }
+  }
+
   void _editStudent(BuildContext context) async {
     final updated = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => EditStudentScreen(student: user),
+        builder: (_) => EditStudentScreen(student: widget.user),
       ),
     );
 
     if (updated == true) {
-      final refreshed = await UserService().getUser(user.id);
+      final refreshed = await UserService().getUser(widget.user.id);
       if (refreshed != null) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (_) => _ProfileScaffold(
               user: refreshed,
-              isTeacher: isTeacher,
-              loggedInUser: loggedInUser,
+              isTeacher: widget.isTeacher,
+              loggedInUser: widget.loggedInUser,
             ),
           ),
         );
@@ -183,7 +237,7 @@ class _ProfileScaffold extends StatelessWidget {
   }
 
   Future<void> _pickAndUploadImage(BuildContext context) async {
-    if (loggedInUser == null) return;
+    if (widget.loggedInUser == null) return;
 
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(
@@ -192,7 +246,7 @@ class _ProfileScaffold extends StatelessWidget {
     );
     if (image == null) return;
 
-    final path = 'avatars/${loggedInUser!.id}_${DateTime.now().millisecondsSinceEpoch}.png';
+    final path = 'avatars/${widget.loggedInUser!.id}_${DateTime.now().millisecondsSinceEpoch}.png';
 
     showDialog(
       context: context,
@@ -216,7 +270,7 @@ class _ProfileScaffold extends StatelessWidget {
           .from('pictures')
           .getPublicUrl(path);
 
-      final updatedUser = loggedInUser!.copyWith(photoUrl: publicUrl);
+      final updatedUser = widget.loggedInUser!.copyWith(photoUrl: publicUrl);
       await UserService().updateUser(updatedUser);
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -236,7 +290,7 @@ class _ProfileScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOwnProfile = loggedInUser?.id == user.id;
+    final isOwnProfile = widget.loggedInUser?.id == widget.user.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -244,8 +298,8 @@ class _ProfileScaffold extends StatelessWidget {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
-          if (isTeacher &&
-              user.userType == app_model.UserType.student &&
+          if (widget.isTeacher &&
+              widget.user.userType == app_model.UserType.student &&
               !isOwnProfile)
             IconButton(
               icon: const Icon(Icons.edit),
@@ -263,12 +317,12 @@ class _ProfileScaffold extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 40,
                   backgroundColor: Colors.blue.shade100,
-                  backgroundImage: user.photoUrl != null
-                      ? NetworkImage(user.photoUrl!)
+                  backgroundImage: widget.user.photoUrl != null
+                      ? NetworkImage(widget.user.photoUrl!)
                       : null,
-                  child: user.photoUrl == null
+                  child: widget.user.photoUrl == null
                       ? Icon(
-                    user.userType == app_model.UserType.teacher
+                    widget.user.userType == app_model.UserType.teacher
                         ? Icons.person
                         : Icons.school,
                     size: 48,
@@ -279,18 +333,105 @@ class _ProfileScaffold extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            _ProfileField(label: 'Full Name', value: user.name),
+            _ProfileField(label: 'Full Name', value: widget.user.name),
             const SizedBox(height: 16),
-            _ProfileField(label: 'Email', value: user.email ?? 'N/A'),
+            _ProfileField(label: 'Email', value: widget.user.email ?? 'N/A'),
             const SizedBox(height: 16),
-            _ProfileField(label: 'Guardian Name', value: user.guardianName ?? 'N/A'),
+            _ProfileField(label: 'Guardian Name', value: widget.user.guardianName ?? 'N/A'),
             const SizedBox(height: 16),
-            _ProfileField(label: 'Guardian Email', value: user.guardianEmail ?? 'N/A'),
+            _ProfileField(label: 'Guardian Email', value: widget.user.guardianEmail ?? 'N/A'),
             const SizedBox(height: 16),
             _ProfileField(
-                label: 'Guardian Contact', value: user.guardianContactNumber ?? 'N/A'),
+                label: 'Guardian Contact', value: widget.user.guardianContactNumber ?? 'N/A'),
             const SizedBox(height: 16),
-            _ProfileField(label: 'Student Info', value: user.studentInfo ?? 'N/A'),
+            _ProfileField(label: 'Student Info', value: widget.user.studentInfo ?? 'N/A'),
+            
+            if (widget.user.userType == app_model.UserType.student) ...[
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(Icons.assessment, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'My Progress',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              if (_loadingProgress)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (_classroomId == null)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text(
+                      'Not enrolled in any classroom yet.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                )
+              else ...[
+                if (_quizProgress.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.quiz, color: Colors.deepPurple, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Quizzes',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  QuizProgressTable(quizData: _quizProgress),
+                  const SizedBox(height: 24),
+                ],
+                
+                if (_gameProgress.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.sports_esports, color: Colors.orange, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Games',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  QuizProgressTable(quizData: _gameProgress),
+                ],
+                
+                if (_quizProgress.isEmpty && _gameProgress.isEmpty)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text(
+                        'No progress yet. Start learning!',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  ),
+              ],
+            ],
           ],
         ),
       ),

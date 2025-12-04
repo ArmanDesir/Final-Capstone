@@ -145,17 +145,64 @@ class _SubtractionNinjaMathGameScreenState
   void _submit() {
     final round = _rounds[_current];
     int result = round.startNumber - _selected.fold(0, (a, b) => a + b);
-    if (result == round.target) {
-      _score++;
-    }
-    if (_current < _totalRounds - 1) {
-      setState(() {
-        _current++;
-        _selected.clear();
-      });
-    } else {
-      _finishGame();
-    }
+    final isCorrect = result == round.target;
+    
+    if (isCorrect) _score++;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: isCorrect ? GameTheme.correct : GameTheme.wrong,
+        title: Icon(
+          isCorrect ? Icons.check_circle : Icons.cancel,
+          color: Colors.white,
+          size: 64,
+        ),
+        content: Text(
+          isCorrect 
+              ? 'Correct! 🎉\n$result = ${round.target}' 
+              : 'Wrong! ❌\n$result ≠ ${round.target}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              if (_current < _totalRounds - 1) {
+                setState(() {
+                  _current++;
+                  _selected.clear();
+                });
+              } else {
+                _finishGame();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Continue',
+                style: TextStyle(
+                  color: isCorrect ? GameTheme.correct : GameTheme.wrong,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ],
+        actionsAlignment: MainAxisAlignment.center,
+      ),
+    );
   }
 
   @override

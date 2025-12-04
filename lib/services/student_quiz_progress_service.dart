@@ -1,6 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/basic_operator_quiz.dart';
-import '../modules/basic_operators/addition/crossword_cell.dart';
 
 class QuizProgressData {
   final String quizId;
@@ -125,11 +123,16 @@ class StudentQuizProgressService {
           String quizId;
           if (entityType == 'game') {
             String title = progressMap['entity_title']?.toString() ?? '';
+            
+            if (!title.toLowerCase().startsWith('${operator.toLowerCase()}_')) {
+              continue;
+            }
 
             if (title.toLowerCase().contains('crossmath') ||
-                title.toLowerCase().contains('addition_crossmath') ||
-                title.toLowerCase() == 'addition_crossmath') {
+                title.toLowerCase().contains('${operator.toLowerCase()}_crossmath')) {
               title = 'Crossword Math';
+            } else if (title.toLowerCase().contains('ninja')) {
+              title = 'Ninja Math';
             }
             final stage = progressMap['stage']?.toString().toLowerCase() ?? '';
             quizId = '$title|$stage';
@@ -148,7 +151,7 @@ class StudentQuizProgressService {
 
       final quizzesResponse = await _supabase
           .from('basic_operator_quizzes')
-          .select('id, title, basic_operator_quiz_questions(id)')
+          .select('id, title, classroom_id, basic_operator_quiz_questions(id)')
           .eq('operator', operator);
 
       List<Map<String, dynamic>> quizzes = (quizzesResponse as List).cast<Map<String, dynamic>>();
@@ -176,13 +179,11 @@ class StudentQuizProgressService {
 
           print('📊 Found ${progressResponse.length} progress records in basic_operator_quiz_progress');
 
-          if (progressResponse != null && progressResponse is List) {
-            for (final progressItem in progressResponse) {
-              final progressMapEntry = progressItem as Map<String, dynamic>;
-              final quizId = progressMapEntry['quiz_id']?.toString() ?? '';
-              if (quizId.isNotEmpty) {
-                directProgressMap[quizId] = progressMapEntry;
-              }
+          for (final progressItem in progressResponse) {
+            final progressMapEntry = Map<String, dynamic>.from(progressItem);
+            final quizId = progressMapEntry['quiz_id']?.toString() ?? '';
+            if (quizId.isNotEmpty) {
+              directProgressMap[quizId] = progressMapEntry;
             }
           }
         } catch (e) {
@@ -226,9 +227,10 @@ class StudentQuizProgressService {
           if (entityType == 'game') {
 
             if (title.toLowerCase().contains('crossmath') ||
-                title.toLowerCase().contains('addition_crossmath') ||
-                title.toLowerCase() == 'addition_crossmath') {
+                title.toLowerCase().contains('${operator.toLowerCase()}_crossmath')) {
               title = 'Crossword Math';
+            } else if (title.toLowerCase().contains('ninja')) {
+              title = 'Ninja Math';
             }
 
             String stage = firstProgress['stage']?.toString() ?? '';
