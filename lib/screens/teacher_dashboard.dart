@@ -258,7 +258,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      'Code: ${classroom.code ?? ''}\nStudents: ${classroom.studentIds.length}',
+                      'Code: ${classroom.code ?? ''}\nStudents: ${_studentsByClassroom[classroom.id]?.length ?? 0}',
                     ),
                     isThreeLine: true,
                     onTap: () {
