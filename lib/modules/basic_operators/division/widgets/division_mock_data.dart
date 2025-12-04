@@ -2,7 +2,7 @@ final List<Map<String, dynamic>> divisionLessons = [
   {
     'title': 'Lesson 1: Intro to Division',
     'explanation': 'Division means sharing equally. 6 ÷ 2 = 3!',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=mjlsSYLLOSE',
     'quiz': [
       {
         'q': 'What is 2 ÷ 1?',
@@ -60,7 +60,7 @@ final List<Map<String, dynamic>> divisionLessons = [
   {
     'title': 'Lesson 2: Dividing by One',
     'explanation': 'Any number divided by one equals itself. 5 ÷ 1 = 5.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 3 ÷ 1?',
@@ -78,7 +78,7 @@ final List<Map<String, dynamic>> divisionLessons = [
   {
     'title': 'Lesson 3: Dividing by Itself',
     'explanation': 'Any number divided by itself equals one. 5 ÷ 5 = 1.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 4 ÷ 4?',
@@ -96,7 +96,7 @@ final List<Map<String, dynamic>> divisionLessons = [
   {
     'title': 'Lesson 4: Division Facts',
     'explanation': 'Learn basic division facts up to 20.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 14 ÷ 2?',
@@ -114,7 +114,7 @@ final List<Map<String, dynamic>> divisionLessons = [
   {
     'title': 'Lesson 5: Division with Pictures',
     'explanation': 'Use pictures to help understand division.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q':
@@ -133,7 +133,7 @@ final List<Map<String, dynamic>> divisionLessons = [
   {
     'title': 'Lesson 6: Practice Time!',
     'explanation': 'Let\'s practice what we\'ve learned about division.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 21 ÷ 3?',

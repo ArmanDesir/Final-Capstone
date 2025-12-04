@@ -59,7 +59,7 @@ class YouTubeUtils {
   static String? normalizeUrl(String url) {
     final videoId = extractVideoId(url);
     if (videoId == null) return null;
-    return 'https:
+    return 'https://www.youtube.com/watch?v=$videoId';
   }
 }
 

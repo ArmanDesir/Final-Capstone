@@ -2,7 +2,7 @@ final List<Map<String, dynamic>> subtractionLessons = [
   {
     'title': 'Lesson 1: Intro to Subtraction',
     'explanation': 'Subtraction means taking away. 5 - 2 = 3!',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=mjlsSYLLOSE',
     'quiz': [
       {
         'q': 'What is 2 - 1?',
@@ -60,7 +60,7 @@ final List<Map<String, dynamic>> subtractionLessons = [
   {
     'title': 'Lesson 2: Subtracting Zero',
     'explanation': 'Subtracting zero does not change the number. 5 - 0 = 5.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 3 - 0?',
@@ -78,7 +78,7 @@ final List<Map<String, dynamic>> subtractionLessons = [
   {
     'title': 'Lesson 3: Subtracting Small Numbers',
     'explanation': 'Practice subtracting numbers up to 5.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 4 - 2?',
@@ -96,7 +96,7 @@ final List<Map<String, dynamic>> subtractionLessons = [
   {
     'title': 'Lesson 4: Subtracting Bigger Numbers',
     'explanation': 'Subtract numbers up to 10.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 9 - 3?',
@@ -114,7 +114,7 @@ final List<Map<String, dynamic>> subtractionLessons = [
   {
     'title': 'Lesson 5: Subtracting with Pictures',
     'explanation': 'Use pictures to help subtract numbers.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'How many apples left if you have 5 and eat 2?',
@@ -132,7 +132,7 @@ final List<Map<String, dynamic>> subtractionLessons = [
   {
     'title': 'Lesson 6: Practice Time!',
     'explanation': 'Let\'s practice what we\'ve learned about subtraction.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 8 - 3?',

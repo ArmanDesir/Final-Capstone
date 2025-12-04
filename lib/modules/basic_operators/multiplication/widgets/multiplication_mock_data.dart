@@ -3,7 +3,7 @@ final List<Map<String, dynamic>> multiplicationLessons = [
     'title': 'Lesson 1: Intro to Multiplication',
     'explanation':
         'Multiplication means repeated addition. 2 × 3 = 2 + 2 + 2 = 6!',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=mjlsSYLLOSE',
     'quiz': [
       {
         'q': 'What is 1 × 1?',
@@ -61,7 +61,7 @@ final List<Map<String, dynamic>> multiplicationLessons = [
   {
     'title': 'Lesson 2: Multiplying by Zero',
     'explanation': 'Any number multiplied by zero equals zero. 5 × 0 = 0.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 3 × 0?',
@@ -79,7 +79,7 @@ final List<Map<String, dynamic>> multiplicationLessons = [
   {
     'title': 'Lesson 3: Multiplying by One',
     'explanation': 'Any number multiplied by one equals itself. 5 × 1 = 5.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 4 × 1?',
@@ -97,7 +97,7 @@ final List<Map<String, dynamic>> multiplicationLessons = [
   {
     'title': 'Lesson 4: Times Tables 2-5',
     'explanation': 'Learn multiplication tables for 2, 3, 4, and 5.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 2 × 4?',
@@ -120,7 +120,7 @@ final List<Map<String, dynamic>> multiplicationLessons = [
   {
     'title': 'Lesson 5: Times Tables 6-10',
     'explanation': 'Learn multiplication tables for 6, 7, 8, 9, and 10.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 6 × 2?',
@@ -143,7 +143,7 @@ final List<Map<String, dynamic>> multiplicationLessons = [
   {
     'title': 'Lesson 6: Practice Time!',
     'explanation': 'Let\'s practice what we\'ve learned about multiplication.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 4 × 3?',

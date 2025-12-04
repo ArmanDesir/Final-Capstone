@@ -2,7 +2,7 @@ final List<Map<String, dynamic>> additionLessons = [
   {
     'title': 'Lesson 1: Intro to Addition',
     'explanation': 'Addition means putting things together. 2 + 3 = 5!',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=mjlsSYLLOSE',
     'quiz': [
       {
         'q': 'What is 1 + 1?',
@@ -60,7 +60,7 @@ final List<Map<String, dynamic>> additionLessons = [
   {
     'title': 'Lesson 2: Adding Zero',
     'explanation': 'Adding zero does not change the number. 5 + 0 = 5.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 3 + 0?',
@@ -78,7 +78,7 @@ final List<Map<String, dynamic>> additionLessons = [
   {
     'title': 'Lesson 3: Adding Small Numbers',
     'explanation': 'Practice adding numbers up to 5.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 2 + 2?',
@@ -96,7 +96,7 @@ final List<Map<String, dynamic>> additionLessons = [
   {
     'title': 'Lesson 4: Adding Bigger Numbers',
     'explanation': 'Add numbers up to 10.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 6 + 3?',
@@ -114,7 +114,7 @@ final List<Map<String, dynamic>> additionLessons = [
   {
     'title': 'Lesson 5: Adding with Pictures',
     'explanation': 'Use pictures to help add numbers.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'How many apples if you add 2 and 3?',
@@ -132,7 +132,7 @@ final List<Map<String, dynamic>> additionLessons = [
   {
     'title': 'Lesson 6: Practice Time!',
     'explanation': 'Let\'s practice what we\'ve learned about addition.',
-    'videoUrl': 'https:
+    'videoUrl': 'https://www.youtube.com/watch?v=1W5aYi3lkho',
     'quiz': [
       {
         'q': 'What is 3 + 3?',

@@ -352,7 +352,7 @@ class _CreateBasicOperatorLessonScreenState
               TextFormField(
                 controller: _youtubeUrlController,
                 decoration: InputDecoration(
-                  hintText: 'https:
+                  hintText: 'https://www.youtube.com/watch?v=...',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),

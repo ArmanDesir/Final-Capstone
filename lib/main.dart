@@ -23,7 +23,7 @@ import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/teacher_dashboard.dart';
 
-const String supabaseUrl = 'https:
+const String supabaseUrl = 'https://iblysqwclgpkijsxfgif.supabase.co';
 const String supabaseAnonKey =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlibHlzcXdjbGdwa2lqc3hmZ2lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4ODkzMzUsImV4cCI6MjA3MjQ2NTMzNX0.QjrhspglPRecKsXQ0XHswqHyvvQuOymsuh1xUGrT5xE';
 
