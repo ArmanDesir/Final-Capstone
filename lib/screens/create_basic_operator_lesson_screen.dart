@@ -129,11 +129,6 @@ class _CreateBasicOperatorLessonScreenState
 
       if (!mounted) return;
 
-      print('✅ Lesson saved successfully!');
-      print('   Operator: ${widget.operator}');
-      print('   Classroom ID: ${widget.classroomId}');
-      print('   Title: ${_titleController.text.trim()}');
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Lesson saved successfully!'),

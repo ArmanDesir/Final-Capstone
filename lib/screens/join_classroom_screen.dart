@@ -55,12 +55,15 @@ class _JoinClassroomScreenState extends State<JoinClassroomScreen> {
         context,
         listen: false,
       ).refreshUserProfile();
-      if (user.classroomId != null) {
+      
+      final updatedUser = authProvider.currentUser;
+      if (updatedUser != null) {
         await Provider.of<ClassroomProvider>(
           context,
           listen: false,
-        ).loadClassroomDetails(user.classroomId!);
+        ).loadStudentClassrooms(updatedUser.id);
       }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Request sent! Waiting for teacher approval.'),

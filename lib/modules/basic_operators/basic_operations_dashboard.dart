@@ -27,7 +27,6 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
   Future<void> _fetchUserInfo() async {
     final user = supabase.auth.currentUser;
     if (user == null) {
-      print('❌ No logged-in user found.');
       setState(() => _isLoading = false);
       return;
     }
@@ -43,10 +42,7 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
         _userInfo = res;
         _isLoading = false;
       });
-
-      print('🧑‍💻 Logged-in user info: $_userInfo');
     } catch (e) {
-      print('❌ Failed to fetch user info: $e');
       setState(() => _isLoading = false);
     }
   }

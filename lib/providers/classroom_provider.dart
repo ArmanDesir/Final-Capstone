@@ -4,8 +4,6 @@ import '../models/classroom.dart';
 import '../models/user.dart';
 import '../services/classroom_service.dart';
 import '../database/database_helper.dart';
-import 'package:logger/logger.dart';
-
 class ClassroomProvider with ChangeNotifier {
   final ClassroomService _service = ClassroomService();
   final DatabaseHelper _databaseHelper = DatabaseHelper();
@@ -101,7 +99,6 @@ class ClassroomProvider with ChangeNotifier {
 
       notifyListeners();
     } catch (e, stack) {
-      Logger().e('Error loading teacher classrooms', error: e, stackTrace: stack);
       _setError(e.toString());
       _teacherClassrooms = [];
     } finally {
@@ -116,7 +113,6 @@ class ClassroomProvider with ChangeNotifier {
       _currentClassroom = _studentClassrooms.isNotEmpty ? _studentClassrooms.first : null;
       notifyListeners();
     } catch (e, stack) {
-      Logger().e('Error loading student classrooms', error: e, stackTrace: stack);
       _setError(e.toString());
     } finally {
       _setLoading(false);
@@ -138,7 +134,6 @@ class ClassroomProvider with ChangeNotifier {
       }
       notifyListeners();
     } catch (e, stack) {
-      Logger().e('Error loading classroom details', error: e, stackTrace: stack);
       _setError(e.toString());
     } finally {
       _setLoading(false);
@@ -207,7 +202,6 @@ class ClassroomProvider with ChangeNotifier {
       await _service.acceptStudent(classroomId: classroomId, studentId: studentId);
       await loadClassroomDetails(classroomId);
     } catch (e, stack) {
-      Logger().e('Error accepting student', error: e, stackTrace: stack);
       _setError(e.toString());
     } finally {
       _setLoading(false);
@@ -354,11 +348,6 @@ class ClassroomProvider with ChangeNotifier {
 
       return {"lessons": lessonsCount, "quizzes": quizzesCount};
     } catch (e, stack) {
-      Logger().e(
-        'Error counting lessons/quizzes for teacher',
-        error: e,
-        stackTrace: stack,
-      );
       _setError(e.toString());
       return {"lessons": 0, "quizzes": 0};
     }
@@ -381,8 +370,6 @@ class ClassroomProvider with ChangeNotifier {
           .eq('is_active', false)
           .order('created_at', ascending: false);
 
-      print('📦 Archived classrooms fetched: ${response.length}');
-
       if (response == null || response is! List) {
         _archivedClassrooms = [];
       } else {
@@ -395,7 +382,6 @@ class ClassroomProvider with ChangeNotifier {
 
       notifyListeners();
     } catch (e, stack) {
-      Logger().e('Error loading archived classrooms', error: e, stackTrace: stack);
       _setError(e.toString());
       _archivedClassrooms = [];
     } finally {

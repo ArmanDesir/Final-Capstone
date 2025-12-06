@@ -1,37 +1,37 @@
 import 'package:flutter/material.dart';
 import '../services/student_quiz_progress_service.dart';
 
-class QuizProgressTable extends StatelessWidget {
-  final List<QuizProgressData> quizData;
+class GameProgressTable extends StatelessWidget {
+  final List<QuizProgressData> gameData;
 
-  const QuizProgressTable({
+  const GameProgressTable({
     super.key,
-    required this.quizData,
+    required this.gameData,
   });
 
   int _calculateTotalScore() {
-    return quizData.fold(0, (sum, quiz) => sum + quiz.totalScore);
+    return gameData.fold(0, (sum, game) => sum + game.totalScore);
   }
 
   int _calculateTotalPossible() {
-    return quizData.fold(0, (sum, quiz) => sum + quiz.totalPossible);
+    return gameData.fold(0, (sum, game) => sum + game.totalPossible);
   }
 
   double _calculateTotalPassingRate() {
-    if (quizData.isEmpty) return 0;
-    final rates = quizData.map((q) => q.passingRate).where((r) => r > 0).toList();
+    if (gameData.isEmpty) return 0;
+    final rates = gameData.map((g) => g.passingRate).where((r) => r > 0).toList();
     if (rates.isEmpty) return 0;
     return rates.reduce((a, b) => a + b) / rates.length;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (quizData.isEmpty) {
+    if (gameData.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32.0),
           child: Text(
-            'No quiz data available for this operator.',
+            'No game data available.',
             style: TextStyle(fontSize: 16, color: Colors.grey),
           ),
         ),
@@ -55,7 +55,7 @@ class QuizProgressTable extends StatelessWidget {
             border: TableBorder.all(color: Colors.grey.shade300),
             columnWidths: const {
               0: FixedColumnWidth(200),
-              1: FixedColumnWidth(180),
+              1: FixedColumnWidth(100),
               2: FixedColumnWidth(120),
               3: FixedColumnWidth(120),
               4: FixedColumnWidth(120),
@@ -71,32 +71,33 @@ class QuizProgressTable extends StatelessWidget {
                   ),
                 ),
                 children: [
-                  _buildHeaderCell('Quiz'),
-                  _buildHeaderCell('Lesson'),
+                  _buildHeaderCell('Game'),
+                  _buildHeaderCell('Difficulty'),
                   _buildHeaderCell('Attempts'),
                   _buildHeaderCell('Highest Score'),
                   _buildHeaderCell('Total Score'),
                   _buildHeaderCell('Passing Rate %'),
                 ],
               ),
-              ...quizData.map((quiz) {
-                final attempts = quiz.attemptsCount > 3 ? 3 : quiz.attemptsCount;
-                final attemptsText = '$attempts';
-                final highestScoreText = quiz.highestScorePercentage > 0 && quiz.totalQuestions > 0
-                    ? '${((quiz.highestScorePercentage / 100) * quiz.totalQuestions).round()}/${quiz.totalQuestions}'
+              ...gameData.map((game) {
+                final difficulty = game.difficulty != null
+                    ? game.difficulty![0].toUpperCase() + game.difficulty!.substring(1)
                     : '-';
-                final totalScoreText = quiz.totalScore > 0
-                    ? '${quiz.totalScore}/${quiz.totalPossible}'
+                final attempts = game.attemptsCount > 3 ? 3 : game.attemptsCount;                final highestScoreText = game.highestScore > 0 && game.totalQuestions > 0
+                    ? '${game.highestScore}/${game.totalQuestions}'
+                    : (game.highestScore > 0 ? '${game.highestScore}' : '-');
+                final totalScoreText = game.totalScore > 0
+                    ? '${game.totalScore}/${game.totalPossible}'
                     : '-';
-                final passingRateText = quiz.passingRate > 0
-                    ? '${quiz.passingRate.toStringAsFixed(1)}%'
+                final passingRateText = game.passingRate > 0
+                    ? '${game.passingRate.toStringAsFixed(1)}%'
                     : '-';
 
                 return TableRow(
                   children: [
-                    _buildDataCell(quiz.quizTitle, isLeftAligned: true),
-                    _buildDataCell(quiz.lessonTitle ?? '-', isLeftAligned: true),
-                    _buildDataCell(attemptsText),
+                    _buildDataCell(game.quizTitle, isLeftAligned: true),
+                    _buildDataCell(difficulty),
+                    _buildDataCell('$attempts'),
                     _buildDataCell(highestScoreText),
                     _buildDataCell(totalScoreText),
                     _buildDataCell(passingRateText),
@@ -166,7 +167,5 @@ class QuizProgressTable extends StatelessWidget {
       ),
     );
   }
-
 }
-
 

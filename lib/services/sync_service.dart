@@ -4,13 +4,10 @@ import 'package:pracpro/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/database_helper.dart';
 import '../models/task.dart';
-import 'package:logger/logger.dart';
-
 class SyncService {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
   final SupabaseService _supabaseService = SupabaseService();
   final Connectivity _connectivity = Connectivity();
-  final Logger _logger = Logger();
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _syncTimer;
@@ -42,13 +39,11 @@ class SyncService {
   }
 
   Future<void> _performSync() async {
-    _logger.i('Starting periodic sync...');
     try {
       await _syncTasksToSupabase();
       await _syncTasksFromSupabase();
-      _logger.i('Sync completed successfully.');
     } catch (e) {
-      _logger.e('Error during sync: $e');
+      // Error during sync - continue silently
     }
   }
 
@@ -64,7 +59,7 @@ class SyncService {
         await _databaseHelper.updateTask(updatedTask);
         return updatedTask;
       } catch (e) {
-        _logger.e('Error syncing task to Supabase: $e');
+        // Error syncing task - continue silently
       }
     }
     return task;
@@ -80,7 +75,6 @@ class SyncService {
         await _databaseHelper.updateTask(updatedTask);
         return updatedTask;
       } catch (e) {
-        _logger.e('Error syncing task update to Supabase: $e');
         final unsyncedTask = task.copyWith(isSynced: false);
         await _databaseHelper.updateTask(unsyncedTask);
       }
@@ -97,7 +91,7 @@ class SyncService {
         try {
           await _supabaseService.deleteTask(task.id);
         } catch (e) {
-          _logger.e('Error deleting task from Supabase: $e');
+          // Error deleting task - continue silently
         }
       }
     }
@@ -111,7 +105,7 @@ class SyncService {
         await _mergeTasks(localTasks, supabaseTasks);
         return await _databaseHelper.getTasksByUserId(userId);
       } catch (e) {
-        _logger.e('Error syncing tasks from Supabase: $e');
+        // Error syncing tasks - continue silently
       }
     }
     return localTasks;
@@ -165,7 +159,7 @@ class SyncService {
           await _databaseHelper.updateTask(updatedTask);
         }
       } catch (e) {
-        _logger.e('Error syncing task to Supabase: $e');
+        // Error syncing task - continue silently
       }
     }
   }

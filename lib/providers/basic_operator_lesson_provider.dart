@@ -32,10 +32,8 @@ class BasicOperatorLessonProvider with ChangeNotifier {
       lessons.add(created);
       error = null;
       notifyListeners();
-      print('✅ Provider: Lesson added to list. Total lessons: ${lessons.length}');
     } catch (e) {
       error = e.toString();
-      print('❌ Provider: Error creating lesson: $e');
       notifyListeners();
       rethrow;
     }
@@ -48,10 +46,8 @@ class BasicOperatorLessonProvider with ChangeNotifier {
       lessons.add(created);
       error = null;
       notifyListeners();
-      print('✅ Provider: Lesson with file added to list. Total lessons: ${lessons.length}');
     } catch (e) {
       error = e.toString();
-      print('❌ Provider: Error creating lesson with file: $e');
       notifyListeners();
       rethrow;
     }

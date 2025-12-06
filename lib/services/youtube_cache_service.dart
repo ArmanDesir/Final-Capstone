@@ -59,7 +59,6 @@ class YouTubeCacheService {
 
       return cachedFile.path;
     } catch (e) {
-      print('Error caching video: $e');
       return null;
     }
   }

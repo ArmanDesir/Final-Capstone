@@ -288,8 +288,6 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                     );
                     await lessonProvider.createLessonWithFile(
                         lesson, _lessonFile!);
-                    print(
-                        "✅ LESSON CREATED → ${widget.operator} | ${_lessonTitleController.text} | Classroom: ${widget.classroomId}");
                   }
 
                   if (widget.contentType == 'quiz') {
@@ -313,8 +311,6 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                         teacherId: teacherId,
                         classroomId: widget.classroomId,
                       );
-                      print(
-                          "✅ QUIZ CREATED → ${widget.operator} | ${_quizTitleController.text} | Classroom: ${widget.classroomId}");
                     }
                   }
 
@@ -330,11 +326,7 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                         lessonId: _selectedLessonId!,
                         classroomId: widget.classroomId,
                       );
-
-                      print(
-                          "✅ EXERCISE CREATED → ${widget.operator} | Lesson: $_selectedLessonId | Title: ${_exerciseTitleController.text}");
                     } catch (e) {
-                      print('❌ Failed to create exercise: $e');
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Failed to upload exercise: $e')),
                       );

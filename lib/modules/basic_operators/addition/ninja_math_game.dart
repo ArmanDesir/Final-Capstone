@@ -24,10 +24,14 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   late int _remainingSeconds;
   late Timer _timer;
   bool _gameFinished = false;
+  bool _showReview = false;
   int _score = 0;
   int _current = 0;
   late List<_TargetRound> _rounds;
   List<int> _selectedIndices = [];
+  final Map<int, List<int>> _userAnswers = {}; 
+  List<int> _incorrectIndices = [];
+  bool _answerSubmitted = false;
   late int _totalRounds;
   final Random _random = Random();
 
@@ -69,14 +73,106 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
       }
 
       int numCount = 4 + _random.nextInt(2);
-      List<int> numbers =
-      List.generate(numCount, (_) => min + _random.nextInt(max - min + 1));
+      List<int> numbers;
+      List<int> solution;
+      int target;
+
+      switch (widget.operator.toLowerCase()) {
+        case 'addition':
+        case 'add':
+          numbers = List.generate(numCount, (_) => min + _random.nextInt(max - min + 1));
+          numbers.shuffle();
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          solution = numbers.sublist(0, solutionCount);
+          target = solution.fold(0, (a, b) => a + b);
+          break;
+
+        case 'subtraction':
+        case 'subtract':
+          int startNum = max;
+          numbers = [startNum];
+          for (int j = 0; j < numCount - 1; j++) {
+            numbers.add(min + _random.nextInt(((startNum ~/ 2).clamp(1, max - min + 1)).toInt()));
+          }
+          numbers.shuffle();
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          solution = numbers.sublist(0, solutionCount);
+          if (solution.length > 1) {
+            target = solution[0] - solution.sublist(1).fold(0, (a, b) => a + b);
+            if (target < 0) {
+              solution.sort((a, b) => b.compareTo(a));
+              target = solution[0] - solution.sublist(1).fold(0, (a, b) => a + b);
+            }
+          } else {
+            target = solution[0];
+          }
+          break;
+
+        case 'multiplication':
+        case 'multiply':
+          numbers = List.generate(numCount, (_) => min + _random.nextInt(max - min + 1));
+          numbers.shuffle();
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          solution = numbers.sublist(0, solutionCount);
+          target = solution.fold(1, (a, b) => a * b);
+          break;
+
+        case 'division':
+        case 'divide':
+          int dividend = ((min * 2 + _random.nextInt((max * 2) - (min * 2) + 1)).clamp(min * 2, max * 3)).toInt();
+          numbers = [dividend];
+          
+          List<int> divisors = [];
+          for (int j = 0; j < numCount - 1; j++) {
+            if (j < 2) {
+              int possibleDivisor = min + _random.nextInt(((dividend ~/ 2).clamp(1, max - min + 1)).toInt());
+              if (dividend % possibleDivisor == 0 && possibleDivisor > 1) {
+                divisors.add(possibleDivisor);
+                numbers.add(possibleDivisor);
+              } else {
+                numbers.add(min + _random.nextInt(max - min + 1));
+              }
+            } else {
+              numbers.add(min + _random.nextInt(max - min + 1));
+            }
+          }
+          
       numbers.shuffle();
 
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          solution = numbers.sublist(0, solutionCount);
+          if (solution.length > 1) {
+            int divisor = solution.sublist(1).fold(1, (a, b) => a * b);
+            if (divisor > 0 && solution[0] % divisor == 0) {
+              target = solution[0] ~/ divisor;
+            } else {
+              solution[0] = (divisor * (min + _random.nextInt(5))).toInt();
+              target = solution[0] ~/ divisor;
+            }
+          } else {
+            target = solution[0];
+          }
+          break;
+
+        default:
+          numbers = List.generate(numCount, (_) => min + _random.nextInt(max - min + 1));
+          numbers.shuffle();
       int solutionCount = 2 + _random.nextInt(numCount - 1);
-      List<int> solution = numbers.sublist(0, solutionCount);
-      int target = solution.reduce((a, b) => a + b);
-      list.add(_TargetRound(target: target, numbers: numbers));
+          solution = numbers.sublist(0, solutionCount);
+          target = solution.fold(0, (a, b) => a + b);
+      }
+
+      List<int> solutionIndices = [];
+      List<int> numbersCopy = List.from(numbers);
+      for (int solNum in solution) {
+        int index = numbersCopy.indexOf(solNum);
+        if (index != -1) {
+          solutionIndices.add(index);
+          numbersCopy[index] = -1;
+        }
+      }
+      
+      list.add(_TargetRound(target: target, numbers: numbers, solutionIndices: solutionIndices));
     }
     return list;
   }
@@ -93,7 +189,18 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
 
   void _finishGame() {
     if (_timer.isActive) _timer.cancel();
-    setState(() => _gameFinished = true);
+        if (!_answerSubmitted && _current < _rounds.length) {
+      final round = _rounds[_current];
+      int result = _calculateCurrentResult();
+      final isCorrect = result == round.target;
+      
+      _userAnswers[_current] = List.from(_selectedIndices);
+      if (isCorrect) _score++;
+    }
+    
+    setState(() {
+      _gameFinished = true;
+    });
 
     final elapsed = (widget.config?['timeSec'] ?? 300) - _remainingSeconds;
 
@@ -101,11 +208,69 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text('Game Over!'),
-        content: Text(
-          'Your score: $_score/$_totalRounds\nTime left: ${_formatTime(_remainingSeconds)}',
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _score == _totalRounds ? Icons.celebration : Icons.emoji_events,
+              color: _score == _totalRounds ? Colors.amber : Colors.blue,
+              size: 32,
+            ),
+            const SizedBox(width: 8),
+            const Text('Game Over!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Your score: $_score / $_totalRounds',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Percentage: ${(_score / _totalRounds * 100).toStringAsFixed(1)}%',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Time left: ${_formatTime(_remainingSeconds)}',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
         ),
         actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() {
+                _showReview = true;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: GameTheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: GameTheme.primary),
+              ),
+              child: const Text(
+                'Review Answers',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -114,9 +279,23 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
                 'elapsed': elapsed,
               });
             },
-            child: const Text('OK'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: GameTheme.primary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Done',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ),
         ],
+        actionsAlignment: MainAxisAlignment.center,
       ),
     );
   }
@@ -203,9 +382,28 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   }
 
   void _submit() {
+    if (_answerSubmitted) return;
+    
     final round = _rounds[_current];
     int result = _calculateCurrentResult();
     final isCorrect = result == round.target;
+    _userAnswers[_current] = List.from(_selectedIndices);
+        setState(() {
+      _answerSubmitted = true;
+      _incorrectIndices.clear();
+      if (!isCorrect) {
+        for (int index in _selectedIndices) {
+          if (!round.solutionIndices.contains(index)) {
+            _incorrectIndices.add(index);
+          }
+        }
+        for (int index in round.solutionIndices) {
+          if (!_selectedIndices.contains(index)) {
+            _incorrectIndices.add(index);
+          }
+        }
+      }
+    });
     
     if (isCorrect) _score++;
 
@@ -219,29 +417,38 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
           color: Colors.white,
           size: 64,
         ),
-        content: Text(
-          isCorrect 
-              ? 'Correct! 🎉\n$result = ${round.target}' 
-              : 'Wrong! ❌\n$result ≠ ${round.target}',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              isCorrect 
+                  ? 'Correct! 🎉\n$result = ${round.target}' 
+                  : 'Wrong! ❌\n$result ≠ ${round.target}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (!isCorrect) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Correct answer: ${round.solutionIndices.map((i) => round.numbers[i]).join(_getOperatorSymbol() + ' ')} = ${round.target}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              if (_current < _totalRounds - 1) {
-                setState(() {
-                  _current++;
-                  _selectedIndices.clear();
-                });
-              } else {
-                _finishGame();
-              }
+              _moveToNextRound();
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -250,7 +457,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'Continue',
+                _current < _rounds.length - 1 ? 'Continue' : 'Finish',
                 style: TextStyle(
                   color: isCorrect ? GameTheme.correct : GameTheme.wrong,
                   fontWeight: FontWeight.bold,
@@ -265,8 +472,275 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
     );
   }
 
+  void _moveToNextRound() {
+    if (_current < _rounds.length - 1) {
+      setState(() {
+        _current++;
+        _selectedIndices.clear();
+        _incorrectIndices.clear();
+        _answerSubmitted = false;
+      });
+    } else {
+      _finishGame();
+    }
+  }
+
+  int _calculateResultForIndices(List<int> indices, List<int> numbers) {
+    if (indices.isEmpty) return 0;
+    final selectedNumbers = indices.map((i) => numbers[i]).toList();
+    
+    switch (widget.operator.toLowerCase()) {
+      case 'addition':
+      case 'add':
+        return selectedNumbers.fold(0, (a, b) => a + b);
+      case 'subtraction':
+      case 'subtract':
+        return selectedNumbers.length > 1
+            ? selectedNumbers[0] - selectedNumbers.sublist(1).fold(0, (a, b) => a + b)
+            : selectedNumbers[0];
+      case 'multiplication':
+      case 'multiply':
+        return selectedNumbers.fold(1, (a, b) => a * b);
+      case 'division':
+      case 'divide':
+        return selectedNumbers.length > 1
+            ? (selectedNumbers[0] / selectedNumbers.sublist(1).fold(1, (a, b) => a * b)).round()
+            : selectedNumbers[0];
+      default:
+        return selectedNumbers.fold(0, (a, b) => a + b);
+    }
+  }
+
+  Widget _buildReviewScreen() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Ninja Math Review (${widget.difficulty})'),
+        backgroundColor: GameTheme.primary,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            color: GameTheme.primary.withOpacity(0.1),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const Text(
+                    'Game Results',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Score: $_score / $_totalRounds',
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  Text(
+                    'Percentage: ${(_score / _totalRounds * 100).toStringAsFixed(1)}%',
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ..._rounds.asMap().entries.map((entry) {
+            final index = entry.key;
+            final round = entry.value;
+            final userAnswer = _userAnswers[index] ?? [];
+            final isCorrect = round.solutionIndices.length == userAnswer.length &&
+                round.solutionIndices.every((i) => userAnswer.contains(i));
+            final userResult = _calculateResultForIndices(userAnswer, round.numbers);
+            final correctResult = _calculateResultForIndices(round.solutionIndices, round.numbers);
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isCorrect ? Colors.green : Colors.red,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Round ${index + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          isCorrect ? Icons.check_circle : Icons.cancel,
+                          color: isCorrect ? Colors.green : Colors.red,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: GameTheme.accent.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Target: ${round.target}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Available Numbers:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: round.numbers.asMap().entries.map((entry) {
+                        final numIndex = entry.key;
+                        final number = entry.value;
+                        final isCorrectNumber = round.solutionIndices.contains(numIndex);
+                        final isUserSelected = userAnswer.contains(numIndex);
+                        final isWrongSelection = isUserSelected && !isCorrectNumber;
+
+                        Color backgroundColor = GameTheme.tileBank;
+                        Color borderColor = Colors.grey;
+                        double borderWidth = 1;
+
+                        if (isCorrectNumber) {
+                          backgroundColor = Colors.green[100]!;
+                          borderColor = Colors.green;
+                          borderWidth = 2;
+                        }
+                        if (isWrongSelection) {
+                          backgroundColor = Colors.red[100]!;
+                          borderColor = Colors.red;
+                          borderWidth = 2;
+                        }
+
+                        return Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: backgroundColor,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: borderColor, width: borderWidth),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '$number',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    if (!isCorrect) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.info_outline, color: Colors.red),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Your Answer: ${userAnswer.isEmpty ? "Not answered" : userResult}',
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.green),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Correct Answer: ${round.solutionIndices.map((i) => round.numbers[i]).join(_getOperatorSymbol() + ' ')} = $correctResult',
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context, {
+                'score': _score,
+                'elapsed': (widget.config?['timeSec'] ?? 300) - _remainingSeconds,
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: GameTheme.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            ),
+            child: const Text(
+              'Done',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_showReview) {
+      return _buildReviewScreen();
+    }
     if (_gameFinished) return const SizedBox.shrink();
     final round = _rounds[_current];
     final currentEquation = _buildCurrentEquation();
@@ -327,12 +801,22 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
               _buildNumberBank(round.numbers),
               const SizedBox(height: 32),
               GameButton(
-                text: 'Submit',
-                onTap: _selectedIndices.isNotEmpty ? _submit : () {},
-                color: _selectedIndices.isNotEmpty
+                text: _answerSubmitted ? 'Submitted' : 'Submit',
+                onTap: (!_answerSubmitted && _selectedIndices.isNotEmpty) ? _submit : () {},
+                color: (!_answerSubmitted && _selectedIndices.isNotEmpty)
                     ? GameTheme.primary
                     : GameTheme.tile,
               ),
+              if (_answerSubmitted) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Tap "Continue" in the dialog to proceed',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -378,23 +862,53 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   }
 
   Widget _buildNumberBank(List<int> numbers) {
+    final round = _rounds[_current];
+    
     return Wrap(
       spacing: 16,
       children: List.generate(numbers.length, (index) {
         final n = numbers[index];
         final isSelected = _selectedIndices.contains(index);
+        final isCorrectNumber = round.solutionIndices.contains(index);
+        final isIncorrect = _incorrectIndices.contains(index);
+        
+        Color backgroundColor;
+        Color borderColor;
+        double borderWidth = 2;
+        
+        if (isIncorrect) {
+          backgroundColor = Colors.red[100]!;
+          borderColor = Colors.red;
+        } else if (isSelected && isCorrectNumber) {
+          backgroundColor = _incorrectIndices.isEmpty ? GameTheme.correct : Colors.green[100]!;
+          borderColor = Colors.green;
+        } else if (isSelected) {
+          backgroundColor = GameTheme.correct;
+          borderColor = GameTheme.primary;
+        } else if (_incorrectIndices.isNotEmpty && isCorrectNumber) {
+          backgroundColor = Colors.green[50]!;
+          borderColor = Colors.green;
+          borderWidth = 2;
+        } else {
+          backgroundColor = GameTheme.tileBank;
+          borderColor = GameTheme.primary;
+        }
 
         return GestureDetector(
-          onTap: () => _toggleSelect(index),
+          onTap: () {
+            if (!_answerSubmitted) {
+              _toggleSelect(index);
+            }
+          },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: 70,
             height: 70,
             margin: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? GameTheme.correct : GameTheme.tileBank,
+              color: backgroundColor,
               borderRadius: BorderRadius.circular(GameTheme.borderRadius),
-              border: Border.all(color: GameTheme.primary, width: 2),
+              border: Border.all(color: borderColor, width: borderWidth),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.15),
@@ -404,9 +918,50 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
               ],
             ),
             alignment: Alignment.center,
-            child: Text(
-              '$n',
-              style: GameTheme.tileText.copyWith(color: Colors.black),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Text(
+                  '$n',
+                  style: GameTheme.tileText.copyWith(color: Colors.black),
+                ),
+                if (isIncorrect && isSelected)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                if (_incorrectIndices.isNotEmpty && isCorrectNumber && !isSelected)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.check,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         );
@@ -418,5 +973,10 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
 class _TargetRound {
   final int target;
   final List<int> numbers;
-  _TargetRound({required this.target, required this.numbers});
+  final List<int> solutionIndices;
+  _TargetRound({
+    required this.target,
+    required this.numbers,
+    required this.solutionIndices,
+  });
 }

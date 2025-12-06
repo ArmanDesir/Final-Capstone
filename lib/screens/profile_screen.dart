@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pracpro/services/user_service.dart';
-import 'package:pracpro/services/student_quiz_progress_service.dart';
-import 'package:pracpro/widgets/quiz_progress_table.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
@@ -164,52 +162,6 @@ class _ProfileScaffold extends StatefulWidget {
 }
 
 class _ProfileScaffoldState extends State<_ProfileScaffold> {
-  bool _loadingProgress = false;
-  List<QuizProgressData> _quizProgress = [];
-  List<QuizProgressData> _gameProgress = [];
-  String? _classroomId;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.user.userType == app_model.UserType.student) {
-      _loadStudentProgress();
-    }
-  }
-
-  Future<void> _loadStudentProgress() async {
-    setState(() => _loadingProgress = true);
-    try {
-      final supabase = Supabase.instance.client;
-      
-      final classroomsResponse = await supabase
-          .from('student_classroom')
-          .select('classroom_id')
-          .eq('user_id', widget.user.id)
-          .eq('status', 'accepted')
-          .limit(1);
-      
-      if (classroomsResponse.isNotEmpty) {
-        _classroomId = classroomsResponse.first['classroom_id'];
-        
-        final service = StudentQuizProgressService();
-        final allProgress = await service.getStudentQuizProgress(
-          studentId: widget.user.id,
-          operator: 'addition',
-          classroomId: _classroomId!,
-        );
-        
-        setState(() {
-          _quizProgress = allProgress.where((p) => !p.isGame).toList();
-          _gameProgress = allProgress.where((p) => p.isGame).toList();
-        });
-      }
-    } catch (e) {
-      print('Error loading student progress: $e');
-    } finally {
-      setState(() => _loadingProgress = false);
-    }
-  }
 
   void _editStudent(BuildContext context) async {
     final updated = await Navigator.push(
@@ -335,103 +287,19 @@ class _ProfileScaffoldState extends State<_ProfileScaffold> {
             const SizedBox(height: 24),
             _ProfileField(label: 'Full Name', value: widget.user.name),
             const SizedBox(height: 16),
-            _ProfileField(label: 'Email', value: widget.user.email ?? 'N/A'),
+            _ProfileField(
+              label: 'Student LRN',
+              value: widget.user.studentId ?? 'N/A',
+            ),
             const SizedBox(height: 16),
             _ProfileField(label: 'Guardian Name', value: widget.user.guardianName ?? 'N/A'),
             const SizedBox(height: 16),
             _ProfileField(label: 'Guardian Email', value: widget.user.guardianEmail ?? 'N/A'),
             const SizedBox(height: 16),
             _ProfileField(
-                label: 'Guardian Contact', value: widget.user.guardianContactNumber ?? 'N/A'),
-            const SizedBox(height: 16),
-            _ProfileField(label: 'Student Info', value: widget.user.studentInfo ?? 'N/A'),
-            
-            if (widget.user.userType == app_model.UserType.student) ...[
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Icon(Icons.assessment, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'My Progress',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              if (_loadingProgress)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (_classroomId == null)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                      'Not enrolled in any classroom yet.',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                )
-              else ...[
-                if (_quizProgress.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      const Icon(Icons.quiz, color: Colors.deepPurple, size: 20),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Quizzes',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  QuizProgressTable(quizData: _quizProgress),
-                  const SizedBox(height: 24),
-                ],
-                
-                if (_gameProgress.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      const Icon(Icons.sports_esports, color: Colors.orange, size: 20),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Games',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  QuizProgressTable(quizData: _gameProgress),
-                ],
-                
-                if (_quizProgress.isEmpty && _gameProgress.isEmpty)
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Text(
-                        'No progress yet. Start learning!',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  ),
-              ],
-            ],
+              label: 'Guardian Contact Number',
+              value: widget.user.guardianContactNumber ?? 'N/A',
+            ),
           ],
         ),
       ),

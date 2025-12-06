@@ -83,13 +83,7 @@ class BasicOperatorExerciseProvider with ChangeNotifier {
 
       await loadExercises(operator, classroomId: classroomId);
       notifyListeners();
-      if (kDebugMode) {
-        print('✅ Exercise uploaded and inserted successfully for $operator');
-      }
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error creating exercise with file: $e');
-      }
       rethrow;
     }
   }

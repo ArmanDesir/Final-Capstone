@@ -19,13 +19,15 @@ class _SubtractionQuizScreenState extends State<SubtractionQuizScreen>
   int _current = 0;
   bool _quizFinished = false;
   late Timer _timer;
-  int _remainingSeconds = 300;
+  late int _remainingSeconds;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
+    final questionCount = widget.questions.length;
+    _remainingSeconds = ((questionCount / 5).ceil() * 60);
     _startTimer();
     _animationController = AnimationController(
       vsync: this,

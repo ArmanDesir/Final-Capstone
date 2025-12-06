@@ -5,9 +5,9 @@ class CrosswordGridGenerator {
   static final _rng = Random();
 
   static const _cfg = {
-    'easy': {'min': 1, 'max': 10, 'bankDecoys': 5, 'timeSec': 180},
-    'medium': {'min': 1, 'max': 20, 'bankDecoys': 6, 'timeSec': 240},
-    'hard': {'min': 1, 'max': 50, 'bankDecoys': 7, 'timeSec': 300},
+    'easy': {'min': 1, 'max': 10, 'bankDecoys': 5, 'timeSec': 120},
+    'medium': {'min': 1, 'max': 20, 'bankDecoys': 6, 'timeSec': 120},
+    'hard': {'min': 1, 'max': 50, 'bankDecoys': 7, 'timeSec': 120},
   };
 
   static Map<String, int> timers(String difficulty) {

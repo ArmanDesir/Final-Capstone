@@ -36,18 +36,11 @@ class BasicOperatorLessonService {
 
     data['is_active'] = lesson.isActive;
 
-    print('📝 Creating lesson with data:');
-    print('   Operator: ${lesson.operator}');
-    print('   Classroom ID: ${lesson.classroomId}');
-    print('   Title: ${lesson.title}');
-
     final inserted = await _sb
         .from('basic_operator_lessons')
         .insert(data)
         .select('*')
         .single();
-
-    print('✅ Lesson created successfully with ID: ${inserted['id']}');
 
     return BasicOperatorLesson.fromJson(Map<String, dynamic>.from(inserted));
   }
@@ -63,9 +56,6 @@ class BasicOperatorLessonService {
     try {
       await _sb.storage.from(bucket).upload(path, file);
       final fileUrl = _sb.storage.from(bucket).getPublicUrl(path);
-      print('📤 File uploaded to storage');
-      print('→ Path: $path');
-      print('→ Public URL: $fileUrl');
       final newLesson = lesson.copyWith(
         fileUrl: fileUrl,
         storagePath: path,
@@ -82,23 +72,14 @@ class BasicOperatorLessonService {
 
       data['is_active'] = newLesson.isActive;
 
-      print('📝 Creating lesson with file:');
-      print('   Operator: ${lesson.operator}');
-      print('   Classroom ID: ${lesson.classroomId}');
-      print('   Title: ${lesson.title}');
-
       final inserted = await _sb
           .from('basic_operator_lessons')
           .insert(data)
           .select()
           .single();
 
-      print('✅ Lesson inserted into DB for operator ${lesson.operator}');
-      print('   Lesson ID: ${inserted['id']}');
-
       return BasicOperatorLesson.fromJson(Map<String, dynamic>.from(inserted));
     } catch (e) {
-      print('❌ Error uploading file or inserting lesson: $e');
       rethrow;
     }
   }

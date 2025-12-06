@@ -59,12 +59,6 @@ class GameScreen extends StatelessWidget {
             (g) => g.gameKey == gameKey,
         orElse: () => throw Exception('Game not found for operator "$operatorKey"'),
       );
-
-      print('🎯 Game found: ${gameData.title}');
-      print('🧩 Variants count: ${gameData.variants.length}');
-      for (final v in gameData.variants) {
-        print('→ ${v.difficulty} | ${v.config}');
-      }
       final variant = gameData.variants.firstWhere(
             (v) => v.difficulty.toLowerCase() == difficulty.toLowerCase(),
         orElse: () => gameData.variants.first,

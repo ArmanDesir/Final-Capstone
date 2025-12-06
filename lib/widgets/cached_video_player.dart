@@ -103,8 +103,7 @@ class _CachedVideoPlayerState extends State<CachedVideoPlayer> {
           });
           return;
         } catch (e) {
-
-          debugPrint('Failed to load cached video: $e');
+          // Failed to load cached video - continue silently
         }
       }
 
@@ -134,14 +133,7 @@ class _CachedVideoPlayerState extends State<CachedVideoPlayer> {
       );
 
       _youtubeController!.addListener(() {
-        if (mounted) {
-          final playerState = _youtubeController!.value.playerState;
-          debugPrint('YouTube player state: $playerState');
-
-          if (playerState == PlayerState.unknown) {
-            debugPrint('YouTube player state is unknown - might be emulator issue');
-          }
-        }
+        // Listener for YouTube player state changes
       });
 
       await Future.delayed(const Duration(milliseconds: 500));
@@ -152,8 +144,6 @@ class _CachedVideoPlayerState extends State<CachedVideoPlayer> {
         _isCached = false;
       });
     } catch (e, stackTrace) {
-      debugPrint('Error initializing video player: $e');
-      debugPrint('Stack trace: $stackTrace');
       setState(() {
         _isLoading = false;
         _isError = true;
@@ -274,14 +264,12 @@ class _CachedVideoPlayerState extends State<CachedVideoPlayer> {
                               backgroundColor: Colors.black26,
                             ),
                             onReady: () {
-                              debugPrint('YouTube player is ready');
 
                               if (widget.autoPlay) {
                                 _youtubeController!.play();
                               }
                             },
                             onEnded: (metadata) {
-                              debugPrint('Video ended');
                             },
                           ),
                           builder: (context, player) {

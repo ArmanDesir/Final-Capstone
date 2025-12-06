@@ -36,8 +36,6 @@ class AuthProvider with ChangeNotifier {
           _currentUser = user;
           _isAuthenticated = true;
         } else {
-
-          debugPrint('[AuthProvider] Email not verified, signing out');
           await supabase.auth.signOut();
           _currentUser = null;
           _isAuthenticated = false;
@@ -71,8 +69,6 @@ class AuthProvider with ChangeNotifier {
           notifyListeners();
         }
       } else {
-
-        debugPrint('[AuthProvider] Email not verified during _loadCurrentUser, signing out');
         await supabase.auth.signOut();
         _currentUser = null;
         _isAuthenticated = false;
@@ -108,7 +104,6 @@ class AuthProvider with ChangeNotifier {
         throw Exception('User creation failed. No user returned.');
       }
       final String uid = response.user!.id;
-      debugPrint('[AuthProvider] User signed up with UID: $uid');
       await _userService.saveUser(
         id: uid,
         email: email,
@@ -124,29 +119,20 @@ class AuthProvider with ChangeNotifier {
         grade: userType == app_model.UserType.student ? grade : null,
       );
 
-      debugPrint('[AuthProvider] User data inserted into "users" table.');
-      debugPrint('[AuthProvider] Email confirmation required: ${response.user?.emailConfirmedAt == null}');
-
       await supabase.auth.signOut();
-
-      debugPrint('[AuthProvider] User created successfully. Email verification required.');
 
       return true;
 
     } on PostgrestException catch (e) {
       _error = 'Database error: ${e.message}';
-      debugPrint('[AuthProvider] PostgrestException: ${e.message}');
       return false;
 
     } on AuthException catch (e) {
       _error = 'Authentication error: ${e.message}';
-      debugPrint('[AuthProvider] AuthException: ${e.message}');
       return false;
 
     } catch (e, stackTrace) {
       _error = 'Unexpected error: ${e.toString()}';
-      debugPrint('[AuthProvider] Unexpected error: $e');
-      debugPrint(stackTrace.toString());
       return false;
 
     } finally {
@@ -187,15 +173,12 @@ class AuthProvider with ChangeNotifier {
       if (response.user!.emailConfirmedAt == null) {
         await supabase.auth.signOut();
         _error = 'Please verify your email before signing in. Check your inbox for the verification link.';
-        debugPrint('[AuthProvider] Login blocked: Email not verified');
         return false;
       }
 
       final String uid = response.user!.id;
-      debugPrint('[AuthProvider] Signed in with UID: $uid');
       final user = await _userService.getUser(uid);
       if (user == null) {
-        debugPrint('[AuthProvider] No matching record in "users" table for UID: $uid');
         await supabase.auth.signOut();
 
         _error = 'Access denied. Your account is not registered in the system.';
@@ -204,23 +187,18 @@ class AuthProvider with ChangeNotifier {
       _currentUser = user;
       _isAuthenticated = true;
 
-      debugPrint('[AuthProvider] Login successful. User loaded: ${user.name}');
       return true;
 
     } on AuthException catch (e) {
       _error = 'Authentication error: ${e.message}';
-      debugPrint('[AuthProvider] AuthException: ${e.message}');
       return false;
 
     } on PostgrestException catch (e) {
       _error = 'Database error: ${e.message}';
-      debugPrint('[AuthProvider] PostgrestException: ${e.message}');
       return false;
 
     } catch (e, stackTrace) {
       _error = 'Unexpected error: ${e.toString()}';
-      debugPrint('[AuthProvider] Unexpected error: $e');
-      debugPrint(stackTrace.toString());
       return false;
 
     } finally {
@@ -243,18 +221,12 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> signOutAndRedirect(BuildContext context) async {
     try {
-      debugPrint('[AuthProvider] Logging out user: ${_currentUser?.id}');
       await supabase.auth.signOut();
-
-      debugPrint('[AuthProvider] Supabase session cleared.');
 
       _currentUser = null;
       _isAuthenticated = false;
 
-      debugPrint('[AuthProvider] Local state cleared.');
-
       if (context.mounted) {
-        debugPrint('[AuthProvider] Forcing navigation to WelcomeScreen...');
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/welcome',
@@ -265,8 +237,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
 
     } catch (e, stack) {
-      debugPrint('[AuthProvider] Error during logout: $e');
-      debugPrint(stack.toString());
+      // Error during logout - continue silently
     }
   }
 
@@ -284,15 +255,12 @@ class AuthProvider with ChangeNotifier {
         type: OtpType.signup,
         email: email,
       );
-      debugPrint('[AuthProvider] Verification email resent to: $email');
       return true;
     } on AuthException catch (e) {
       _error = 'Failed to resend verification email: ${e.message}';
-      debugPrint('[AuthProvider] AuthException: ${e.message}');
       return false;
     } catch (e) {
       _error = 'Unexpected error: ${e.toString()}';
-      debugPrint('[AuthProvider] Unexpected error: $e');
       return false;
     }
   }

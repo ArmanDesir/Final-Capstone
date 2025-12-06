@@ -10,6 +10,9 @@ class QuizProgressData {
   final int attemptsCount;
   final int highestScore;
   final bool isGame;
+  final String? difficulty; 
+  final String? lessonTitle;
+  final String? operator; 
 
   QuizProgressData({
     required this.quizId,
@@ -21,6 +24,9 @@ class QuizProgressData {
     required this.attemptsCount,
     required this.highestScore,
     this.isGame = false,
+    this.difficulty,
+    this.lessonTitle,
+    this.operator,
   });
 
   double? _getActualScore(int? score) {
@@ -43,11 +49,19 @@ class QuizProgressData {
   }
 
   int get totalPossible {
-
     final actualAttempts = [try1Score, try2Score, try3Score]
         .where((s) => s != null)
         .length;
-    return totalQuestions * actualAttempts;
+    final maxAttempts = isGame ? actualAttempts : (actualAttempts > 3 ? 3 : actualAttempts);
+    return totalQuestions * maxAttempts;
+  }
+  
+  int get totalScore {
+    return totalActualScore;
+  }
+  
+  double get passingRate {
+    return generalAverage;
   }
 
   double get generalAverage {
@@ -83,14 +97,30 @@ class QuizProgressData {
 class StudentQuizProgressService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  Future<List<QuizProgressData>> getStudentAllProgress({
+    required String studentId,
+    required String classroomId,
+  }) async {
+    final allProgress = <QuizProgressData>[];
+    
+    for (final op in ['addition', 'subtraction', 'multiplication', 'division']) {
+      final progress = await getStudentQuizProgress(
+        studentId: studentId,
+        operator: op,
+        classroomId: classroomId,
+      );
+      allProgress.addAll(progress);
+    }
+    
+    return allProgress;
+  }
+
   Future<List<QuizProgressData>> getStudentQuizProgress({
     required String studentId,
     required String operator,
     required String classroomId,
   }) async {
     try {
-      print('🔍 Fetching quiz progress for student: $studentId, operator: $operator, classroom: $classroomId');
-
       final activityProgressResponse = await _supabase
           .from('activity_progress_by_classroom')
           .select('*')
@@ -99,8 +129,6 @@ class StudentQuizProgressService {
           .eq('entity_type', 'quiz')
           .order('created_at', ascending: false);
 
-      print('📊 Found ${activityProgressResponse.length} quiz progress records in activity_progress_by_classroom');
-
       final allActivityProgress = await _supabase
           .from('activity_progress_by_classroom')
           .select('*')
@@ -108,11 +136,87 @@ class StudentQuizProgressService {
           .eq('classroom_id', classroomId)
           .order('created_at', ascending: false);
 
-      print('📊 Found ${allActivityProgress.length} total activity records (quiz or quiz_progress source)');
+      List<Map<String, dynamic>> gameProgressList = [];
+      try {
+        final userClassrooms = await _supabase
+            .from('user_classrooms')
+            .select('classroom_id')
+            .eq('user_id', studentId)
+            .eq('status', 'accepted');
+        
+        final classroomIds = (userClassrooms as List)
+            .map((c) => c['classroom_id']?.toString())
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toList();
+        
+        final gameProgressResponse = await _supabase
+            .from('game_progress')
+            .select('*')
+            .eq('user_id', studentId)
+            .order('created_at', ascending: false);
+        
+        final seenGames = <String>{};
+        
+        for (final gameProgress in gameProgressResponse) {
+          final gameName = gameProgress['game_name']?.toString() ?? '';
+          final difficulty = gameProgress['difficulty']?.toString() ?? '';
+          
+          final gameNameLower = gameName.toLowerCase();
+          final operatorLower = operator.toLowerCase();
+          
+          bool matchesOperator = false;
+          if (gameNameLower.startsWith('${operatorLower}_')) {
+            matchesOperator = true;
+          } else if (gameNameLower.contains('_${operatorLower}_')) {
+            matchesOperator = true;
+          } else if (gameNameLower.contains(operatorLower) && 
+                    (gameNameLower.contains('crossmath') || gameNameLower.contains('ninja'))) {
+            matchesOperator = true;
+          }
+          
+          if (matchesOperator) {            String entityTitle;
+            if (gameNameLower.contains('crossmath')) {
+              entityTitle = 'Crossword Math';
+            } else if (gameNameLower.contains('ninja')) {
+              entityTitle = 'Ninja Math';
+            } else {
+              entityTitle = gameName;
+            }
+            
+            final uniqueKey = '${entityTitle}|${difficulty}|${gameProgress['id']}';
+            if (seenGames.contains(uniqueKey)) {
+              continue;
+            }
+            seenGames.add(uniqueKey);
+            
+            gameProgressList.add({
+              'source': 'game_progress',
+              'source_id': gameProgress['id']?.toString() ?? '',
+              'user_id': studentId,
+              'entity_type': 'game',
+              'entity_id': gameProgress['id']?.toString() ?? '',
+              'entity_title': entityTitle,
+              'stage': difficulty,
+              'score': gameProgress['score'],
+              'attempt': gameProgress['tries'],
+              'highest_score': gameProgress['score'], 
+              'tries': gameProgress['tries'],
+              'status': gameProgress['status']?.toString() ?? '',
+              'classroom_id': classroomId, 
+              'created_at': gameProgress['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+            });
+          }
+        }
+      } catch (e) {
+      }
 
       final Map<String, List<Map<String, dynamic>>> progressByQuiz = {};
 
-      final progressList = (allActivityProgress as List? ?? activityProgressResponse as List? ?? []);
+      final progressList = [
+        ...(allActivityProgress as List? ?? activityProgressResponse as List? ?? []),
+        ...gameProgressList,
+      ];
       for (final progress in progressList) {
         final progressMap = progress as Map<String, dynamic>;
         final entityType = progressMap['entity_type']?.toString() ?? '';
@@ -123,17 +227,39 @@ class StudentQuizProgressService {
           String quizId;
           if (entityType == 'game') {
             String title = progressMap['entity_title']?.toString() ?? '';
+            String sourceTitle = progressMap['entity_title']?.toString() ?? '';
+            final source = progressMap['source']?.toString() ?? '';
             
-            if (!title.toLowerCase().startsWith('${operator.toLowerCase()}_')) {
-              continue;
-            }
+            if (source == 'game_progress') {
 
-            if (title.toLowerCase().contains('crossmath') ||
-                title.toLowerCase().contains('${operator.toLowerCase()}_crossmath')) {
-              title = 'Crossword Math';
-            } else if (title.toLowerCase().contains('ninja')) {
-              title = 'Ninja Math';
+              if (title.contains('_') && !title.toLowerCase().contains('crossword math') && !title.toLowerCase().contains('ninja math')) {
+                final parts = title.toLowerCase().split('_');
+                if (parts.isNotEmpty && parts[0] != operator.toLowerCase()) {
+                  continue;
+                }
+              }
+              
+              if (title.toLowerCase().contains('crossmath')) {
+                title = 'Crossword Math';
+              } else if (title.toLowerCase().contains('ninja')) {
+                title = 'Ninja Math';
+              }
+            } else {
+              final titleLower = title.toLowerCase();
+              final operatorLower = operator.toLowerCase();
+              
+              if (!titleLower.startsWith('${operatorLower}_') && 
+                  !titleLower.contains('_${operatorLower}_')) {
+                continue;
+              }
+
+              if (titleLower.contains('crossmath')) {
+                title = 'Crossword Math';
+              } else if (titleLower.contains('ninja')) {
+                title = 'Ninja Math';
+              }
             }
+            
             final stage = progressMap['stage']?.toString().toLowerCase() ?? '';
             quizId = '$title|$stage';
           } else {
@@ -147,8 +273,6 @@ class StudentQuizProgressService {
         }
       }
 
-      print('📊 Grouped into ${progressByQuiz.length} unique quizzes');
-
       final quizzesResponse = await _supabase
           .from('basic_operator_quizzes')
           .select('id, title, classroom_id, basic_operator_quiz_questions(id)')
@@ -158,8 +282,6 @@ class StudentQuizProgressService {
       if (classroomId.isNotEmpty) {
         quizzes = quizzes.where((q) => q['classroom_id']?.toString() == classroomId).toList();
       }
-
-      print('📝 Found ${quizzes.length} quizzes for operator $operator');
 
       final quizIds = quizzes
           .map((q) => q['id']?.toString())
@@ -175,21 +297,18 @@ class StudentQuizProgressService {
               .from('basic_operator_quiz_progress')
               .select('*')
               .eq('user_id', studentId)
-              .inFilter('quiz_id', quizIds);
+                  .inFilter('quiz_id', quizIds);
 
-          print('📊 Found ${progressResponse.length} progress records in basic_operator_quiz_progress');
-
-          for (final progressItem in progressResponse) {
+                for (final progressItem in progressResponse) {
             final progressMapEntry = Map<String, dynamic>.from(progressItem);
             final quizId = progressMapEntry['quiz_id']?.toString() ?? '';
             if (quizId.isNotEmpty) {
               directProgressMap[quizId] = progressMapEntry;
+                  }
+                }
+              } catch (e) {
+              }
             }
-          }
-        } catch (e) {
-          print('⚠️ Error fetching from basic_operator_quiz_progress: $e');
-        }
-      }
 
       final List<QuizProgressData> results = [];
 
@@ -280,7 +399,6 @@ class StudentQuizProgressService {
 
                   if (diff <= 5) {
                     isDuplicate = true;
-                    print('🔍 Detected duplicate game entry: score=$score, timeDiff=${diff}s');
                     break;
                   }
                 } catch (e) {
@@ -295,7 +413,6 @@ class StudentQuizProgressService {
           }
 
           if (uniqueAttempts.length < processedProgressList.length) {
-            print('🔍 Deduplicated: ${processedProgressList.length} entries -> ${uniqueAttempts.length} unique attempts');
             processedProgressList = uniqueAttempts;
             attempts = uniqueAttempts.length;
           }
@@ -309,13 +426,16 @@ class StudentQuizProgressService {
 
         int gameTotal = 0;
         if (isGame) {
+          final firstProgress = processedProgressList.first;
+          final gameTitle = quizTitle.toLowerCase();
+          
+          if (gameTitle.contains('crossword')) {
           try {
-
             final puzzleResponse = await _supabase
                 .from('crossword_puzzles')
                 .select('grid')
                 .eq('operator', operator)
-                .eq('difficulty', processedProgressList.first['stage']?.toString().toLowerCase() ?? 'easy')
+                  .eq('difficulty', firstProgress['stage']?.toString().toLowerCase() ?? 'easy')
                 .order('created_at', ascending: false)
                 .limit(1)
                 .maybeSingle();
@@ -335,19 +455,21 @@ class StudentQuizProgressService {
               }
             }
           } catch (e) {
-            print('⚠️ Could not get puzzle total: $e');
+            }
+          }
+          
+          if (gameTotal == 0 && gameTitle.contains('ninja')) {
+            gameTotal = 10; 
           }
 
           if (gameTotal == 0) {
-            final firstProgress = processedProgressList.first;
             final status = firstProgress['status']?.toString().toLowerCase() ?? '';
             if (status.contains('complete') && highest > 0) {
               gameTotal = highest;
-              print('📊 Inferred total from completed status: $gameTotal');
             } else if (highest > 0) {
               gameTotal = highest;
             } else {
-              gameTotal = 4;
+              gameTotal = 4; //
             }
           }
         }
@@ -416,6 +538,8 @@ class StudentQuizProgressService {
                 scores.length > 2 ? scores[2] : null,
               ].where((s) => s != null).cast<int>().toList();
 
+              final difficulty = processedProgressList.first['stage']?.toString().toLowerCase() ?? existing.difficulty ?? 'easy';
+              
               results[existingIndex] = QuizProgressData(
                 quizId: existing.quizId,
                 quizTitle: normalizedTitle,
@@ -426,10 +550,13 @@ class StudentQuizProgressService {
                 attemptsCount: existing.attemptsCount + attempts,
                 highestScore: allScores.isNotEmpty ? allScores.reduce((a, b) => a > b ? a : b) : 0,
                 isGame: true,
+                difficulty: difficulty,
+                operator: operator,
               );
-              print('🔀 Merged duplicate game during processing: $quizTitle -> $normalizedTitle');
             } else {
 
+              final difficulty = isGame ? (processedProgressList.first['stage']?.toString().toLowerCase() ?? 'easy') : null;
+              
               results.add(QuizProgressData(
                 quizId: quizId,
                 quizTitle: normalizedTitle,
@@ -440,11 +567,29 @@ class StudentQuizProgressService {
                 attemptsCount: attempts,
                 highestScore: highestValue,
                 isGame: isGame,
+                difficulty: difficulty,
+                operator: operator,
               ));
-              print('✅ Added ${isGame ? 'game' : 'quiz'} progress: $normalizedTitle (${attempts} attempts, scores: $rawScores, total: $finalTotalQuestions)');
             }
           } else {
 
+
+            String? lessonTitle;
+            try {
+              if (quizMetadata != null && quizMetadata!['lesson_id'] != null) {
+                final lessonId = quizMetadata!['lesson_id']?.toString();
+                if (lessonId != null) {
+                  final lessonResponse = await _supabase
+                      .from('lessons')
+                      .select('title')
+                      .eq('id', lessonId)
+                      .maybeSingle();
+                  lessonTitle = lessonResponse?['title']?.toString();
+                }
+              }
+            } catch (e) {
+            }
+            
             results.add(QuizProgressData(
               quizId: quizId,
               quizTitle: quizTitle,
@@ -455,8 +600,9 @@ class StudentQuizProgressService {
               attemptsCount: attempts,
               highestScore: highestValue,
               isGame: false,
+              lessonTitle: lessonTitle,
+              operator: operator,
             ));
-            print('✅ Added quiz progress: $quizTitle (${attempts} attempts)');
           }
         }
       }
@@ -478,6 +624,22 @@ class StudentQuizProgressService {
         if (progressData != null) {
           final attemptsCount = progressData['attempts_count'] as int? ?? 0;
           if (attemptsCount > 0) {
+            String? lessonTitle;
+            try {
+              if (quiz['lesson_id'] != null) {
+                final lessonId = quiz['lesson_id']?.toString();
+                if (lessonId != null) {
+                  final lessonResponse = await _supabase
+                      .from('lessons')
+                      .select('title')
+                      .eq('id', lessonId)
+                      .maybeSingle();
+                  lessonTitle = lessonResponse?['title']?.toString();
+                }
+              }
+            } catch (e) {
+            }
+            
             results.add(QuizProgressData(
               quizId: quizId,
               quizTitle: quizTitle,
@@ -487,8 +649,9 @@ class StudentQuizProgressService {
               try3Score: progressData['try3_score'] as int?,
               attemptsCount: attemptsCount,
               highestScore: progressData['highest_score'] as int? ?? 0,
+              lessonTitle: lessonTitle,
+              operator: operator,
             ));
-            print('✅ Added quiz progress from basic_operator_quiz_progress: $quizTitle');
           }
         }
       }
@@ -523,11 +686,8 @@ class StudentQuizProgressService {
 
           if (!deduplicated.containsKey(key)) {
             deduplicated[key] = result;
-            print('✅ Added game to deduplication map: $key -> ${result.quizTitle}');
           } else {
-
             final existing = deduplicated[key]!;
-            print('🔀 Found duplicate game entry: $key (existing: ${existing.quizTitle}, new: ${result.quizTitle})');
 
             final existingScores = [
               existing.try1Score,
@@ -585,8 +745,9 @@ class StudentQuizProgressService {
               attemptsCount: existing.attemptsCount + result.attemptsCount,
               highestScore: allScores.isNotEmpty ? allScores.reduce((a, b) => a > b ? a : b) : 0,
               isGame: true,
+              difficulty: existing.difficulty ?? result.difficulty,
+              operator: existing.operator ?? result.operator,
             );
-            print('🔀 Merged duplicate game entries: ${existing.quizTitle} + ${result.quizTitle} -> $finalTitle');
           }
         } else {
 
@@ -647,6 +808,8 @@ class StudentQuizProgressService {
               attemptsCount: result.attemptsCount,
               highestScore: result.highestScore,
               isGame: true,
+              difficulty: result.difficulty,
+              operator: result.operator,
             );
           } else {
 
@@ -670,8 +833,9 @@ class StudentQuizProgressService {
               attemptsCount: existing.attemptsCount + result.attemptsCount,
               highestScore: allScores.isNotEmpty ? allScores.reduce((a, b) => a > b ? a : b) : 0,
               isGame: true,
+              difficulty: existing.difficulty ?? result.difficulty,
+              operator: existing.operator ?? result.operator,
             );
-            print('🔀 Final merge: Combined duplicate game entries with key $normalizedKey');
           }
         } else {
 
@@ -682,11 +846,9 @@ class StudentQuizProgressService {
       }
 
       final finalResults = finalDeduplicated.values.toList();
-      print('📊 Returning ${finalResults.length} quiz/game progress records (after final deduplication)');
+      
       return finalResults;
     } catch (e, stackTrace) {
-      print('❌ Error fetching quiz progress: $e');
-      print('Stack trace: $stackTrace');
       return [];
     }
   }

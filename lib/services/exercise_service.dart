@@ -12,8 +12,6 @@ class ExerciseService {
     String? description,
     File? pdfFile,
   }) async {
-    print('🟢 [ExerciseService] Starting to create exercise for classroom: $classroomId');
-
     String? fileUrl;
     String? storagePath;
     int? fileSize;
@@ -52,14 +50,9 @@ class ExerciseService {
       'updated_at': DateTime.now().toIso8601String(),
     };
 
-    print('🗄️ Inserting record into `content` table...');
-    print('   ↳ Data: $record');
-
     try {
       await supabase.from('content').insert(record);
-      print('✅ Database insert successful for exercise ID: $newExerciseId');
     } catch (e) {
-      print('❌ [Error] Failed to insert exercise into database: $e');
       rethrow;
     }
 
@@ -82,8 +75,6 @@ class ExerciseService {
   }
 
   Future<void> deleteExercise(String exerciseId) async {
-    print('🗑️ Deleting exercise with ID: $exerciseId');
-
     try {
       final res = await supabase
           .from('content')

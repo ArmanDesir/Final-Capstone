@@ -26,8 +26,6 @@ class OperatorGameService {
         .eq('is_active', true)
         .order('title');
 
-    print('🎯 Raw game data: $res');
-
     if (res is! List) return [];
     return res
         .whereType<Map<String, dynamic>>()

@@ -32,13 +32,15 @@ class _QuizScreenState extends State<QuizScreen>
 
   final Map<int, String> _allSelectedAnswers = {};
   late Timer _timer;
-  int _remainingSeconds = 300;
+  late int _remainingSeconds;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
+    final questionCount = widget.questions.length;
+    _remainingSeconds = ((questionCount / 5).ceil() * 60);
     WidgetsBinding.instance.addObserver(this);
     _checkAttempts();
 
@@ -131,10 +133,7 @@ class _QuizScreenState extends State<QuizScreen>
             .eq('user_id', widget.userId)
             .eq('quiz_id', widget.quizId);
       }
-
-      debugPrint('✅ Quiz progress saved: $percent%');
     } catch (e, st) {
-      debugPrint('❌ Failed to save quiz progress: $e\n$st');
     }
   }
 

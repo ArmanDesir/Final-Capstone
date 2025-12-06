@@ -31,7 +31,7 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
 
   final Map<int, String> _allSelectedAnswers = {};
   late Timer _timer;
-  int _remainingSeconds = 300;
+  late int _remainingSeconds;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
@@ -40,6 +40,8 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
   @override
   void initState() {
     super.initState();
+    final questionCount = widget.quiz.questions.length;
+    _remainingSeconds = ((questionCount / 5).ceil() * 60);
     WidgetsBinding.instance.addObserver(this);
     _checkAttempts();
 
@@ -128,7 +130,6 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
         }).eq('user_id', widget.userId).eq('quiz_id', widget.quiz.id!);
       }
     } catch (e) {
-      debugPrint('❌ Error saving progress: $e');
     }
   }
 

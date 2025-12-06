@@ -3,13 +3,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/content.dart';
 import 'package:uuid/uuid.dart';
-import 'package:logger/logger.dart';
-
 class ContentService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final SupabaseStorageClient _storage = Supabase.instance.client.storage;
   final Uuid _uuid = const Uuid();
-  final Logger _logger = Logger();
 
   Future<FilePickerResult?> pickPDFFile() async {
     try {
@@ -18,7 +15,6 @@ class ContentService {
         allowedExtensions: ['pdf'],
       );
     } catch (e) {
-      _logger.e('Failed to pick file: $e');
       throw Exception('Failed to pick file: $e');
     }
   }
@@ -39,8 +35,6 @@ class ContentService {
 
       final storagePath = 'classrooms/$classroomId/$subFolder/$fileName';
 
-      _logger.i('Uploading file: $storagePath');
-
       await _storage.from('content-files').uploadBinary(
         storagePath,
         file.readAsBytesSync(),
@@ -51,10 +45,8 @@ class ContentService {
 
       return (fileUrl, storagePath);
     } on StorageException catch (e) {
-      _logger.e('Failed to upload file to storage: ${e.message}');
       throw Exception('Failed to upload file to storage: ${e.message}');
     } catch (e) {
-      _logger.e('Failed to upload file: $e');
       throw Exception('Failed to upload file: $e');
     }
   }
@@ -89,24 +81,20 @@ class ContentService {
       await _supabase.from('content').insert(content.toJson());
       return content;
     } catch (e) {
-      _logger.e('Failed to create content: $e');
       throw Exception('Failed to create content: $e');
     }
   }
 
   Future<List<Content>> getContentByClassroom(String classroomId) async {
     try {
-      _logger.i('Loading unified content for classroom: $classroomId');
       final response = await _supabase
           .from('classroom_content')
           .select()
           .eq('classroom_id', classroomId)
           .order('created_at', ascending: false);
 
-      _logger.i('Found ${response.length} unified content items');
       return response.map<Content>((data) => Content.fromJson(data)).toList();
     } catch (e) {
-      _logger.e('Error loading content: $e');
       throw Exception('Failed to get content: $e');
     }
   }
@@ -148,27 +136,15 @@ class ContentService {
         final index = segments.indexOf('content-files');
         if (index != -1 && index + 1 < segments.length) {
           storagePath = segments.sublist(index + 1).join('/');
-        } else {
-          _logger.w('Cannot extract storage path from file_url: $fileUrl');
         }
       }
 
       if (storagePath != null && storagePath.isNotEmpty) {
-        _logger.i('Attempting to delete storage file at path: $storagePath');
-
-        final res = await _storage.from('content-files').remove([storagePath]);
-
-        _logger.i('Supabase remove response: $res');
-
-        _logger.i('🗑️ Deleted storage file (or attempted): $storagePath');
-      } else {
-        _logger.w('⚠️ No storage path available for $table:$contentId, skipping file delete.');
+        await _storage.from('content-files').remove([storagePath]);
       }
 
-      final deleteRes = await _supabase.from(table).delete().eq('id', contentId);
-      _logger.i('✅ $table record with ID $contentId deleted successfully: $deleteRes');
+      await _supabase.from(table).delete().eq('id', contentId);
     } catch (e, stack) {
-      _logger.e('❌ Failed to delete content: $e', stackTrace: stack);
       throw Exception('Failed to delete content: $e');
     }
   }
@@ -199,7 +175,6 @@ class ContentService {
 
       return response.map<Content>((data) => Content.fromJson(data)).toList();
     } catch (e) {
-      _logger.e('Failed to get all contents: $e');
       throw Exception('Failed to get all contents: $e');
     }
   }
@@ -232,7 +207,6 @@ class ContentService {
 
       await _supabase.from('content').insert(newContent.toJson());
     } catch (e) {
-      _logger.e('Failed to attach existing content: $e');
       throw Exception('Failed to attach existing content: $e');
     }
   }

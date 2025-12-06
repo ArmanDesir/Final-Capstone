@@ -48,7 +48,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           });
         }
       } catch (e, stack) {
-        print(stack);
+        // Error - continue silently
       }
     });
   }

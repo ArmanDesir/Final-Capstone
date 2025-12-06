@@ -82,10 +82,6 @@ class BasicOperatorExerciseService {
     await _sb.storage.from(bucket).upload(storagePath, file);
     final publicUrl = _sb.storage.from(bucket).getPublicUrl(storagePath);
 
-    print('📤 File uploaded to storage');
-    print('→ Path: $storagePath');
-    print('→ Public URL: $publicUrl');
-
     return (publicUrl, storagePath);
   }
 

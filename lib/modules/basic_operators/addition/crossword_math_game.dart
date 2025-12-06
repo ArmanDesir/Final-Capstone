@@ -32,6 +32,7 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
 
   late List<List<CrosswordCell>> _grid;
   bool _finished = false;
+  bool _answersChecked = false; 
   int _correct = 0;
   int _totalBlanks = 0;
   bool _isLoading = true;
@@ -48,7 +49,7 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
   Future<void> _bootstrap() async {
     final min = widget.config?['min'] ?? 1;
     final max = widget.config?['max'] ?? 10;
-    final timeSec = widget.config?['timeSec'] ?? 180;
+    final timeSec = 120;
 
     try {
       final puzzle = await supabase
@@ -61,7 +62,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
           .maybeSingle();
 
       if (puzzle != null) {
-        debugPrint('🧩 Loaded puzzle for ${widget.operator} (${widget.difficulty})');
         final gridData = puzzle['grid'] as List;
         _grid = gridData
             .map((r) => (r as List)
@@ -69,7 +69,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
             .toList())
             .toList();
       } else {
-        debugPrint('⚙️ No puzzle found, generating random...');
         final gen = CrosswordGridGenerator.generate(
           operator: widget.operator,
           difficulty: widget.difficulty,
@@ -87,7 +86,6 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       _startTimer();
       setState(() {});
     } catch (e, st) {
-      debugPrint('❌ Failed to load puzzle: $e\n$st');
       final gen = CrosswordGridGenerator.generate(
         operator: widget.operator,
         difficulty: widget.difficulty,
@@ -105,6 +103,10 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_answersChecked || _finished) {
+        _timer?.cancel();
+        return;
+      }
       if (_remainingSeconds > 0) {
         setState(() => _remainingSeconds--);
       } else {
@@ -126,30 +128,20 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     for (final row in _grid) {
       for (final cell in row) {
         if (cell.type == CellType.blank) {
+          final studentAnswer = int.tryParse(cell.value ?? '');
+          
+          if (studentAnswer == null) {
+            cell.isCorrect = false;
+            continue;
+          }
 
-          if (cell.answer != null) {
-
-            final studentAnswer = int.tryParse(cell.value ?? '');
-            if (studentAnswer != null && studentAnswer == cell.answer) {
-              cell.isCorrect = true;
-              ok++;
-            } else {
-              cell.isCorrect = false;
-            }
+          final isEquationCorrect = _validateEquationWithStudentInput(cell, studentAnswer);
+          
+          if (isEquationCorrect) {
+            cell.isCorrect = true;
+            ok++;
           } else {
-
-            final patternResult = _checkPatternForBlankCell(cell);
-            if (patternResult != null) {
-              final studentAnswer = int.tryParse(cell.value ?? '');
-              if (studentAnswer != null && studentAnswer == patternResult) {
-                cell.isCorrect = true;
-                ok++;
-              } else {
-                cell.isCorrect = false;
-              }
-            } else {
-              cell.isCorrect = false;
-            }
+            cell.isCorrect = false;
           }
         }
       }
@@ -158,9 +150,55 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     return ok;
   }
 
-  int? _checkPatternForBlankCell(CrosswordCell blankCell) {
+  bool _validateEquationWithStudentInput(CrosswordCell blankCell, int studentValue) {
     final row = blankCell.row;
     final col = blankCell.col;
+
+    if (col + 4 < _grid[row].length) {
+      final opCell = _getCell(row, col + 1);
+      final num2Cell = _getCell(row, col + 2);
+      final eqCell = _getCell(row, col + 3);
+      final answerCell = _getCell(row, col + 4);
+
+      if (opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num2 = _getNumericValue(num2Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num2 != null && answer != null && op != null) {
+          final calculated = _calculateAnswer(studentValue, num2, op);
+          if (calculated == answer) {
+            return true;
+          }
+        }
+      }
+    }
+
+    if (col >= 2 && col + 2 < _grid[row].length) {
+      final num1Cell = _getCell(row, col - 2);
+      final opCell = _getCell(row, col - 1);
+      final eqCell = _getCell(row, col + 1);
+      final answerCell = _getCell(row, col + 2);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num1 = _getNumericValue(num1Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num1 != null && answer != null && op != null) {
+          final calculated = _calculateAnswer(num1, studentValue, op);
+          if (calculated == answer) {
+            return true;
+          }
+        }
+      }
+    }
 
     if (col >= 4) {
       final num1Cell = _getCell(row, col - 4);
@@ -168,16 +206,65 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       final num2Cell = _getCell(row, col - 2);
       final eqCell = _getCell(row, col - 1);
 
-      if (num1Cell?.type == CellType.number &&
+      if (_hasNumericValue(num1Cell) &&
           opCell?.type == CellType.operator &&
-          num2Cell?.type == CellType.number &&
+          _hasNumericValue(num2Cell) &&
           eqCell?.type == CellType.equals) {
-        final num1 = int.tryParse(num1Cell!.value ?? '');
-        final num2 = int.tryParse(num2Cell!.value ?? '');
+        final num1 = _getNumericValue(num1Cell);
+        final num2 = _getNumericValue(num2Cell);
         final op = opCell!.value;
 
         if (num1 != null && num2 != null && op != null) {
-          return _calculateAnswer(num1, num2, op);
+          final calculated = _calculateAnswer(num1, num2, op);
+          if (calculated == studentValue) {
+            return true;
+          }
+        }
+      }
+    }
+
+    if (row + 4 < _grid.length) {
+      final opCell = _getCell(row + 1, col);
+      final num2Cell = _getCell(row + 2, col);
+      final eqCell = _getCell(row + 3, col);
+      final answerCell = _getCell(row + 4, col);
+
+      if (opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num2 = _getNumericValue(num2Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num2 != null && answer != null && op != null) {
+          final calculated = _calculateAnswer(studentValue, num2, op);
+          if (calculated == answer) {
+            return true;
+          }
+        }
+      }
+    }
+
+    if (row >= 2 && row + 2 < _grid.length) {
+      final num1Cell = _getCell(row - 2, col);
+      final opCell = _getCell(row - 1, col);
+      final eqCell = _getCell(row + 1, col);
+      final answerCell = _getCell(row + 2, col);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num1 = _getNumericValue(num1Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num1 != null && answer != null && op != null) {
+          final calculated = _calculateAnswer(num1, studentValue, op);
+          if (calculated == answer) {
+            return true;
+          }
         }
       }
     }
@@ -188,12 +275,164 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       final num2Cell = _getCell(row - 2, col);
       final eqCell = _getCell(row - 1, col);
 
-      if (num1Cell?.type == CellType.number &&
+      if (_hasNumericValue(num1Cell) &&
           opCell?.type == CellType.operator &&
-          num2Cell?.type == CellType.number &&
+          _hasNumericValue(num2Cell) &&
           eqCell?.type == CellType.equals) {
-        final num1 = int.tryParse(num1Cell!.value ?? '');
-        final num2 = int.tryParse(num2Cell!.value ?? '');
+        final num1 = _getNumericValue(num1Cell);
+        final num2 = _getNumericValue(num2Cell);
+        final op = opCell!.value;
+
+        if (num1 != null && num2 != null && op != null) {
+          final calculated = _calculateAnswer(num1, num2, op);
+          if (calculated == studentValue) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  bool _hasNumericValue(CrosswordCell? cell) {
+    if (cell == null) return false;
+    if (cell.type == CellType.number || cell.type == CellType.answer) {
+      return cell.value != null && cell.value!.isNotEmpty;
+    }
+    if (cell.type == CellType.blank) {
+      return cell.value != null && cell.value!.isNotEmpty && int.tryParse(cell.value!) != null;
+    }
+    return false;
+  }
+
+  int? _getNumericValue(CrosswordCell? cell) {
+    if (cell == null) return null;
+    if (cell.type == CellType.number || cell.type == CellType.answer) {
+      return int.tryParse(cell.value ?? '');
+    }
+    if (cell.type == CellType.blank) {
+      return int.tryParse(cell.value ?? '');
+    }
+    return null;
+  }
+
+  int? _checkPatternForBlankCell(CrosswordCell blankCell) {
+    final row = blankCell.row;
+    final col = blankCell.col;
+
+    if (col + 4 < _grid[row].length) {
+      final opCell = _getCell(row, col + 1);
+      final num2Cell = _getCell(row, col + 2);
+      final eqCell = _getCell(row, col + 3);
+      final answerCell = _getCell(row, col + 4);
+
+      if (opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num2 = _getNumericValue(num2Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num2 != null && answer != null && op != null) {
+          return _calculateReverseAnswer(answer, num2, op, isFirst: true);
+        }
+      }
+    }
+
+    if (col >= 2 && col + 2 < _grid[row].length) {
+      final num1Cell = _getCell(row, col - 2);
+      final opCell = _getCell(row, col - 1);
+      final eqCell = _getCell(row, col + 1);
+      final answerCell = _getCell(row, col + 2);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num1 = _getNumericValue(num1Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num1 != null && answer != null && op != null) {
+          return _calculateReverseAnswer(answer, num1, op, isFirst: false);
+        }
+      }
+    }
+
+    if (col >= 4) {
+      final num1Cell = _getCell(row, col - 4);
+      final opCell = _getCell(row, col - 3);
+      final num2Cell = _getCell(row, col - 2);
+      final eqCell = _getCell(row, col - 1);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals) {
+        final num1 = _getNumericValue(num1Cell);
+        final num2 = _getNumericValue(num2Cell);
+        final op = opCell!.value;
+
+        if (num1 != null && num2 != null && op != null) {
+          return _calculateAnswer(num1, num2, op);
+        }
+      }
+    }
+
+    if (row + 4 < _grid.length) {
+      final opCell = _getCell(row + 1, col);
+      final num2Cell = _getCell(row + 2, col);
+      final eqCell = _getCell(row + 3, col);
+      final answerCell = _getCell(row + 4, col);
+
+      if (opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num2 = _getNumericValue(num2Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num2 != null && answer != null && op != null) {
+          return _calculateReverseAnswer(answer, num2, op, isFirst: true);
+        }
+      }
+    }
+
+    if (row >= 2 && row + 2 < _grid.length) {
+      final num1Cell = _getCell(row - 2, col);
+      final opCell = _getCell(row - 1, col);
+      final eqCell = _getCell(row + 1, col);
+      final answerCell = _getCell(row + 2, col);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num1 = _getNumericValue(num1Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num1 != null && answer != null && op != null) {
+          return _calculateReverseAnswer(answer, num1, op, isFirst: false);
+        }
+      }
+    }
+
+    if (row >= 4) {
+      final num1Cell = _getCell(row - 4, col);
+      final opCell = _getCell(row - 3, col);
+      final num2Cell = _getCell(row - 2, col);
+      final eqCell = _getCell(row - 1, col);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals) {
+        final num1 = _getNumericValue(num1Cell);
+        final num2 = _getNumericValue(num2Cell);
         final op = opCell!.value;
 
         if (num1 != null && num2 != null && op != null) {
@@ -203,6 +442,34 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
 
     return null;
+  }
+
+  int? _calculateReverseAnswer(int answer, int knownOperand, String op, {required bool isFirst}) {
+    switch (op) {
+      case '+':
+        return answer - knownOperand;
+      case '-':
+        if (isFirst) {
+          return answer + knownOperand;
+        } else {
+          return knownOperand - answer;
+        }
+      case '×':
+      case '*':
+        if (knownOperand != 0 && answer % knownOperand == 0) {
+          return answer ~/ knownOperand;
+        }
+        return null;
+      case '÷':
+      case '/':
+        if (isFirst) {
+          return answer * knownOperand;
+        } else {
+          return knownOperand ~/ answer;
+        }
+      default:
+        return null;
+    }
   }
 
   CrosswordCell? _getCell(int row, int col) {
@@ -249,49 +516,195 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
         'status': status,
         'tries': 1,
       });
-
-      debugPrint('✅ Progress saved: $score / $_totalBlanks');
     } catch (e) {
-
-      final errorStr = e.toString();
-      if (errorStr.contains('upsert_activity_progress') ||
-          errorStr.contains('function') && errorStr.contains('does not exist')) {
-
-        debugPrint('⚠️ Activity progress logging issue (non-critical, game progress saved): $e');
-      } else {
-        debugPrint('❌ Failed to record progress: $e');
-      }
     }
   }
 
   void _checkAnswers() async {
+    if (_answersChecked) return;
+    
     HapticFeedback.lightImpact();
     final ok = _countCorrect();
-    setState(() => _correct = ok);
+    
+    _timer?.cancel();
+    
+    setState(() {
+      _correct = ok;
+      _answersChecked = true;
+    });
 
-    final elapsed = (widget.config?['timeSec'] ?? 180) - _remainingSeconds;
+    final elapsed = 120 - _remainingSeconds;
     await _recordGameProgress(ok, elapsed);
 
     _showResultDialog();
   }
 
   void _showResultDialog() {
-    final elapsed = (widget.config?['timeSec'] ?? 180) - _remainingSeconds;
+    final elapsed = 120 - _remainingSeconds;
+    final wrongCount = _totalBlanks - _correct;
+    
+    List<String> wrongAnswers = [];
+    for (int r = 0; r < _grid.length; r++) {
+      for (int c = 0; c < _grid[r].length; c++) {
+        final cell = _grid[r][c];
+        if (cell.type == CellType.blank && !cell.isCorrect && cell.value != null && cell.value!.isNotEmpty) {
+          wrongAnswers.add('Cell at row ${r + 1}, col ${c + 1}: "${cell.value}"');
+        }
+      }
+    }
+    
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: Text(_correct == _totalBlanks ? 'Amazing!' : 'Nice Work!'),
-        content: Text(
-          'You got $_correct / $_totalBlanks.\nTime left: ${_fmt(_remainingSeconds)}.',
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _correct == _totalBlanks ? Icons.celebration : (_correct > _totalBlanks / 2 ? Icons.thumb_up : Icons.sentiment_neutral),
+              color: _correct == _totalBlanks ? Colors.amber : (_correct > _totalBlanks / 2 ? Colors.green : Colors.orange),
+              size: 32,
+            ),
+            const SizedBox(width: 8),
+            Text(_correct == _totalBlanks ? 'Amazing!' : 'Nice Work!'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Answers submitted! Game is complete.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue[900],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'You got $_correct / $_totalBlanks.',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Time stopped at: ${_fmt(_remainingSeconds)}.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                ),
+              ),
+              if (wrongCount > 0) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red[700], size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Wrong Answers ($wrongCount):',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...wrongAnswers.take(5).map((answer) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '• $answer',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red[900],
+                          ),
+                        ),
+                      )),
+                      if (wrongAnswers.length > 5)
+                        Text(
+                          '... and ${wrongAnswers.length - 5} more',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red[700],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
+              setState(() {
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'View Results',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
               _reset();
             },
-            child: const Text('Try Again'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Try Again',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -301,14 +714,30 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
                 'elapsed': elapsed,
               });
             },
-            child: const Text('Go Back'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Go Back',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ),
         ],
+        actionsAlignment: MainAxisAlignment.center,
       ),
     );
   }
 
   void _reset() {
+    Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst || !route.willHandlePopInternally);
+    
     setState(() {
       for (final c in _grid.expand((r) => r)) {
         if (c.type == CellType.blank) {
@@ -318,7 +747,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       }
       _correct = 0;
       _finished = false;
-      _remainingSeconds = widget.config?['timeSec'] ?? 180;
+      _answersChecked = false;
+      _remainingSeconds = 120;
+      for (final controller in _controllers.values) {
+        controller.clear();
+      }
       _startTimer();
     });
   }
@@ -381,21 +814,78 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
               const SizedBox(height: 24),
               _buildLegend(),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _checkAnswers,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                ),
-                child: const Text('Check Answers', style: TextStyle(fontSize: 18)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (!_answersChecked)
+                    ElevatedButton(
+                      onPressed: _checkAnswers,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                      ),
+                      child: const Text('Check Answers', style: TextStyle(fontSize: 18)),
+                    )
+                  else ...[
+                    ElevatedButton(
+                      onPressed: null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                      ),
+                      child: const Text('Answers Checked', style: TextStyle(fontSize: 18)),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        _reset();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                      ),
+                      child: const Text('Try Again', style: TextStyle(fontSize: 18)),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 8),
               Text(
                 'Correct: $_correct / $_totalBlanks',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: _answersChecked
+                      ? (_correct == _totalBlanks ? Colors.green : Colors.orange)
+                      : Colors.black,
+                ),
               ),
+              if (_answersChecked) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _correct == _totalBlanks
+                      ? 'Perfect! All answers are correct! 🎉'
+                      : 'Some answers are incorrect. Check the highlighted cells above.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[700],
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Timer stopped. Click "Try Again" to restart or use "Go Back" in the dialog.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
           ),
         ),
@@ -457,6 +947,26 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       _controllers[key] = TextEditingController(text: cell.value ?? '');
     }
     final controller = _controllers[key]!;
+    
+    Color backgroundColor;
+    Color borderColor;
+    double borderWidth = 2;
+    
+    if (_answersChecked) {
+      if (cell.isCorrect == true) {
+        backgroundColor = Colors.green[100]!;
+        borderColor = Colors.green;
+      } else if (cell.value != null && cell.value!.isNotEmpty) {
+        backgroundColor = Colors.red[100]!;
+        borderColor = Colors.red;
+      } else {
+        backgroundColor = Colors.grey[200]!;
+        borderColor = Colors.grey;
+      }
+    } else {
+      backgroundColor = Colors.grey[100]!;
+      borderColor = Colors.grey;
+    }
 
     return Container(
       width: 60,
@@ -464,24 +974,68 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       margin: const EdgeInsets.all(4),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: cell.isCorrect == true ? Colors.green[100] : Colors.grey[100],
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(GameTheme.borderRadius),
         border: Border.all(
-          color: cell.isCorrect == true ? GameTheme.correct : Colors.grey,
-          width: 2,
+          color: borderColor,
+          width: borderWidth,
         ),
       ),
-      child: TextField(
-        controller: controller,
-        textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(border: InputBorder.none),
-        style: GameTheme.tileText.copyWith(fontSize: 22),
-        onChanged: (val) {
-          cell.value = val;
-          setState(() {});
-        },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          TextField(
+            controller: controller,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(border: InputBorder.none),
+            style: GameTheme.tileText.copyWith(fontSize: 22),
+            enabled: !_answersChecked, 
+            onChanged: (val) {
+              if (!_answersChecked) {
+                cell.value = val;
+                setState(() {});
+              }
+            },
+          ),
+          if (_answersChecked && cell.value != null && cell.value!.isNotEmpty && cell.isCorrect != true)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.close,
+                  size: 12,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          if (_answersChecked && cell.isCorrect == true)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.check,
+                  size: 12,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
