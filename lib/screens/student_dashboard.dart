@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:pracpro/models/activity_progress.dart';
 import 'package:pracpro/models/classroom.dart';
@@ -603,7 +604,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             .order('created_at', ascending: false)
             .limit(50); 
         final gameData = (gameProgressResponse as List).cast<Map<String, dynamic>>();
-        
+
         final firstClassroomId = classroomIds.isNotEmpty ? classroomIds.first : '';
         
         final gameTotalsMap = <String, int>{};
@@ -658,6 +659,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
           }
         }
         
+        // Cache Ninja Math rounds by operator and difficulty
+        final ninjaRoundsCache = <String, int>{};
+        
         for (final progress in gameData) {
           final gameName = progress['game_name']?.toString() ?? '';
           final score = progress['score'] as int? ?? 0;
@@ -704,7 +708,135 @@ class _StudentDashboardState extends State<StudentDashboard> {
               finalTotalRounds = score > 0 ? (score + 2) : 5;
             }
           } else if (gameNameLower.contains('ninja')) {
-            finalTotalRounds = 10; 
+            // Try to get rounds from operator_game_variants config
+            String? operator;
+            if (gameNameLower.startsWith('addition_')) {
+              operator = 'addition';
+            } else if (gameNameLower.startsWith('subtraction_')) {
+              operator = 'subtraction';
+            } else if (gameNameLower.startsWith('multiplication_')) {
+              operator = 'multiplication';
+            } else if (gameNameLower.startsWith('division_')) {
+              operator = 'division';
+            }
+            
+            if (operator != null) {
+              // Check cache first
+              final cacheKey = '$operator|$difficulty';
+              if (ninjaRoundsCache.containsKey(cacheKey)) {
+                finalTotalRounds = ninjaRoundsCache[cacheKey]!;
+              } else {
+                try {
+                  final gameResponse = await supabase
+                      .from('operator_games')
+                      .select('''
+                        id,
+                        operator_game_variants_game_id_fkey (
+                          difficulty,
+                          config
+                        )
+                      ''')
+                      .eq('operator', operator)
+                      .eq('game_key', 'ninjamath')
+                      .eq('is_active', true)
+                      .maybeSingle();
+
+                  if (gameResponse != null) {
+                    final variants = gameResponse['operator_game_variants_game_id_fkey'] as List?;
+                    if (variants != null && variants.isNotEmpty) {
+                      for (final variant in variants) {
+                        if (variant is Map) {
+                          final variantDifficulty = variant['difficulty']?.toString().toLowerCase() ?? '';
+                          if (variantDifficulty == difficulty) {
+                            final config = variant['config'];
+                            if (config is Map) {
+                              final rounds = config['rounds'];
+                              if (rounds is int && rounds > 0) {
+                                finalTotalRounds = rounds;
+                                ninjaRoundsCache[cacheKey] = rounds;
+                                break;
+                              } else if (rounds is String) {
+                                final roundsInt = int.tryParse(rounds);
+                                if (roundsInt != null && roundsInt > 0) {
+                                  finalTotalRounds = roundsInt;
+                                  ninjaRoundsCache[cacheKey] = roundsInt;
+                                  break;
+                                }
+                              }
+                            } else if (config is String) {
+                              try {
+                                final configMap = Map<String, dynamic>.from(
+                                  jsonDecode(config) as Map
+                                );
+                                final rounds = configMap['rounds'];
+                                if (rounds is int && rounds > 0) {
+                                  finalTotalRounds = rounds;
+                                  ninjaRoundsCache[cacheKey] = rounds;
+                                  break;
+                                } else if (rounds is String) {
+                                  final roundsInt = int.tryParse(rounds);
+                                  if (roundsInt != null && roundsInt > 0) {
+                                    finalTotalRounds = roundsInt;
+                                    ninjaRoundsCache[cacheKey] = roundsInt;
+                                    break;
+                                  }
+                                }
+                              } catch (e) {
+                              }
+                            }
+                          }
+                        }
+                      }
+                      
+                      // If still no match, try first variant
+                      if (finalTotalRounds == 0) {
+                        final firstVariant = variants.first;
+                        if (firstVariant is Map) {
+                          final config = firstVariant['config'];
+                          if (config is Map) {
+                            final rounds = config['rounds'];
+                            if (rounds is int && rounds > 0) {
+                              finalTotalRounds = rounds;
+                              ninjaRoundsCache[cacheKey] = rounds;
+                            } else if (rounds is String) {
+                              final roundsInt = int.tryParse(rounds);
+                              if (roundsInt != null && roundsInt > 0) {
+                                finalTotalRounds = roundsInt;
+                                ninjaRoundsCache[cacheKey] = roundsInt;
+                              }
+                            }
+                          } else if (config is String) {
+                            try {
+                              final configMap = Map<String, dynamic>.from(
+                                jsonDecode(config) as Map
+                              );
+                              final rounds = configMap['rounds'];
+                              if (rounds is int && rounds > 0) {
+                                finalTotalRounds = rounds;
+                                ninjaRoundsCache[cacheKey] = rounds;
+                              } else if (rounds is String) {
+                                final roundsInt = int.tryParse(rounds);
+                                if (roundsInt != null && roundsInt > 0) {
+                                  finalTotalRounds = roundsInt;
+                                  ninjaRoundsCache[cacheKey] = roundsInt;
+                                }
+                              }
+                            } catch (e) {
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                }
+              }
+            }
+            
+            // Fallback to using highest score if config query failed
+            if (finalTotalRounds == 0) {
+              finalTotalRounds = score > 0 ? score : 3;
+            }
           } else {
             finalTotalRounds = score > 0 ? score : 1;
           }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class QuizProgressData {
@@ -49,10 +50,17 @@ class QuizProgressData {
   }
 
   int get totalPossible {
+    // For games, totalPossible should just be totalQuestions (the rounds per game)
+    // because each game has a fixed number of rounds regardless of attempts
+    if (isGame) {
+      return totalQuestions;
+    }
+    
+    // For quizzes, calculate based on attempts
     final actualAttempts = [try1Score, try2Score, try3Score]
         .where((s) => s != null)
         .length;
-    final maxAttempts = isGame ? actualAttempts : (actualAttempts > 3 ? 3 : actualAttempts);
+    final maxAttempts = actualAttempts > 3 ? 3 : actualAttempts;
     return totalQuestions * maxAttempts;
   }
   
@@ -459,17 +467,154 @@ class StudentQuizProgressService {
           }
           
           if (gameTotal == 0 && gameTitle.contains('ninja')) {
-            gameTotal = 10; 
+            try {
+              final difficulty = firstProgress['stage']?.toString().toLowerCase() ?? 'easy';
+              
+              // First try: Query operator_games with joined variants
+              final gameResponse = await _supabase
+                  .from('operator_games')
+                  .select('''
+                    id,
+                    operator_game_variants_game_id_fkey (
+                      difficulty,
+                      config
+                    )
+                  ''')
+                  .eq('operator', operator)
+                  .eq('game_key', 'ninjamath')
+                  .eq('is_active', true)
+                  .maybeSingle();
+
+              if (gameResponse != null) {
+                final variants = gameResponse['operator_game_variants_game_id_fkey'] as List?;
+                if (variants != null && variants.isNotEmpty) {
+                  for (final variant in variants) {
+                    if (variant is Map) {
+                      final variantDifficulty = variant['difficulty']?.toString().toLowerCase() ?? '';
+                      if (variantDifficulty == difficulty) {
+                        final config = variant['config'];
+                        if (config is Map) {
+                          final rounds = config['rounds'];
+                          if (rounds is int && rounds > 0) {
+                            gameTotal = rounds;
+                            break;
+                          } else if (rounds is String) {
+                            final roundsInt = int.tryParse(rounds);
+                            if (roundsInt != null && roundsInt > 0) {
+                              gameTotal = roundsInt;
+                              break;
+                            }
+                          }
+                        } else if (config is String) {
+                          try {
+                            final configMap = Map<String, dynamic>.from(
+                              jsonDecode(config) as Map
+                            );
+                            final rounds = configMap['rounds'];
+                            if (rounds is int && rounds > 0) {
+                              gameTotal = rounds;
+                              break;
+                            } else if (rounds is String) {
+                              final roundsInt = int.tryParse(rounds);
+                              if (roundsInt != null && roundsInt > 0) {
+                                gameTotal = roundsInt;
+                                break;
+                              }
+                            }
+                          } catch (e) {
+                          }
+                        }
+                      }
+                    }
+                  }
+                  
+                  // If still no match, try using first variant regardless of difficulty
+                  if (gameTotal == 0) {
+                    final firstVariant = variants.first;
+                    if (firstVariant is Map) {
+                      final config = firstVariant['config'];
+                      if (config is Map) {
+                        final rounds = config['rounds'];
+                        if (rounds is int && rounds > 0) {
+                          gameTotal = rounds;
+                        }
+                      } else if (config is String) {
+                        try {
+                          final configMap = Map<String, dynamic>.from(
+                            jsonDecode(config) as Map
+                          );
+                          final rounds = configMap['rounds'];
+                          if (rounds is int && rounds > 0) {
+                            gameTotal = rounds;
+                          }
+                        } catch (e) {
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              
+              // Second try: Query operator_game_variants directly if first query didn't work
+              if (gameTotal == 0) {
+                final gameIdResponse = await _supabase
+                    .from('operator_games')
+                    .select('id')
+                    .eq('operator', operator)
+                    .eq('game_key', 'ninjamath')
+                    .eq('is_active', true)
+                    .maybeSingle();
+                
+                if (gameIdResponse != null) {
+                  final gameId = gameIdResponse['id']?.toString();
+                  if (gameId != null && gameId.isNotEmpty) {
+                    final variantsResponse = await _supabase
+                        .from('operator_game_variants')
+                        .select('difficulty, config')
+                        .eq('game_id', gameId)
+                        .eq('difficulty', difficulty);
+                    
+                    if (variantsResponse is List && variantsResponse.isNotEmpty) {
+                      final variant = variantsResponse.first;
+                      if (variant is Map) {
+                        final config = variant['config'];
+                        if (config is Map) {
+                          final rounds = config['rounds'];
+                          if (rounds is int && rounds > 0) {
+                            gameTotal = rounds;
+                          }
+                        } else if (config is String) {
+                          try {
+                            final configMap = Map<String, dynamic>.from(
+                              jsonDecode(config) as Map
+                            );
+                            final rounds = configMap['rounds'];
+                            if (rounds is int && rounds > 0) {
+                              gameTotal = rounds;
+                            }
+                          } catch (e) {
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+            }
           }
 
+          // Fallback: if we still don't have gameTotal, use highest score
+          // This handles cases where the config query fails or the game isn't found
           if (gameTotal == 0) {
             final status = firstProgress['status']?.toString().toLowerCase() ?? '';
-            if (status.contains('complete') && highest > 0) {
-              gameTotal = highest;
-            } else if (highest > 0) {
+            if (highest > 0) {
+              // Use highest score as minimum, but add buffer for incomplete games
+              // This is better than defaulting to 10
               gameTotal = highest;
             } else {
-              gameTotal = 4; //
+              // Last resort default
+              gameTotal = 3;
             }
           }
         }
@@ -540,10 +685,16 @@ class StudentQuizProgressService {
 
               final difficulty = processedProgressList.first['stage']?.toString().toLowerCase() ?? existing.difficulty ?? 'easy';
               
+              // For games, always prefer the calculated finalTotalQuestions over existing value
+              // This ensures we use the correct rounds value from config even if existing has wrong value
+              final updatedTotalQuestions = isGame 
+                  ? (finalTotalQuestions > 0 ? finalTotalQuestions : (existing.totalQuestions > 0 ? existing.totalQuestions : 3))
+                  : (existing.totalQuestions > 0 ? existing.totalQuestions : finalTotalQuestions);
+              
               results[existingIndex] = QuizProgressData(
                 quizId: existing.quizId,
                 quizTitle: normalizedTitle,
-                totalQuestions: existing.totalQuestions > 0 ? existing.totalQuestions : finalTotalQuestions,
+                totalQuestions: updatedTotalQuestions,
                 try1Score: allScores.length > 0 ? allScores[0] : null,
                 try2Score: allScores.length > 1 ? allScores[1] : null,
                 try3Score: allScores.length > 2 ? allScores[2] : null,

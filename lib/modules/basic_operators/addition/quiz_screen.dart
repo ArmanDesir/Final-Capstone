@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pracpro/screens/student_dashboard.dart';
+import 'package:pracpro/services/unlock_service.dart';
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -35,6 +36,7 @@ class _QuizScreenState extends State<QuizScreen>
   late int _remainingSeconds;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  final _unlockService = UnlockService();
 
   @override
   void initState() {
@@ -97,6 +99,7 @@ class _QuizScreenState extends State<QuizScreen>
           .eq('quiz_id', widget.quizId)
           .maybeSingle();
 
+      int attemptsCount;
       if (existing == null || existing.isEmpty) {
         await client.from('quiz_progress').insert({
           'user_id': widget.userId,
@@ -106,9 +109,11 @@ class _QuizScreenState extends State<QuizScreen>
           'attempts_count': 1,
           'updated_at': DateTime.now().toIso8601String(),
         });
+        attemptsCount = 1;
       } else {
         int attempts = (existing['attempts_count'] ?? 0) + 1;
         if (attempts > 3) attempts = 3;
+        attemptsCount = attempts;
 
         int try1 = existing['try1_score'] ?? 0;
         int try2 = existing['try2_score'] ?? 0;
@@ -133,6 +138,11 @@ class _QuizScreenState extends State<QuizScreen>
             .eq('user_id', widget.userId)
             .eq('quiz_id', widget.quizId);
       }
+
+      // Check and unlock next content after saving progress
+      // Note: This quiz uses 'quiz_progress' table, not 'basic_operator_quiz_progress'
+      // The RPC function works with basic_operator_quizzes, so we skip unlock for legacy quizzes
+      // Only basic_operator_quizzes support unlock feature
     } catch (e, st) {
     }
   }

@@ -22,7 +22,7 @@ class GameScreen extends StatelessWidget {
         .select()
         .eq('user_id', user.id)
         .eq('game_name', game)
-        .eq('difficulty', difficulty);
+        .eq('difficulty', difficulty.toLowerCase());
 
     final attempts = existing.length;
     if (attempts >= 3) return;
@@ -30,7 +30,7 @@ class GameScreen extends StatelessWidget {
     await Supabase.instance.client.from('game_progress').insert({
       'user_id': user.id,
       'game_name': game,
-      'difficulty': difficulty,
+      'difficulty': difficulty.toLowerCase(),
       'score': score,
       'tries': attempts + 1,
       'status': 'complete',
@@ -89,7 +89,11 @@ class GameScreen extends StatelessWidget {
       if (result is Map<String, dynamic>) {
         final score = result['score'] as int? ?? 0;
         final elapsed = result['elapsed'] as int? ?? 0;
-        await _saveGameProgress(gameName, difficulty, score, elapsed);
+        // Format game_name to match the database format: {operator}_gametype
+        final formattedGameName = gameName == 'Crossword Math'
+            ? '${operatorKey}_crossmath'
+            : '${operatorKey}_ninjamath';
+        await _saveGameProgress(formattedGameName, difficulty.toLowerCase(), score, elapsed);
       }
     } catch (e) {
       Navigator.pop(context);

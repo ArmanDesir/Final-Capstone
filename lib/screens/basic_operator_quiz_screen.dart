@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:logger/logger.dart';
 import '../models/basic_operator_quiz.dart';
+import '../services/unlock_service.dart';
 import 'student_dashboard.dart';
 
 class BasicOperatorQuizScreen extends StatefulWidget {
@@ -36,6 +38,17 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
   late Animation<double> _scaleAnimation;
 
   final supabase = Supabase.instance.client;
+  final _unlockService = UnlockService();
+  final Logger _logger = Logger(
+    printer: PrettyPrinter(
+      methodCount: 0,
+      errorMethodCount: 5,
+      lineLength: 120,
+      colors: true,
+      printEmojis: true,
+      printTime: true,
+    ),
+  );
 
   @override
   void initState() {
@@ -97,6 +110,7 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
           .eq('quiz_id', widget.quiz.id!)
           .maybeSingle();
 
+      int attemptsCount;
       if (existing == null || existing.isEmpty) {
         await supabase.from('basic_operator_quiz_progress').insert({
           'user_id': widget.userId,
@@ -106,9 +120,11 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
           'attempts_count': 1,
           'updated_at': DateTime.now().toIso8601String(),
         });
+        attemptsCount = 1;
       } else {
         int attempts = (existing['attempts_count'] ?? 0) + 1;
         if (attempts > 3) attempts = 3;
+        attemptsCount = attempts;
 
         int try1 = existing['try1_score'] ?? 0;
         int try2 = existing['try2_score'] ?? 0;
@@ -129,7 +145,68 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
           'updated_at': DateTime.now().toIso8601String(),
         }).eq('user_id', widget.userId).eq('quiz_id', widget.quiz.id!);
       }
-    } catch (e) {
+
+      // Unlock next lessons after quiz completion (quizzes are always accessible)
+      // Pass actual score (not percentage) - RPC function calculates percentage internally
+      final unlockResult = await _unlockService.checkAndUnlockAfterQuiz(
+        userId: widget.userId,
+        quizId: widget.quiz.id!,
+        score: _score, // Pass actual score (e.g., 5 for 5/5), not percentage
+        totalQuestions: total,
+        attemptsCount: attemptsCount,
+      );
+      
+      // Show feedback if unlock was successful or failed
+      if (unlockResult != null && mounted) {
+        if (unlockResult['unlocked'] == true) {
+          final items = unlockResult['items'] as List?;
+          final method = unlockResult['_method'] as String?;
+          final message = items != null && items.isNotEmpty
+              ? '🎉 ${items.length} item(s) unlocked!'
+              : '🎉 Unlocked!';
+          
+          // Show which method was used (for debugging cache status)
+          final methodNote = method == 'rpc'
+              ? ' (using server-side RPC)'
+              : method == 'client-side'
+                  ? ' (using client-side fallback - cache not refreshed yet)'
+                  : '';
+          
+          final durationSeconds = method == 'rpc' ? 2 : 3;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$message$methodNote'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: durationSeconds),
+            ),
+          );
+        } else if (unlockResult['error'] != null) {
+          // Only show non-schema-cache errors (schema cache errors are handled by fallback)
+          final error = unlockResult['error'] as String;
+          final errorLower = error.toLowerCase();
+          
+          // Don't show schema cache or UUID errors - they're handled by client-side fallback
+          final isSchemaCacheError = errorLower.contains('schema cache') ||
+              errorLower.contains('pgrst202') ||
+              errorLower.contains('could not find the function') ||
+              errorLower.contains('postgresterror');
+          
+          final isUuidError = errorLower.contains('invalid input syntax for type uuid') ||
+              errorLower.contains('22p02');
+          
+          if (!isSchemaCacheError && !isUuidError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Unlock error: $error'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error saving quiz progress and unlocking content: $e\nStack Trace: $stackTrace');
     }
   }
 

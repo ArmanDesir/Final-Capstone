@@ -128,20 +128,20 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     for (final row in _grid) {
       for (final cell in row) {
         if (cell.type == CellType.blank) {
-          final studentAnswer = int.tryParse(cell.value ?? '');
+            final studentAnswer = int.tryParse(cell.value ?? '');
           
           if (studentAnswer == null) {
-            cell.isCorrect = false;
+              cell.isCorrect = false;
             continue;
-          }
+            }
 
           final isEquationCorrect = _validateEquationWithStudentInput(cell, studentAnswer);
-          
+
           if (isEquationCorrect) {
-            cell.isCorrect = true;
-            ok++;
-          } else {
-            cell.isCorrect = false;
+                cell.isCorrect = true;
+                ok++;
+              } else {
+                cell.isCorrect = false;
           }
         }
       }
@@ -818,14 +818,14 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (!_answersChecked)
-                    ElevatedButton(
-                      onPressed: _checkAnswers,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
+              ElevatedButton(
+                onPressed: _checkAnswers,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                      ),
-                      child: const Text('Check Answers', style: TextStyle(fontSize: 18)),
+                ),
+                child: const Text('Check Answers', style: TextStyle(fontSize: 18)),
                     )
                   else ...[
                     ElevatedButton(
@@ -860,7 +860,7 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
                   color: _answersChecked
                       ? (_correct == _totalBlanks ? Colors.green : Colors.orange)
                       : Colors.black,
-                ),
+              ),
               ),
               if (_answersChecked) ...[
                 const SizedBox(height: 8),
@@ -985,17 +985,17 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
         alignment: Alignment.center,
         children: [
           TextField(
-            controller: controller,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(border: InputBorder.none),
-            style: GameTheme.tileText.copyWith(fontSize: 22),
+        controller: controller,
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: const InputDecoration(border: InputBorder.none),
+        style: GameTheme.tileText.copyWith(fontSize: 22),
             enabled: !_answersChecked, 
-            onChanged: (val) {
+        onChanged: (val) {
               if (!_answersChecked) {
-                cell.value = val;
-                setState(() {});
+          cell.value = val;
+          setState(() {});
               }
             },
           ),
