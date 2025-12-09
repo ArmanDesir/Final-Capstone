@@ -35,6 +35,7 @@ class BasicOperatorQuizProvider with ChangeNotifier {
     required List<Map<String, dynamic>> questions,
     required String teacherId,
     String? classroomId,
+    required String lessonId, // Required - quiz must be attached to a lesson
   }) async {
     try {
       await _service.createQuiz(
@@ -43,6 +44,7 @@ class BasicOperatorQuizProvider with ChangeNotifier {
         questions: questions,
         teacherId: teacherId,
         classroomId: classroomId,
+        lessonId: lessonId,
       );
       await loadQuizzes(operator, classroomId: classroomId);
       error = null;

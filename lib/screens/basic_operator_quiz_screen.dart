@@ -1,19 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:logger/logger.dart';
 import '../models/basic_operator_quiz.dart';
 import '../services/unlock_service.dart';
+import '../services/activity_progress_service.dart';
 import 'student_dashboard.dart';
 
 class BasicOperatorQuizScreen extends StatefulWidget {
   final BasicOperatorQuiz quiz;
   final String userId;
+  final String? lessonId; // Optional lesson ID if quiz is taken from a lesson
 
   const BasicOperatorQuizScreen({
     super.key,
     required this.quiz,
     required this.userId,
+    this.lessonId,
   });
 
   @override
@@ -34,27 +36,20 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
   final Map<int, String> _allSelectedAnswers = {};
   late Timer _timer;
   late int _remainingSeconds;
+  late int _initialSeconds; // Track initial time for elapsed time calculation
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
   final supabase = Supabase.instance.client;
   final _unlockService = UnlockService();
-  final Logger _logger = Logger(
-    printer: PrettyPrinter(
-      methodCount: 0,
-      errorMethodCount: 5,
-      lineLength: 120,
-      colors: true,
-      printEmojis: true,
-      printTime: true,
-    ),
-  );
+  final _activityProgressService = ActivityProgressService();
 
   @override
   void initState() {
     super.initState();
     final questionCount = widget.quiz.questions.length;
-    _remainingSeconds = ((questionCount / 5).ceil() * 60);
+    _initialSeconds = ((questionCount / 5).ceil() * 60);
+    _remainingSeconds = _initialSeconds;
     WidgetsBinding.instance.addObserver(this);
     _checkAttempts();
 
@@ -70,14 +65,15 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
 
   Future<void> _checkAttempts() async {
     try {
-      final res = await supabase
-          .from('basic_operator_quiz_progress')
-          .select()
-          .eq('user_id', widget.userId)
-          .eq('quiz_id', widget.quiz.id!)
-          .maybeSingle();
+      // Check attempts from unified activity_progress table
+      final attemptsCount = await _activityProgressService.getAttemptCount(
+        userId: widget.userId,
+        entityType: 'quiz',
+        entityId: widget.quiz.id!,
+      );
 
-      if (res != null && (res['attempts_count'] ?? 0) >= 3) {
+      // Lock after 3 attempts (or remove this limit if you want unlimited attempts)
+      if (attemptsCount >= 3) {
         setState(() => _locked = true);
         return;
       }
@@ -101,59 +97,41 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
   Future<void> _saveProgress() async {
     try {
       final total = widget.quiz.questions.length;
-      final percent = (_score / total * 100).round();
+      final score = _score; // Raw score (number of correct answers)
+      
+      // Calculate elapsed time (initial time - remaining time)
+      final elapsedSeconds = _initialSeconds - _remainingSeconds;
 
-      final existing = await supabase
-          .from('basic_operator_quiz_progress')
-          .select()
-          .eq('user_id', widget.userId)
-          .eq('quiz_id', widget.quiz.id!)
-          .maybeSingle();
+      // Save to unified activity_progress table
+      // The service automatically handles attempt numbering and prevents duplicates
+      await _activityProgressService.saveQuizProgress(
+        userId: widget.userId,
+        quizId: widget.quiz.id!,
+        quizTitle: widget.quiz.title,
+        operator: widget.quiz.operator,
+        score: score, // Raw score (e.g., 5 for 5/5)
+        totalQuestions: total,
+        classroomId: widget.quiz.classroomId,
+        lessonId: widget.lessonId, // Pass lesson ID if available
+        elapsedTime: elapsedSeconds > 0 ? elapsedSeconds : null,
+      );
 
-      int attemptsCount;
-      if (existing == null || existing.isEmpty) {
-        await supabase.from('basic_operator_quiz_progress').insert({
-          'user_id': widget.userId,
-          'quiz_id': widget.quiz.id,
-          'try1_score': percent,
-          'highest_score': percent,
-          'attempts_count': 1,
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-        attemptsCount = 1;
-      } else {
-        int attempts = (existing['attempts_count'] ?? 0) + 1;
-        if (attempts > 3) attempts = 3;
-        attemptsCount = attempts;
-
-        int try1 = existing['try1_score'] ?? 0;
-        int try2 = existing['try2_score'] ?? 0;
-        int try3 = existing['try3_score'] ?? 0;
-
-        if (attempts == 2 && try2 == 0) try2 = percent;
-        if (attempts == 3 && try3 == 0) try3 = percent;
-
-        final highest =
-        [try1, try2, try3, percent].reduce((a, b) => a > b ? a : b);
-
-        await supabase.from('basic_operator_quiz_progress').update({
-          'try1_score': try1,
-          'try2_score': try2,
-          'try3_score': try3,
-          'highest_score': highest,
-          'attempts_count': attempts,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('user_id', widget.userId).eq('quiz_id', widget.quiz.id!);
-      }
+      // Get attempt count for unlock logic
+      final attemptsCount = await _activityProgressService.getAttemptCount(
+        userId: widget.userId,
+        entityType: 'quiz',
+        entityId: widget.quiz.id!,
+      );
 
       // Unlock next lessons after quiz completion (quizzes are always accessible)
       // Pass actual score (not percentage) - RPC function calculates percentage internally
       final unlockResult = await _unlockService.checkAndUnlockAfterQuiz(
         userId: widget.userId,
         quizId: widget.quiz.id!,
-        score: _score, // Pass actual score (e.g., 5 for 5/5), not percentage
+        score: score, // Pass actual score (e.g., 5 for 5/5), not percentage
         totalQuestions: total,
         attemptsCount: attemptsCount,
+        lessonId: widget.lessonId, // Pass lesson ID if quiz was taken from a lesson
       );
       
       // Show feedback if unlock was successful or failed
@@ -206,7 +184,7 @@ class _BasicOperatorQuizScreenState extends State<BasicOperatorQuizScreen>
         }
       }
     } catch (e, stackTrace) {
-      _logger.e('Error saving quiz progress and unlocking content: $e\nStack Trace: $stackTrace');
+      // Error saving progress - silently fail
     }
   }
 

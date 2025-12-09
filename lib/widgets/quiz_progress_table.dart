@@ -79,9 +79,12 @@ class QuizProgressTable extends StatelessWidget {
                   _buildHeaderCell('Passing Rate %'),
                 ],
               ),
-              ...quizData.map((quiz) {
-                final attempts = quiz.attemptsCount > 3 ? 3 : quiz.attemptsCount;
-                final attemptsText = '$attempts';
+              ...quizData.asMap().entries.map((entry) {
+                final index = entry.key;
+                final quiz = entry.value;
+                
+                // Show the actual attempt count (which is already limited to 3 by the service)
+                final attemptsText = '${quiz.attemptsCount}';
                 final highestScoreText = quiz.highestScorePercentage > 0 && quiz.totalQuestions > 0
                     ? '${((quiz.highestScorePercentage / 100) * quiz.totalQuestions).round()}/${quiz.totalQuestions}'
                     : '-';

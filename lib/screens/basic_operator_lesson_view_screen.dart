@@ -31,12 +31,15 @@ class _BasicOperatorLessonViewScreenState
 
   Future<void> _loadRelatedQuizzes() async {
     try {
-      final all = await _quizService.getQuizzes(
+      // Load quizzes filtered by this lesson's ID
+      _quizzes = await _quizService.getQuizzes(
         widget.lesson.operator,
         classroomId: widget.lesson.classroomId,
+        lessonId: widget.lesson.id,
       );
-      _quizzes = all.where((q) => q.operator == widget.lesson.operator).toList();
-    } catch (_) {}
+    } catch (_) {
+      _quizzes = [];
+    }
     setState(() => _isLoading = false);
   }
 
@@ -160,6 +163,7 @@ class _BasicOperatorLessonViewScreenState
                     builder: (_) => BasicOperatorQuizScreen(
                       quiz: quiz,
                       userId: user.id,
+                      lessonId: widget.lesson.id, // Pass lesson ID when quiz is taken from a lesson
                     ),
                   ),
                 );

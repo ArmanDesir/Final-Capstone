@@ -1,41 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:pracpro/services/operator_game_service.dart';
+import 'package:pracpro/services/activity_progress_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'crossword_math_game.dart';
 import 'ninja_math_game.dart';
 
 class GameScreen extends StatelessWidget {
   final String operatorKey;
-  const GameScreen({Key? key, required this.operatorKey}) : super(key: key);
+  final String? classroomId; // Optional classroom ID
+  const GameScreen({Key? key, required this.operatorKey, this.classroomId}) : super(key: key);
 
-  Future<void> _saveGameProgress(
-      String game,
-      String difficulty,
-      int score,
-      int elapsedSeconds,
-      ) async {
+  Future<void> _saveGameProgress({
+    required ActivityProgressService activityProgressService,
+    String? gameId, // UUID from operator_games table (nullable for Crossword Math)
+    required String gameTitle, // Display name like "Crossword Math" or "Ninja Math"
+    required String operator,
+    required String difficulty,
+    required int score, // Raw score (number of correct answers)
+    required int totalItems, // Total rounds/items in the game
+    required int elapsedSeconds,
+    String? classroomId,
+  }) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
-    final existing = await Supabase.instance.client
-        .from('game_progress')
-        .select()
-        .eq('user_id', user.id)
-        .eq('game_name', game)
-        .eq('difficulty', difficulty.toLowerCase());
-
-    final attempts = existing.length;
-    if (attempts >= 3) return;
-
-    await Supabase.instance.client.from('game_progress').insert({
-      'user_id': user.id,
-      'game_name': game,
-      'difficulty': difficulty.toLowerCase(),
-      'score': score,
-      'tries': attempts + 1,
-      'status': 'complete',
-      'elapsed_time': elapsedSeconds,
-    });
+    // Save to unified activity_progress table
+    // The service automatically handles attempt numbering and prevents duplicates
+    await activityProgressService.saveGameProgress(
+      userId: user.id,
+      gameId: gameId,
+      gameTitle: gameTitle,
+      operator: operator,
+      difficulty: difficulty,
+      score: score,
+      totalItems: totalItems,
+      status: 'completed',
+      elapsedTime: elapsedSeconds,
+      classroomId: classroomId,
+    );
   }
 
   Future<void> _startGame(
@@ -71,12 +73,14 @@ class GameScreen extends StatelessWidget {
           operator: operatorKey,
           difficulty: difficulty,
           config: config,
+          classroomId: classroomId, // Pass classroom_id to crossword game
         );
       } else {
         screen = NinjaMathGameScreen(
           operator: operatorKey,
           difficulty: difficulty,
           config: config,
+          classroomId: classroomId, // Pass classroom_id to ninja math game too
         );
       }
 
@@ -89,11 +93,104 @@ class GameScreen extends StatelessWidget {
       if (result is Map<String, dynamic>) {
         final score = result['score'] as int? ?? 0;
         final elapsed = result['elapsed'] as int? ?? 0;
-        // Format game_name to match the database format: {operator}_gametype
-        final formattedGameName = gameName == 'Crossword Math'
-            ? '${operatorKey}_crossmath'
-            : '${operatorKey}_ninjamath';
-        await _saveGameProgress(formattedGameName, difficulty.toLowerCase(), score, elapsed);
+        
+        // Get total items from config (rounds for Ninja Math, blank cells for Crossword)
+        int totalItems = 0;
+        if (gameKey == 'ninjamath') {
+          // Get rounds from config
+          final rounds = config['rounds'];
+          if (rounds is int) {
+            totalItems = rounds;
+          } else if (rounds is String) {
+            totalItems = int.tryParse(rounds) ?? score; // Fallback to score if parsing fails
+          } else {
+            totalItems = score; // Last resort fallback
+          }
+        } else if (gameKey == 'crossmath') {
+          // For Crossword Math, try to get total blanks from result or query puzzle
+          totalItems = result['totalBlanks'] as int? ?? 0;
+          
+          // If not in result, try to get from puzzle
+          if (totalItems == 0) {
+            try {
+              final puzzle = await Supabase.instance.client
+                  .from('crossword_puzzles')
+                  .select('grid')
+                  .eq('operator', operatorKey)
+                  .eq('difficulty', difficulty.toLowerCase())
+                  .order('created_at', ascending: false)
+                  .limit(1)
+                  .maybeSingle();
+              
+              if (puzzle != null && puzzle['grid'] != null) {
+                final gridData = puzzle['grid'] as List;
+                int blankCount = 0;
+                for (final row in gridData) {
+                  for (final cell in row as List) {
+                    if (cell is Map && cell['type'] == 'blank') {
+                      blankCount++;
+                    }
+                  }
+                }
+                totalItems = blankCount;
+              }
+            } catch (e) {
+              // If all else fails, use score (user can't score more than total blanks)
+              totalItems = score > 0 ? score : 10;
+            }
+          }
+          
+          // Final fallback
+          if (totalItems == 0) {
+            totalItems = score > 0 ? score : 10;
+          }
+        }
+        
+        // Get standardized game title based on game type (not from database)
+        // This ensures consistent titles across all operators and prevents using quiz titles
+        final gameTitle = gameKey == 'crossmath' ? 'Crossword Math' : 'Ninja Math';
+        
+        // For Crossword Math, always use null gameId to ensure consistent grouping
+        // This prevents mixing with other games that might have the same game_key
+        // For Ninja Math, use the gameId from database
+        final String? finalGameId = gameKey == 'crossmath' ? null : gameData.id;
+        
+        // Get classroom_id if not provided - try to get from user's current classroom
+        String? finalClassroomId = classroomId;
+        if (finalClassroomId == null || finalClassroomId.isEmpty) {
+          try {
+            final user = Supabase.instance.client.auth.currentUser;
+            if (user != null) {
+              final classroomsResponse = await Supabase.instance.client
+                  .from('user_classrooms')
+                  .select('classroom_id')
+                  .eq('user_id', user.id)
+                  .eq('status', 'accepted')
+                  .order('joined_at', ascending: false)
+                  .limit(1);
+              
+              if (classroomsResponse.isNotEmpty) {
+                finalClassroomId = classroomsResponse.first['classroom_id'] as String?;
+              }
+            }
+          } catch (e) {
+            // If we can't get classroom_id, just proceed without it
+          }
+        }
+        
+        // Save using unified service
+        final activityProgressService = ActivityProgressService();
+        await _saveGameProgress(
+          activityProgressService: activityProgressService,
+          gameId: finalGameId, // null for Crossword Math, actual ID for Ninja Math
+          gameTitle: gameTitle, // Standardized title (not from database)
+          operator: operatorKey,
+          difficulty: difficulty,
+          score: score,
+          totalItems: totalItems,
+          elapsedSeconds: elapsed,
+          classroomId: finalClassroomId, // Pass classroom_id
+        );
       }
     } catch (e) {
       Navigator.pop(context);

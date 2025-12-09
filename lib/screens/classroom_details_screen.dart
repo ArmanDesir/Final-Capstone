@@ -10,6 +10,11 @@ import 'package:pracpro/screens/operator_action_selection_screen.dart';
 import 'package:pracpro/screens/student_detail_screen.dart';
 import 'package:pracpro/services/content_service.dart';
 import 'package:pracpro/services/exercise_service.dart';
+import 'package:pracpro/services/basic_operator_lesson_service.dart';
+import 'package:pracpro/services/basic_operator_quiz_service.dart';
+import 'package:pracpro/models/basic_operator_lesson.dart';
+import 'package:pracpro/models/basic_operator_quiz.dart';
+import 'package:pracpro/screens/basic_operator_lesson_view_screen.dart';
 import 'package:pracpro/widgets/operator_button.dart';
 import 'package:pracpro/widgets/content_card.dart';
 import 'package:pracpro/widgets/loading_wrapper.dart';
@@ -33,20 +38,65 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
   List<Content> _contentList = [];
   bool _isLoadingContent = false;
   final ExerciseService _exerciseService = ExerciseService();
+  
+  // For lessons and quizzes view
+  final BasicOperatorLessonService _lessonService = BasicOperatorLessonService();
+  final BasicOperatorQuizService _quizService = BasicOperatorQuizService();
+  bool _isLoadingLessonsQuizzes = false;
+  Map<String, List<BasicOperatorLesson>> _lessonsByOperator = {};
+  Map<String, List<BasicOperatorQuiz>> _quizzesByOperator = {};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _verifyClassroomOwnership();
       Provider.of<ClassroomProvider>(
         context,
         listen: false,
       ).loadClassroomDetails(widget.classroom.id);
 
       _loadContent();
+      _loadLessonsAndQuizzes();
     });
+  }
+
+  Future<void> _verifyClassroomOwnership() async {
+    try {
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser == null) {
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to access this page')),
+          );
+        }
+        return;
+      }
+
+      // Verify that the current user is the owner of this classroom
+      if (widget.classroom.teacherId != currentUser.id) {
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You do not have permission to access this classroom'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error verifying access: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _loadContent() async {
@@ -62,6 +112,58 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
       ).showSnackBar(SnackBar(content: Text('Failed to load content: $e')));
     } finally {
       if (mounted) setState(() => _isLoadingContent = false);
+    }
+  }
+
+  Future<void> _loadLessonsAndQuizzes() async {
+    // Verify ownership before loading data
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser == null || widget.classroom.teacherId != currentUser.id) {
+      return; // Silently return if user doesn't own the classroom
+    }
+
+    setState(() => _isLoadingLessonsQuizzes = true);
+    try {
+      final operators = ['addition', 'subtraction', 'multiplication', 'division'];
+      final lessonsMap = <String, List<BasicOperatorLesson>>{};
+      final quizzesMap = <String, List<BasicOperatorQuiz>>{};
+
+      for (final operator in operators) {
+        try {
+          // Only load lessons and quizzes for this specific classroom
+          final lessons = await _lessonService.getLessons(
+            operator,
+            classroomId: widget.classroom.id,
+          );
+          final quizzes = await _quizService.getQuizzes(
+            operator,
+            classroomId: widget.classroom.id,
+          );
+          
+          if (lessons.isNotEmpty) {
+            lessonsMap[operator] = lessons;
+          }
+          if (quizzes.isNotEmpty) {
+            quizzesMap[operator] = quizzes;
+          }
+        } catch (e) {
+          // Continue with other operators if one fails
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _lessonsByOperator = lessonsMap;
+          _quizzesByOperator = quizzesMap;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load lessons and quizzes: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingLessonsQuizzes = false);
     }
   }
 
@@ -90,6 +192,7 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
               tabs: const [
                 Tab(text: 'Student List'),
                 Tab(text: 'Basic Operator'),
+                Tab(text: 'Lessons & Quizzes'),
               ],
             ),
           ),
@@ -99,7 +202,8 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                     controller: _tabController,
                     children: [
                       _buildStudentsTab(classroom, provider),
-                _buildBasicOperatorTab(classroom),
+                      _buildBasicOperatorTab(classroom),
+                      _buildLessonsQuizzesTab(classroom),
                     ],
             ),
                   ),
@@ -333,6 +437,144 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLessonsQuizzesTab(Classroom classroom) {
+    if (_isLoadingLessonsQuizzes) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final hasContent = _lessonsByOperator.isNotEmpty || _quizzesByOperator.isNotEmpty;
+    
+    if (!hasContent) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.book_outlined, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'No lessons or quizzes yet',
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Create lessons and quizzes for this classroom',
+                style: TextStyle(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final allOperators = <String>{};
+    allOperators.addAll(_lessonsByOperator.keys);
+    allOperators.addAll(_quizzesByOperator.keys);
+    final sortedOperators = allOperators.toList()..sort();
+
+    return RefreshIndicator(
+      onRefresh: _loadLessonsAndQuizzes,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: sortedOperators.map((operator) {
+            final lessons = _lessonsByOperator[operator] ?? [];
+            final quizzes = _quizzesByOperator[operator] ?? [];
+            
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      operator.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (lessons.isNotEmpty) ...[
+                      const Text(
+                        'Lessons',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...lessons.map((lesson) => Card(
+                        color: Colors.blue[50],
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: const Icon(Icons.book, color: Colors.blue),
+                          title: Text(lesson.title),
+                          subtitle: Text(
+                            lesson.description ?? 'No description',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => BasicOperatorLessonViewScreen(
+                                  lesson: lesson,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      )),
+                      const SizedBox(height: 16),
+                    ],
+                    if (quizzes.isNotEmpty) ...[
+                      const Text(
+                        'Quizzes',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...quizzes.map((quiz) => Card(
+                        color: Colors.purple[50],
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: const Icon(Icons.quiz, color: Colors.purple),
+                          title: Text(quiz.title),
+                          subtitle: Text(
+                            '${quiz.questions.length} question(s)',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Quiz: ${quiz.title}'),
+                              ),
+                            );
+                          },
+                        ),
+                      )),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

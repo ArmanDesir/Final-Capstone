@@ -4,7 +4,7 @@ import '../models/basic_operator_quiz.dart';
 class BasicOperatorQuizService {
   final SupabaseClient _sb = Supabase.instance.client;
 
-  Future<List<BasicOperatorQuiz>> getQuizzes(String operator, {String? classroomId}) async {
+  Future<List<BasicOperatorQuiz>> getQuizzes(String operator, {String? classroomId, String? lessonId}) async {
     var query = _sb
         .from('basic_operator_quizzes')
         .select('*, basic_operator_quiz_questions(*)')
@@ -12,6 +12,10 @@ class BasicOperatorQuizService {
 
     if (classroomId != null) {
       query = query.eq('classroom_id', classroomId);
+    }
+
+    if (lessonId != null && lessonId.isNotEmpty) {
+      query = query.eq('lesson_id', lessonId);
     }
 
     final data = await query.order('created_at', ascending: false);
@@ -32,12 +36,19 @@ class BasicOperatorQuizService {
     required List<Map<String, dynamic>> questions,
     required String teacherId,
     String? classroomId,
+    required String lessonId, // Required - quiz must be attached to a lesson
   }) async {
+    // Validate that lessonId is provided
+    if (lessonId.isEmpty) {
+      throw Exception('A lesson must be selected to create a quiz');
+    }
+
     final quizData = {
       'operator': operator,
       'title': title,
       'created_by': teacherId,
       'created_at': DateTime.now().toIso8601String(),
+      'lesson_id': lessonId, // Required field
     };
 
     if (classroomId != null) {

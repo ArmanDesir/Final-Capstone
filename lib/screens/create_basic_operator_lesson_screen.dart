@@ -136,24 +136,28 @@ class _CreateBasicOperatorLessonScreenState
         ),
       );
 
-      Navigator.pop(context, true);
-
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && Navigator.canPop(context)) {
-          Navigator.pop(context);
-        }
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => BasicOperatorModulePage(
-                operatorName: widget.operator,
-                classroomId: widget.classroomId,
+      // Navigate back to BasicOperatorModulePage with classroomId preserved
+      // This ensures the teacher sees the module page with create buttons
+      if (mounted) {
+        // Pop the create lesson screen
+        Navigator.pop(context, true);
+        
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            // Replace current route (operator action screen) with module page
+            // This ensures classroomId is passed and teacher view is shown
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => BasicOperatorModulePage(
+                  operatorName: widget.operator,
+                  classroomId: widget.classroomId, // Required for teacher create buttons
+                ),
               ),
-            ),
-          );
-        }
-      });
+            );
+          }
+        });
+      }
     } catch (e) {
       if (!mounted) return;
 

@@ -8,6 +8,7 @@ class BasicOperatorQuiz {
   final String operator;
   final String title;
   final String? classroomId;
+  final String? lessonId;
   final String? createdBy;
   final DateTime? createdAt;
   final List<BasicOperatorQuizQuestion> questions;
@@ -17,6 +18,7 @@ class BasicOperatorQuiz {
     required this.operator,
     required this.title,
     this.classroomId,
+    this.lessonId,
     this.createdBy,
     this.createdAt,
     this.questions = const [],

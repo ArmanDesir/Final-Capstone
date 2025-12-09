@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:pracpro/modules/basic_operators/addition/crossword_cell.dart';
 import 'package:pracpro/modules/basic_operators/addition/crossword_grid_generator.dart';
 import 'package:pracpro/modules/basic_operators/addition/game_theme.dart';
+import 'package:pracpro/services/activity_progress_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -39,6 +40,13 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
 
   final Map<String, TextEditingController> _controllers = {};
   final supabase = Supabase.instance.client;
+  final _activityProgressService = ActivityProgressService();
+  bool _progressSaved = false; // Track if progress has been saved
+  
+  // Store game metadata when game starts - reuse for all attempts (including Try Again)
+  String? _gameId;
+  String _gameTitle = 'Crossword Math';
+  bool _gameMetadataLoaded = false;
 
   @override
   void initState() {
@@ -50,6 +58,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     final min = widget.config?['min'] ?? 1;
     final max = widget.config?['max'] ?? 10;
     final timeSec = 120;
+
+    // Load game metadata ONCE when game starts - reuse for all attempts
+    if (!_gameMetadataLoaded) {
+      await _loadGameMetadata();
+    }
 
     try {
       final puzzle = await supabase
@@ -100,6 +113,21 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
   }
 
+  /// Load game metadata once when game starts
+  /// This ensures all attempts (including Try Again) use the same gameId/gameTitle
+  /// IMPORTANT: Always use null gameId for Crossword Math to prevent mixing with other games
+  /// This ensures Crossword Math groups by title+difficulty+operator, not by entity_id
+  Future<void> _loadGameMetadata() async {
+    if (_gameMetadataLoaded) return; // Don't reload
+    
+    // For Crossword Math, always use null gameId and rely on title-based grouping
+    // This prevents mixing with other games (like "ywv") that have entity_id
+    // All Crossword Math attempts will group by: "Crossword Math|easy|addition"
+    _gameId = null;
+    _gameTitle = 'Crossword Math';
+    _gameMetadataLoaded = true;
+  }
+
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -142,7 +170,7 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
                 ok++;
               } else {
                 cell.isCorrect = false;
-          }
+              }
         }
       }
     }
@@ -498,25 +526,60 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
   }
 
   Future<void> _recordGameProgress(int score, int elapsed) async {
+    // Prevent duplicate saves for the same attempt
+    if (_progressSaved) return;
+    
     try {
       final user = supabase.auth.currentUser;
       if (user == null) return;
 
-      final gameName = '${widget.operator}_crossmath';
-      final difficulty = widget.difficulty.toLowerCase();
-      final status = score == _totalBlanks ? 'completed' : 'incomplete';
-      final sourceId = const Uuid().v4();
+      // Ensure game metadata is loaded (should be loaded in _bootstrap, but double-check)
+      if (!_gameMetadataLoaded) {
+        await _loadGameMetadata();
+      }
 
-      await supabase.from('game_progress').insert({
-        'user_id': user.id,
-        'game_name': gameName,
-        'difficulty': difficulty,
-        'score': score,
-        'elapsed_time': elapsed,
-        'status': status,
-        'tries': 1,
-      });
+      // Use stored gameId and gameTitle - ensures consistency across all attempts
+      // This is critical for "Try Again" - all attempts must use the same game metadata
+
+      // Get classroom_id if not provided - try to get from user's current classroom
+      String? finalClassroomId = widget.classroomId;
+      if (finalClassroomId == null || finalClassroomId.isEmpty) {
+        try {
+          final classroomsResponse = await supabase
+              .from('user_classrooms')
+              .select('classroom_id')
+              .eq('user_id', user.id)
+              .eq('status', 'accepted')
+              .order('joined_at', ascending: false)
+              .limit(1);
+          
+          if (classroomsResponse.isNotEmpty) {
+            finalClassroomId = classroomsResponse.first['classroom_id'] as String?;
+          }
     } catch (e) {
+          // If we can't get classroom_id, continue without it
+        }
+      }
+
+      // Save to unified activity_progress table
+      // IMPORTANT: Use stored _gameId and _gameTitle to ensure all attempts
+      // (including Try Again) are grouped under the same game
+      await _activityProgressService.saveGameProgress(
+        userId: user.id,
+        gameId: _gameId, // Use stored gameId from initialization
+        gameTitle: _gameTitle, // Use stored gameTitle from initialization
+        operator: widget.operator,
+        difficulty: widget.difficulty.toLowerCase(),
+        score: score,
+        totalItems: _totalBlanks,
+        status: score == _totalBlanks ? 'completed' : 'incomplete',
+        elapsedTime: elapsed,
+        classroomId: finalClassroomId,
+      );
+      
+      _progressSaved = true; // Mark as saved to prevent duplicates
+    } catch (e) {
+      // Log error but don't block UI
     }
   }
 
@@ -534,8 +597,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     });
 
     final elapsed = 120 - _remainingSeconds;
+    // Save progress immediately when answers are checked
+    // This ensures it's saved regardless of which button the user clicks
     await _recordGameProgress(ok, elapsed);
 
+    // Show dialog after saving
     _showResultDialog();
   }
 
@@ -670,9 +736,18 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              setState(() {
-              });
+              // Progress is already saved in _checkAnswers(), but try again if needed
+              if (!_progressSaved) {
+                _recordGameProgress(_correct, elapsed).then((_) {
+                  Navigator.pop(context);
+                  setState(() {
+                  });
+                });
+              } else {
+                Navigator.pop(context);
+                setState(() {
+                });
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -688,8 +763,16 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
           ),
           TextButton(
             onPressed: () {
+              // Progress is already saved in _checkAnswers(), but try again if needed
+              if (!_progressSaved) {
+                _recordGameProgress(_correct, elapsed).then((_) {
               Navigator.pop(context);
               _reset();
+                });
+              } else {
+                Navigator.pop(context);
+                _reset();
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -708,11 +791,24 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
           ),
           TextButton(
             onPressed: () {
+              // Progress is already saved in _checkAnswers(), but try again if needed
+              if (!_progressSaved) {
+                _recordGameProgress(_correct, elapsed).then((_) {
               Navigator.pop(context);
               Navigator.pop(context, {
                 'score': _correct,
                 'elapsed': elapsed,
-              });
+                    'totalBlanks': _totalBlanks, // Include totalBlanks for game_screen
+                  });
+                });
+              } else {
+                Navigator.pop(context);
+                Navigator.pop(context, {
+                  'score': _correct,
+                  'elapsed': elapsed,
+                  'totalBlanks': _totalBlanks, // Include totalBlanks for game_screen
+                });
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -739,6 +835,9 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst || !route.willHandlePopInternally);
     
     setState(() {
+      // Reset game state for "Try Again"
+      // IMPORTANT: DO NOT reset _gameId, _gameTitle, or _gameMetadataLoaded
+      // These must persist across attempts to ensure all attempts are grouped correctly
       for (final c in _grid.expand((r) => r)) {
         if (c.type == CellType.blank) {
           c.value = null;
@@ -752,6 +851,8 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       for (final controller in _controllers.values) {
         controller.clear();
       }
+      // Reset progress saved flag so the next attempt can be saved
+      _progressSaved = false;
       _startTimer();
     });
   }

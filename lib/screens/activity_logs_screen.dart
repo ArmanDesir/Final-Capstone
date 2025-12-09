@@ -55,6 +55,7 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
       final supabase = Supabase.instance.client;
       final List<ActivityProgress> allActivities = [];
 
+      // Get all students in this classroom
       final studentsResponse = await supabase
           .from('user_classrooms')
           .select('user_id')
@@ -67,6 +68,7 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
           .where((id) => id.isNotEmpty)
           .toList();
 
+
       if (studentIds.isEmpty) {
         setState(() {
           _allActivities = [];
@@ -76,391 +78,86 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
       }
 
       try {
+        // Query activity_progress using the same logic as Student Progress
+        // Filter by selected classroom_id to validate it matches the selected classroom
+        // Use the same query structure as StudentQuizProgressService
+        // Query by classroom_id and user_id to get all activities for students in this classroom
         final activityResponse = await supabase
-            .from('activity_progress_by_classroom')
-            .select()
-            .eq('classroom_id', widget.classroomId)
-            .inFilter('user_id', studentIds)
+            .from('activity_progress')
+            .select('*')  // Get all fields like Student Progress does
+            .eq('classroom_id', widget.classroomId)  // Filter by selected classroom
+            .inFilter('user_id', studentIds)  // Only include students from this classroom
             .order('created_at', ascending: false)
             .limit(200);
 
         final activityData = (activityResponse as List).cast<Map<String, dynamic>>();
         
-        for (var json in activityData) {
-          final activity = ActivityProgress.fromJson(json);
+        // Remove duplicates from query results based on activity_progress id
+        // This ensures we don't process the same record twice
+        final uniqueRecordsMap = <String, Map<String, dynamic>>{};
+        for (var progress in activityData) {
+          final recordId = progress['id']?.toString() ?? '';
+          if (recordId.isNotEmpty && !uniqueRecordsMap.containsKey(recordId)) {
+            uniqueRecordsMap[recordId] = progress;
+          }
+        }
+        
+        final uniqueActivityData = uniqueRecordsMap.values.toList();
+        
+        // Map all activity_progress records to ActivityProgress model (show all attempts, not aggregated)
+        for (var progress in uniqueActivityData) {
+          final entityType = progress['entity_type']?.toString() ?? '';
+          final operator = progress['operator']?.toString() ?? '';
+          final difficulty = progress['difficulty']?.toString() ?? '';
+          final totalItems = progress['total_items'] as int? ?? 0;
           
-          if (activity.entityType == 'game') {
-            String formattedTitle = activity.entityTitle ?? '';
-            final titleLower = formattedTitle.toLowerCase();
-            if (titleLower.contains('crossmath') || titleLower.contains('division_crossmath') || 
-                titleLower.contains('multiplication_crossmath') || titleLower.contains('subtraction_crossmath') ||
-                titleLower.contains('addition_crossmath')) {
-              formattedTitle = 'Crossword Math';
+          // Format stage field (operator|difficulty|total_items for games, operator|total_items for quizzes)
+          // Same format as Student Progress uses
+          String stage = operator;
+          if (entityType == 'game' && difficulty.isNotEmpty) {
+            stage = '$operator|$difficulty|$totalItems';
+          } else if (entityType == 'quiz') {
+            stage = '$operator|$totalItems';
+          }
+          
+          // Format title with difficulty for games (same logic as Student Progress)
+          String displayTitle = progress['entity_title']?.toString() ?? 'Unknown';
+          if (entityType == 'game') {
+            // Ensure consistent game titles (same normalization as Student Progress)
+            final titleLower = displayTitle.toLowerCase();
+            if (titleLower.contains('crossword') || titleLower.contains('crossmath')) {
+              displayTitle = 'Crossword Math';
             } else if (titleLower.contains('ninja')) {
-              formattedTitle = 'Ninja Math';
+              displayTitle = 'Ninja Math';
             }
             
-            allActivities.add(ActivityProgress(
-              source: activity.source,
-              sourceId: activity.sourceId,
-              userId: activity.userId,
-              userName: activity.userName,
-              entityType: activity.entityType,
-              entityId: activity.entityId,
-              entityTitle: formattedTitle,
-              stage: activity.stage,
-              score: activity.score,
-              highestScore: activity.highestScore,
-              tries: activity.tries,
-              attempt: activity.attempt,
-              classroomId: activity.classroomId,
-              createdAt: activity.createdAt,
-            ));
-          } else {
-            allActivities.add(activity);
-          }
-        }
-      } catch (e) {
-      }
-
-      final quizTotalsMap = <String, int>{};
-
-      try {
-        final basicQuizProgressResponse = await supabase
-            .from('basic_operator_quiz_progress')
-            .select('*')
-            .inFilter('user_id', studentIds)
-            .order('updated_at', ascending: false)
-            .limit(200);
-
-        final basicQuizData = (basicQuizProgressResponse as List).cast<Map<String, dynamic>>();
-
-        if (basicQuizData.isNotEmpty) {
-          final quizIds = basicQuizData
-              .map((p) => p['quiz_id']?.toString())
-              .whereType<String>()
-              .where((id) => id.isNotEmpty)
-              .toSet()
-              .toList();
-
-          if (quizIds.isNotEmpty) {
-            final quizzesResponse = await supabase
-                .from('basic_operator_quizzes')
-                .select('id, title, operator, classroom_id')
-                .inFilter('id', quizIds)
-                .eq('classroom_id', widget.classroomId);
-
-            final quizzesMap = <String, Map<String, dynamic>>{};
-            final quizzesData = (quizzesResponse as List).cast<Map<String, dynamic>>();
-
-            try {
-              final allQuestionsResponse = await supabase
-                  .from('basic_operator_quiz_questions')
-                  .select('quiz_id')
-                  .inFilter('quiz_id', quizIds);
-
-              final questionsList = (allQuestionsResponse as List).cast<Map<String, dynamic>>();
-              for (final question in questionsList) {
-                final qId = question['quiz_id']?.toString();
-                if (qId != null) {
-                  quizTotalsMap[qId] = (quizTotalsMap[qId] ?? 0) + 1;
-                }
-              }
-            } catch (e) {
+            // Add difficulty if not already included (same as Student Progress)
+            if (difficulty.isNotEmpty && !displayTitle.toLowerCase().contains(difficulty.toLowerCase())) {
+              final difficultyCapitalized = difficulty.substring(0, 1).toUpperCase() + difficulty.substring(1);
+              displayTitle = '$displayTitle ($difficultyCapitalized)';
             }
-
-            for (final quiz in quizzesData) {
-              final quizId = quiz['id']?.toString();
-              if (quizId != null) {
-                quizzesMap[quizId] = quiz;
-              }
-            }
-
-            for (final progress in basicQuizData) {
-              final quizId = progress['quiz_id']?.toString();
-              if (quizId != null && quizzesMap.containsKey(quizId)) {
-                final quiz = quizzesMap[quizId]!;
-                final totalQuestions = quizTotalsMap[quizId] ?? 0;
-                final highestScorePercent = progress['highest_score'] as int? ?? 0;
-                final actualScore = totalQuestions > 0
-                    ? ((highestScorePercent / 100) * totalQuestions).round()
-                    : 0;
-
-                DateTime? completionTime;
-                if (progress['created_at'] != null) {
-                  try {
-                    completionTime = DateTime.parse(progress['created_at']);
-                  } catch (e) {
-                  }
-                }
-                if (completionTime == null && progress['updated_at'] != null) {
-                  try {
-                    completionTime = DateTime.parse(progress['updated_at']);
-                  } catch (e) {
-                  }
-                }
-                completionTime ??= DateTime.now();
-
-                allActivities.add(ActivityProgress(
-                  source: 'basic_operator_quiz_progress',
-                  sourceId: progress['id']?.toString() ?? '',
-                  userId: progress['user_id']?.toString() ?? '',
-                  entityType: 'quiz',
-                  entityId: quizId,
-                  entityTitle: quiz['title']?.toString() ?? 'Quiz',
-                  stage: '${quiz['operator']?.toString() ?? ''}|$totalQuestions',
-                  score: actualScore,
-                  highestScore: actualScore,
-                  tries: progress['attempts_count'] as int?,
-                  attempt: totalQuestions,
-                  classroomId: widget.classroomId,
-                  createdAt: completionTime,
-                ));
-              }
-            }
-          }
-        }
-      } catch (e) {
-      }
-
-      try {
-        final quizProgressResponse = await supabase
-            .from('quiz_progress')
-            .select('*')
-            .inFilter('user_id', studentIds)
-            .order('updated_at', ascending: false)
-            .limit(200);
-
-        final quizData = (quizProgressResponse as List).cast<Map<String, dynamic>>();
-
-        if (quizData.isNotEmpty) {
-          final quizIds = quizData
-              .map((p) => p['quiz_id']?.toString())
-              .whereType<String>()
-              .where((id) => id.isNotEmpty)
-              .toSet()
-              .toList();
-
-          if (quizIds.isNotEmpty) {
-            final quizzesResponse = await supabase
-                .from('quizzes')
-                .select('id, title, lesson_id')
-                .inFilter('id', quizIds);
-
-            final quizzesData = (quizzesResponse as List).cast<Map<String, dynamic>>();
-
-            final legacyQuizTotalsMap = <String, int>{};
-            for (final quizId in quizIds) {
-              try {
-                final questionsResponse = await supabase
-                    .from('quiz_questions')
-                    .select('id')
-                    .eq('quiz_id', quizId);
-                legacyQuizTotalsMap[quizId] = (questionsResponse as List).length;
-              } catch (e) {
-                try {
-                  final questionsResponse = await supabase
-                      .from('questions')
-                      .select('id')
-                      .eq('quiz_id', quizId);
-                  legacyQuizTotalsMap[quizId] = (questionsResponse as List).length;
-                } catch (e2) {
-                }
-              }
-            }
-
-            final lessonIds = quizzesData
-                .map((q) => q['lesson_id']?.toString())
-                .whereType<String>()
-                .where((id) => id.isNotEmpty)
-                .toSet()
-                .toList();
-
-            if (lessonIds.isNotEmpty) {
-              final lessonsResponse = await supabase
-                  .from('lessons')
-                  .select('id, classroom_id')
-                  .inFilter('id', lessonIds)
-                  .eq('classroom_id', widget.classroomId);
-
-              final lessonsMap = <String, Map<String, dynamic>>{};
-              final lessonsData = (lessonsResponse as List).cast<Map<String, dynamic>>();
-              for (final lesson in lessonsData) {
-                final lessonId = lesson['id']?.toString();
-                if (lessonId != null) {
-                  lessonsMap[lessonId] = lesson;
-                }
-              }
-
-              final quizzesMap = <String, Map<String, dynamic>>{};
-              for (final quiz in quizzesData) {
-                final quizId = quiz['id']?.toString();
-                final lessonId = quiz['lesson_id']?.toString();
-                if (quizId != null && lessonId != null && lessonsMap.containsKey(lessonId)) {
-                  final lesson = lessonsMap[lessonId]!;
-                  quizzesMap[quizId] = {
-                    ...quiz,
-                    'classroom_id': lesson['classroom_id']?.toString(),
-                  };
-                }
-              }
-
-              for (final progress in quizData) {
-                final quizId = progress['quiz_id']?.toString();
-                if (quizId != null && quizzesMap.containsKey(quizId)) {
-                  final quiz = quizzesMap[quizId]!;
-                  final totalQuestions = legacyQuizTotalsMap[quizId] ?? 0;
-                  final highestScorePercent = progress['highest_score'] as int? ?? 0;
-                  final actualScore = totalQuestions > 0
-                      ? ((highestScorePercent / 100) * totalQuestions).round()
-                      : 0;
-
-                  DateTime? completionTime;
-                  if (progress['created_at'] != null) {
-                    try {
-                      completionTime = DateTime.parse(progress['created_at']);
-                    } catch (e) {
-                    }
-                  }
-                  if (completionTime == null && progress['updated_at'] != null) {
-                    try {
-                      completionTime = DateTime.parse(progress['updated_at']);
-                    } catch (e) {
-                    }
-                  }
-                  completionTime ??= DateTime.now();
-
-                  allActivities.add(ActivityProgress(
-                    source: 'quiz_progress',
-                    sourceId: progress['id']?.toString() ?? '',
-                    userId: progress['user_id']?.toString() ?? '',
-                    entityType: 'quiz',
-                    entityId: quizId,
-                    entityTitle: quiz['title']?.toString() ?? 'Quiz',
-                    stage: '|$totalQuestions',
-                    score: actualScore,
-                    highestScore: actualScore,
-                    tries: progress['attempts_count'] as int?,
-                    attempt: totalQuestions,
-                    classroomId: widget.classroomId,
-                    createdAt: completionTime,
-                  ));
-                }
-              }
-            }
-          }
-        }
-      } catch (e) {
-      }
-
-      try {
-        final gameProgressResponse = await supabase
-            .from('game_progress')
-            .select('*')
-            .inFilter('user_id', studentIds)
-            .order('created_at', ascending: false)
-            .limit(200);
-
-        final gameData = (gameProgressResponse as List).cast<Map<String, dynamic>>();
-
-        final gameTotalsMap = <String, int>{};
-
-        try {
-          final crosswordPuzzles = await supabase
-              .from('crossword_puzzles')
-              .select('operator, difficulty, grid');
-
-          for (final puzzle in crosswordPuzzles) {
-            final operator = puzzle['operator']?.toString() ?? '';
-            final difficulty = puzzle['difficulty']?.toString() ?? '';
-            final gridData = puzzle['grid'] as List;
-            int blankCount = 0;
-            for (final row in gridData) {
-              for (final cell in row as List) {
-                if (cell is Map && cell['type'] == 'blank') {
-                  blankCount++;
-                }
-              }
-            }
-            if (blankCount > 0) {
-              gameTotalsMap['crossmath|$difficulty|$operator'] = blankCount;
-            }
-          }
-        } catch (e) {
-        }
-
-        for (final progress in gameData) {
-          final gameName = progress['game_name']?.toString() ?? '';
-          final score = progress['score'] as int? ?? 0;
-          final difficulty = progress['difficulty']?.toString() ?? 'easy';
-
-          String gameTitle = gameName;
-          final gameNameLower = gameName.toLowerCase();
-          if (gameNameLower.contains('crossmath') || gameNameLower.contains('crossword math')) {
-            gameTitle = 'Crossword Math';
-          } else if (gameNameLower.contains('ninja')) {
-            gameTitle = 'Ninja Math';
-          }
-
-          int finalTotalRounds = 0;
-          if (gameNameLower.contains('crossmath')) {
-            String? operator;
-            if (gameNameLower.startsWith('addition_')) {
-              operator = 'addition';
-            } else if (gameNameLower.startsWith('subtraction_')) {
-              operator = 'subtraction';
-            } else if (gameNameLower.startsWith('multiplication_')) {
-              operator = 'multiplication';
-            } else if (gameNameLower.startsWith('division_')) {
-              operator = 'division';
-            }
-
-            if (operator != null) {
-              final key = 'crossmath|$difficulty|$operator';
-              final totalFromPuzzle = gameTotalsMap[key];
-              if (totalFromPuzzle != null && totalFromPuzzle > 0) {
-                finalTotalRounds = totalFromPuzzle;
-              } else {
-                if (difficulty == 'easy') {
-                  finalTotalRounds = score > 0 ? (score + 2) : 5;
-                } else if (difficulty == 'medium') {
-                  finalTotalRounds = score > 0 ? (score + 3) : 8;
-                } else if (difficulty == 'hard') {
-                  finalTotalRounds = score > 0 ? (score + 4) : 10;
-                } else {
-                  finalTotalRounds = score > 0 ? (score + 2) : 5;
-                }
-              }
-            } else {
-              finalTotalRounds = score > 0 ? (score + 2) : 5;
-            }
-          } else if (gameNameLower.contains('ninja')) {
-            finalTotalRounds = 10;
-          } else {
-            finalTotalRounds = score > 0 ? score : 1;
           }
 
           allActivities.add(ActivityProgress(
-            source: 'game_progress',
+            source: 'activity_progress',
             sourceId: progress['id']?.toString() ?? '',
-            userId: progress['user_id']?.toString() ?? '',
-            entityType: 'game',
-            entityId: progress['id']?.toString() ?? '',
-            entityTitle: gameTitle,
-            stage: difficulty,
-            score: score,
-            highestScore: score,
-            tries: progress['tries'] as int? ?? 1,
-            attempt: finalTotalRounds,
-            classroomId: widget.classroomId,
-            createdAt: progress['created_at'] != null
-                ? DateTime.parse(progress['created_at'])
-                : (progress['updated_at'] != null
-                    ? DateTime.parse(progress['updated_at'])
-                    : DateTime.now()),
+            userId: progress['user_id']?.toString(),
+            userName: null, // Will be populated later from users table
+            entityType: entityType,
+            entityId: progress['entity_id']?.toString(),
+            entityTitle: displayTitle,
+            stage: stage,
+            score: progress['score'] as int?,
+            attempt: totalItems, // Use total_items for display (score/total_items format)
+            highestScore: progress['score'] as int?,
+            tries: progress['attempt_number'] as int?,
+            status: progress['status']?.toString(),
+            classroomId: progress['classroom_id']?.toString() ?? widget.classroomId,
+            createdAt: DateTime.parse(progress['created_at']?.toString() ?? DateTime.now().toIso8601String()),
           ));
         }
       } catch (e) {
+        // Error fetching from activity_progress
       }
 
       final userIds = allActivities.map((a) => a.userId).toSet().toList();
@@ -505,47 +202,19 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
         }
       }
 
-      final deduplicatedActivities = <String, ActivityProgress>{};
-
-      for (var activity in allActivities) {
-        String key;
-
-        if (activity.entityType == 'game') {
-          String gameTitle = activity.entityTitle ?? '';
-          final titleLower = gameTitle.toLowerCase();
-          if (titleLower.contains('crossmath') || titleLower.contains('division_crossmath') ||
-              titleLower.contains('multiplication_crossmath') || titleLower.contains('subtraction_crossmath') ||
-              titleLower.contains('addition_crossmath')) {
-            gameTitle = 'Crossword Math';
-          } else if (titleLower.contains('ninja')) {
-            gameTitle = 'Ninja Math';
-          }
-
-          final difficulty = activity.stage?.toLowerCase() ?? 'easy';
-          key = '${activity.entityType}|$gameTitle|$difficulty|${activity.userId}';
-        } else {
-          key = '${activity.entityType}|${activity.entityId}|${activity.userId}';
-        }
-
-        if (!deduplicatedActivities.containsKey(key)) {
-          deduplicatedActivities[key] = activity;
-        } else {
-          final existing = deduplicatedActivities[key]!;
-          final existingTotal = existing.attempt ?? 0;
-          final newTotal = activity.attempt ?? 0;
-          final existingScore = existing.score ?? 0;
-          final newScore = activity.score ?? 0;
-
-          if (existingScore > 1 && existingTotal == 1) {
-            deduplicatedActivities[key] = activity;
-          } else if (newScore > 1 && newTotal == 1) {
-          } else if (activity.createdAt.isAfter(existing.createdAt)) {
-            deduplicatedActivities[key] = activity;
-          }
+      // Remove duplicates based on unique id (sourceId) to prevent duplicate entries
+      // This ensures each activity_progress record is shown only once
+      final uniqueActivitiesMap = <String, ActivityProgress>{};
+      for (final activity in allActivities) {
+        // Use sourceId (which is the activity_progress id) as unique key
+        final key = activity.sourceId;
+        if (key.isNotEmpty && !uniqueActivitiesMap.containsKey(key)) {
+          uniqueActivitiesMap[key] = activity;
         }
       }
-
-      final uniqueActivities = deduplicatedActivities.values.toList();
+      
+      // Convert back to list and sort by created_at descending (most recent first)
+      final uniqueActivities = uniqueActivitiesMap.values.toList();
       uniqueActivities.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       setState(() {

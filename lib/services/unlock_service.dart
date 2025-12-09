@@ -1,17 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:logger/logger.dart';
 
 class UnlockService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  final Logger _logger = Logger(
-    printer: PrettyPrinter(
-      methodCount: 0,
-      errorMethodCount: 5,
-      lineLength: 120,
-      colors: true,
-      printEmojis: true,
-    ),
-  );
   
   /// Test if the RPC function is available (cache refreshed)
   /// Returns true if RPC is accessible, false if it's still in cache
@@ -36,7 +26,6 @@ class UnlockService {
     } catch (e, stackTrace) {
       final errorStr = e.toString();
       if (errorStr.contains('schema cache') || errorStr.contains('PGRST202')) {
-        _logger.w('RPC function not yet in schema cache: $e');
         return {
           'available': false,
           'message': 'RPC function not yet in cache (still using client-side fallback)',
@@ -61,10 +50,13 @@ class UnlockService {
     required int score,
     required int totalQuestions,
     required int attemptsCount,
+    String? lessonId, // Optional lesson ID - if provided, checks if quiz is quiz 1 of that lesson
   }) async {
     // Validate UUID parameters - skip RPC if invalid, fall through to client-side
-    if (userId.isNotEmpty && quizId.isNotEmpty) {
+    // Note: If lessonId is provided, we must use client-side logic since RPC doesn't support lessonId yet
+    if (userId.isNotEmpty && quizId.isNotEmpty && (lessonId == null || lessonId.isEmpty)) {
       // First, try the RPC function (preferred - atomic and server-side)
+      // Only use RPC if lessonId is not provided (RPC doesn't support lessonId yet)
       try {
         final result = await _supabase.rpc(
           'unlock_after_quiz_completion',
@@ -95,31 +87,19 @@ class UnlockService {
             errorStr.contains('22p02');
         
         if (isUuidError) {
-          _logger.w(
-            'Unlock RPC Error (UUID validation): $e. Falling back to client-side.',
-          );
           // UUID error - fall through to client-side implementation
         } else if (!isSchemaCacheError) {
-          // Log non-schema-cache errors as system errors
-          _logger.e(
-            'Unlock RPC Error (Non-schema cache): $e\nStack Trace: $stackTrace',
-          );
           // For other errors, return them
           return {
             'unlocked': false,
             'error': e.toString(),
           };
         }
-        // Schema cache error - log as info (expected behavior, fallback will handle)
-        _logger.w(
-          'Unlock RPC not available (schema cache not refreshed), using client-side fallback: $e',
-        );
         // Schema cache error - silently fall through to client-side implementation
       }
+    } else if (lessonId != null && lessonId.isNotEmpty) {
+      // Fall through to client-side implementation when lessonId is provided
     } else {
-      _logger.w(
-        'Invalid UUID parameters - userId: ${userId.isEmpty ? "empty" : "valid"}, quizId: ${quizId.isEmpty ? "empty" : "valid"}. Using client-side fallback.',
-      );
       // Fall through to client-side implementation if UUIDs are invalid
     }
     
@@ -128,8 +108,8 @@ class UnlockService {
       // Calculate passing rate
       final passingRate = totalQuestions > 0 ? (score / totalQuestions * 100) : 0;
       
-      // Check unlock conditions: 75% passing rate OR 3rd attempt
-      final shouldUnlock = (passingRate >= 75) || (attemptsCount >= 3);
+      // Check unlock conditions: 80% passing rate OR 3rd attempt
+      final shouldUnlock = (passingRate >= 80) || (attemptsCount >= 3);
       
       if (!shouldUnlock) {
         return {
@@ -138,7 +118,7 @@ class UnlockService {
         };
       }
       
-      // Get quiz information (lesson_id column doesn't exist - working without it)
+      // Get quiz information
       final quizResult = await _supabase
           .from('basic_operator_quizzes')
           .select('id, operator, classroom_id, created_at')
@@ -146,7 +126,6 @@ class UnlockService {
           .maybeSingle();
       
       if (quizResult == null) {
-        _logger.e('Quiz not found for unlock: quiz_id=$quizId, user_id=$userId');
         return {
           'unlocked': false,
           'message': 'Quiz not found',
@@ -162,10 +141,64 @@ class UnlockService {
       final currentQuizCreatedAt = quizResult['created_at'] as String?;
       
       if (operator == null) {
-        _logger.e('Quiz operator not found: quiz_id=$quizId');
         return {
           'unlocked': false,
           'message': 'Quiz operator not found',
+        };
+      }
+      
+      // Check if this is quiz 1
+      // If lessonId is provided, check if it's the first quiz completed for that lesson
+      // Otherwise, check if it's the oldest quiz for this operator/classroom
+      bool isQuiz1 = false;
+      
+      if (lessonId != null && lessonId.isNotEmpty) {
+        // Check if this is the first quiz completed for this lesson
+        final lessonQuizProgress = await _supabase
+            .from('activity_progress')
+            .select('entity_id, created_at')
+            .eq('user_id', userId)
+            .eq('entity_type', 'quiz')
+            .eq('lesson_id', lessonId)
+            .order('created_at', ascending: true)
+            .limit(1);
+        
+        if (lessonQuizProgress is List && lessonQuizProgress.isNotEmpty) {
+          final firstQuizForLesson = lessonQuizProgress[0]['entity_id']?.toString();
+          isQuiz1 = (firstQuizForLesson == quizId);
+        } else {
+          // This is the first quiz for this lesson
+          isQuiz1 = true;
+        }
+      } else {
+        // Fallback: Check if this is quiz 1 globally (oldest quiz by creation date)
+        var firstQuizQuery = _supabase
+            .from('basic_operator_quizzes')
+            .select('id, created_at')
+            .eq('operator', operator);
+        
+        if (classroomId != null && classroomId.isNotEmpty) {
+          firstQuizQuery = firstQuizQuery.eq('classroom_id', classroomId);
+        } else {
+          firstQuizQuery = firstQuizQuery.isFilter('classroom_id', null);
+        }
+        
+        final firstQuizResult = await firstQuizQuery
+            .order('created_at', ascending: true)
+            .limit(1);
+        
+        // Compare quiz IDs directly to determine if this is quiz 1
+        isQuiz1 = firstQuizResult is List && 
+            firstQuizResult.isNotEmpty && 
+            firstQuizResult[0]['id']?.toString() == quizId;
+      }
+      
+      // Only unlock if this is quiz 1
+      if (!isQuiz1) {
+        return {
+          'unlocked': false,
+          'message': 'Only quiz 1 can unlock the next lesson',
+          'is_quiz_1': false,
         };
       }
       
@@ -295,62 +328,18 @@ class UnlockService {
         }
       }
       
-      // Unlock next quiz by creation order
-      if (currentQuizCreatedAt != null) {
-        var nextQuizQuery = _supabase
-            .from('basic_operator_quizzes')
-            .select('id')
-            .eq('operator', operator)
-            .gt('created_at', currentQuizCreatedAt);
-        
-        if (classroomId != null && classroomId.isNotEmpty) {
-          nextQuizQuery = nextQuizQuery.eq('classroom_id', classroomId);
-        }
-        
-        final nextQuizzes = await nextQuizQuery
-            .order('created_at', ascending: true)
-            .limit(1);
-        
-        if (nextQuizzes is List && nextQuizzes.isNotEmpty) {
-          final nextQuizId = nextQuizzes[0]['id']?.toString();
-          if (nextQuizId != null) {
-            try {
-              final unlockData = {
-                'user_id': userId,
-                'entity_type': 'quiz',
-                'entity_id': nextQuizId,
-                'operator': operator,
-              };
-              // Only include classroom_id if it's not null/empty
-              if (classroomId != null && classroomId.isNotEmpty) {
-                unlockData['classroom_id'] = classroomId;
-              }
-              await _supabase.from('unlocked_content').insert(unlockData);
-              
-              unlockedItems.add({
-                'type': 'quiz',
-                'id': nextQuizId,
-              });
-            } catch (e) {
-              // Ignore duplicate key errors
-            }
-          }
-        }
-      }
+      // Note: We don't unlock additional quizzes - only the next lesson
+      // The requirement is that only quiz 1 unlocks lesson 2
       
       final result = {
         'unlocked': true,
         'items': unlockedItems,
         'passing_rate': passingRate,
+        'is_quiz_1': true,
         '_method': 'client-side', // Mark that client-side fallback was used
       };
       return result;
     } catch (e, stackTrace) {
-      // Log client-side fallback errors as system errors
-      _logger.e(
-        'Unlock Client-Side Fallback Error: $e\nStack Trace: $stackTrace',
-      );
-      // Return error info for debugging
       return {
         'unlocked': false,
         'error': e.toString(),
@@ -374,7 +363,6 @@ class UnlockService {
       
       return result != null;
     } catch (e, stackTrace) {
-      _logger.e('Error checking if lesson is unlocked: $e\nStack Trace: $stackTrace');
       return false;
     }
   }
@@ -395,8 +383,6 @@ class UnlockService {
       
       return result != null;
     } catch (e, stackTrace) {
-      _logger.e('Error checking if quiz is unlocked: $e\nStack Trace: $stackTrace');
-      // First lesson/quiz should always be unlocked
       return true;
     }
   }
@@ -442,7 +428,6 @@ class UnlockService {
         'quizzes': unlockedQuizzes,
       };
     } catch (e, stackTrace) {
-      _logger.e('Error getting unlocked items: $e\nStack Trace: $stackTrace');
       return {'lessons': <String>{}, 'quizzes': <String>{}};
     }
   }
@@ -528,7 +513,7 @@ class UnlockService {
         }
       }
     } catch (e, stackTrace) {
-      _logger.e('Error initializing first unlocks: $e\nStack Trace: $stackTrace');
+      // Error initializing unlocks - silently fail
     }
   }
 }

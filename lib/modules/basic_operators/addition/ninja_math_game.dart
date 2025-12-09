@@ -8,12 +8,14 @@ class NinjaMathGameScreen extends StatefulWidget {
   final String difficulty;
   final Map<String, dynamic>? config;
   final String operator;
+  final String? classroomId; // Optional classroom ID
 
   const NinjaMathGameScreen({
     super.key,
     required this.difficulty,
     required this.operator,
     this.config,
+    this.classroomId,
   });
 
   @override

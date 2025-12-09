@@ -46,21 +46,75 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
   List<BasicOperatorExercise> _exercises = [];
   Set<String> _unlockedLessons = {};
   Set<String> _unlockedQuizzes = {};
+  bool _isTeacher = false;
+  bool _isLoadingUserRole = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    _loadAllContent();
+    _checkUserRole();
+  }
+
+  Future<void> _checkUserRole() async {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    
+    if (user == null) {
+      setState(() {
+        _isTeacher = false;
+        _isLoadingUserRole = false;
+        _tabController = TabController(length: 2, vsync: this); // Students: Lessons and Games only
+      });
+      _loadAllContent();
+      return;
+    }
+
+    try {
+      final res = await supabase
+          .from('users')
+          .select('user_type')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final isTeacher = res?['user_type'] == 'teacher';
+      
+      setState(() {
+        _isTeacher = isTeacher;
+        _isLoadingUserRole = false;
+        // Teachers: 4 tabs (Lessons, Quizzes, Exercises, Games)
+        // Students: 2 tabs (Lessons, Games only)
+        _tabController = TabController(
+          length: isTeacher ? 4 : 2,
+          vsync: this,
+        );
+      });
+      
+      _loadAllContent();
+    } catch (e) {
+      setState(() {
+        _isTeacher = false;
+        _isLoadingUserRole = false;
+        _tabController = TabController(length: 2, vsync: this);
+      });
+      _loadAllContent();
+    }
   }
 
   Future<void> _loadAllContent() async {
     // Load content first, then unlocks (so we can initialize first unlocks if needed)
-    await Future.wait([
+    final futures = <Future<void>>[
       _loadLessons(),
-      _loadQuizzes(),
-      _loadExercises(),
-    ]);
+    ];
+    
+    // Only load quizzes and exercises for teachers
+    if (_isTeacher) {
+      futures.addAll([
+        _loadQuizzes(),
+        _loadExercises(),
+      ]);
+    }
+    
+    await Future.wait(futures);
     // Load unlocks after content is loaded
     await _loadUnlockedItems();
   }
@@ -171,6 +225,12 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingUserRole) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final title =
         '${widget.operatorName[0].toUpperCase()}${widget.operatorName.substring(1)}';
 
@@ -184,22 +244,34 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           isScrollable: true,
-          tabs: const [
-            Tab(icon: Icon(Icons.menu_book), text: 'Lessons'),
-            Tab(icon: Icon(Icons.quiz), text: 'Quizzes'),
-            Tab(icon: Icon(Icons.fitness_center), text: 'Exercises'),
-            Tab(icon: Icon(Icons.videogame_asset), text: 'Games'),
-          ],
+          tabs: _isTeacher
+              ? const [
+                  Tab(icon: Icon(Icons.menu_book), text: 'Lessons'),
+                  Tab(icon: Icon(Icons.quiz), text: 'Quizzes'),
+                  Tab(icon: Icon(Icons.fitness_center), text: 'Exercises'),
+                  Tab(icon: Icon(Icons.videogame_asset), text: 'Games'),
+                ]
+              : const [
+                  // Students: Only Lessons and Games
+                  Tab(icon: Icon(Icons.menu_book), text: 'Lessons'),
+                  Tab(icon: Icon(Icons.videogame_asset), text: 'Games'),
+                ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildLessonsTab(),
-          _buildQuizzesTab(),
-          _buildExercisesTab(),
-          GameScreen(operatorKey: widget.operatorName),
-        ],
+        children: _isTeacher
+            ? [
+                _buildLessonsTab(),
+                _buildQuizzesTab(),
+                _buildExercisesTab(),
+                GameScreen(operatorKey: widget.operatorName, classroomId: widget.classroomId),
+              ]
+            : [
+                // Students: Only Lessons and Games
+                _buildLessonsTab(),
+                GameScreen(operatorKey: widget.operatorName, classroomId: widget.classroomId),
+              ],
       ),
     );
   }
@@ -295,17 +367,14 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
         itemCount: _lessons.length,
         itemBuilder: (context, index) {
           final lesson = _lessons[index];
-          // First lesson (oldest by creation date) should be unlocked by default
+          // Check unlock status from database
+          // First lesson (oldest by creation date) should be unlocked by default via initializeFirstUnlocks
           // Lessons are sorted oldest first, so index 0 is the oldest
-          final isOldestLesson = index == 0;
-          final isUnlocked = lesson.id == null || 
-              isOldestLesson || 
-              _unlockedLessons.contains(lesson.id);
-          final isFirstLesson = isOldestLesson;
+          final isUnlocked = lesson.id == null || _unlockedLessons.contains(lesson.id);
           
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             color: isUnlocked ? Colors.orange[50] : Colors.grey[200],
             child: ListTile(
               leading: Icon(
@@ -316,7 +385,7 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                 children: [
                   Expanded(
                     child: Text(
-                      lesson.title,
+                lesson.title,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: isUnlocked ? Colors.black : Colors.grey[600],
@@ -344,7 +413,7 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
               subtitle: Text(
                 isUnlocked 
                     ? (lesson.description ?? 'No description provided')
-                    : 'Complete previous lessons to unlock',
+                    : 'Complete quiz 1 with 80% or above (or 3 attempts) to unlock',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -376,11 +445,11 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                     ),
                   ),
                 );
-              },
-            ),
-          );
-        },
-      ),
+                              },
+                            ),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -428,19 +497,19 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                       quiz.title,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                      ),
+                    ),
                     ),
                     subtitle: Text('${quiz.questions.length} questions'),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded),
                     onTap: user != null ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BasicOperatorQuizScreen(
-                            quiz: quiz,
-                            userId: user.id,
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BasicOperatorQuizScreen(
+                              quiz: quiz,
+                              userId: user.id,
+                            ),
                           ),
-                        ),
                       ).then((_) async {
                         await Future.wait([
                           _loadQuizzes(),

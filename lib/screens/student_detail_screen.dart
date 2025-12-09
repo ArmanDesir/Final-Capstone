@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:pracpro/models/user.dart' as app_model;
-import 'package:pracpro/models/activity_progress.dart';
-import 'package:pracpro/services/activity_service.dart';
 import 'package:pracpro/services/student_quiz_progress_service.dart';
 import 'package:pracpro/widgets/loading_wrapper.dart';
 import 'package:pracpro/widgets/empty_state.dart';
@@ -24,11 +22,7 @@ class StudentDetailScreen extends StatefulWidget {
 class _StudentDetailScreenState extends State<StudentDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final ActivityService _activityService = ActivityService();
   final StudentQuizProgressService _quizProgressService = StudentQuizProgressService();
-
-  List<ActivityProgress> _studentActivities = [];
-  bool _isLoadingActivities = true;
 
   String? _selectedOperator;
   List<QuizProgressData> _quizProgressData = [];
@@ -38,7 +32,6 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this, initialIndex: 1);
-    _loadStudentActivities();
   }
 
   @override
@@ -47,21 +40,6 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
     super.dispose();
   }
 
-  Future<void> _loadStudentActivities() async {
-    setState(() => _isLoadingActivities = true);
-    try {
-      final allActivities = await _activityService.getActivityProgress(widget.classroomId);
-      setState(() {
-        _studentActivities = allActivities
-            .where((activity) => activity.userId == widget.student.id)
-            .toList()
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        _isLoadingActivities = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingActivities = false);
-    }
-  }
 
   Widget _buildStudentInformationTab() {
     return SingleChildScrollView(
@@ -141,7 +119,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
           _isLoadingQuizProgress = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (mounted) {
         setState(() {
           _isLoadingQuizProgress = false;
@@ -154,6 +132,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen>
 
     final quizzes = _quizProgressData.where((q) => !q.isGame).toList();
     final games = _quizProgressData.where((q) => q.isGame).toList();
+    
 
     return Column(
       children: [

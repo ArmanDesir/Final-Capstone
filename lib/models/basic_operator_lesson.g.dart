@@ -1,5 +1,10 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'basic_operator_lesson.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
 
 BasicOperatorLesson _$BasicOperatorLessonFromJson(Map<String, dynamic> json) =>
     BasicOperatorLesson(

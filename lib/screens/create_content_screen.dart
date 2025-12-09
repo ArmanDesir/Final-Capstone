@@ -8,6 +8,7 @@ import '../models/basic_operator_lesson.dart';
 import '../providers/basic_operator_exercise_provider.dart';
 import '../providers/basic_operator_lesson_provider.dart';
 import '../providers/basic_operator_quiz_provider.dart';
+import 'basic_operator_module_page.dart';
 
 class CreateContentScreen extends StatefulWidget {
   final String operator;
@@ -44,7 +45,12 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.contentType == 'quiz') _addQuestion();
+    if (widget.contentType == 'quiz') {
+      _addQuestion();
+      final provider =
+      Provider.of<BasicOperatorLessonProvider>(context, listen: false);
+      _lessonFuture = provider.loadLessons(widget.operator, classroomId: widget.classroomId);
+    }
 
     if (widget.contentType == 'exercise') {
       final provider =
@@ -143,7 +149,71 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                 TextFormField(
                     controller: _quizTitleController,
                     decoration:
-                    const InputDecoration(labelText: 'Quiz Title')),
+                    const InputDecoration(labelText: 'Quiz Title'),
+                    validator: (v) => v!.isEmpty ? 'Required' : null),
+                const SizedBox(height: 8),
+                FutureBuilder<List<BasicOperatorLesson>>(
+                  future: _lessonFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return Text(
+                          "Error loading lessons: ${snapshot.error.toString()}");
+                    }
+
+                    final lessons = snapshot.data ?? [];
+                    if (lessons.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Card(
+                          color: Colors.orange[50],
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  "No lessons available",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  "You must create a lesson first before creating a quiz. A quiz must be attached to a lesson.",
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    return DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: "Attach to Lesson *",
+                        helperText: "A lesson must be selected to create a quiz",
+                        border: OutlineInputBorder(),
+                      ),
+                      value: _selectedLessonId,
+                      items: lessons.map((lesson) {
+                        return DropdownMenuItem<String>(
+                          value: lesson.id,
+                          child: Text(lesson.title),
+                        );
+                      }).toList(),
+                      onChanged: (val) => setState(() => _selectedLessonId = val),
+                      validator: (val) =>
+                      val == null || val.isEmpty ? 'A lesson must be selected' : null,
+                      isExpanded: true,
+                    );
+                  },
+                ),
                 const SizedBox(height: 8),
                 ..._questions.asMap().entries.map((entry) {
                   final idx = entry.key;
@@ -291,6 +361,17 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                   }
 
                   if (widget.contentType == 'quiz') {
+                    // Ensure a lesson is selected
+                    if (_selectedLessonId == null || _selectedLessonId!.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please select a lesson to attach this quiz to'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
                     final questions = _questions
                         .where((q) => q["q"].text.trim().isNotEmpty)
                         .map((q) => {
@@ -303,15 +384,25 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                       "a": q["correct"],
                     })
                         .toList();
-                    if (questions.isNotEmpty) {
-                      await quizProvider.createQuiz(
-                        operator: widget.operator,
-                        title: _quizTitleController.text,
-                        questions: questions,
-                        teacherId: teacherId,
-                        classroomId: widget.classroomId,
+                    
+                    if (questions.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please add at least one question to the quiz'),
+                          backgroundColor: Colors.red,
+                        ),
                       );
+                      return;
                     }
+
+                    await quizProvider.createQuiz(
+                      operator: widget.operator,
+                      title: _quizTitleController.text,
+                      questions: questions,
+                      teacherId: teacherId,
+                      classroomId: widget.classroomId,
+                      lessonId: _selectedLessonId!,
+                    );
                   }
 
                   if (widget.contentType == 'exercise' &&
@@ -333,7 +424,26 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                     }
                   }
 
-                  if (mounted) Navigator.pop(context, true);
+                  if (mounted) {
+                    Navigator.pop(context, true);
+                    
+                    // If creating a lesson, navigate back to module page to show updated content
+                    if (widget.contentType == 'lesson' && widget.classroomId != null) {
+                      Future.delayed(const Duration(milliseconds: 300), () {
+                        if (mounted) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BasicOperatorModulePage(
+                                operatorName: widget.operator,
+                                classroomId: widget.classroomId!,
+                              ),
+                            ),
+                          );
+                        }
+                      });
+                    }
+                  }
                 },
                 child: const Text("Submit"),
               ),
