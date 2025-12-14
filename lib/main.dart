@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:pracpro/modules/basic_operators/basic_operations_dashboard.dart';
 import 'package:pracpro/providers/basic_operator_lesson_provider.dart';
@@ -30,7 +29,6 @@ const String supabaseAnonKey =
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp();
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
