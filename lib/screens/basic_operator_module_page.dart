@@ -81,10 +81,10 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
       setState(() {
         _isTeacher = isTeacher;
         _isLoadingUserRole = false;
-        // Teachers: 4 tabs (Lessons, Quizzes, Exercises, Games)
+        // Teachers: 3 tabs (Lessons, Quizzes, Games)
         // Students: 2 tabs (Lessons, Games only)
         _tabController = TabController(
-          length: isTeacher ? 4 : 2,
+          length: isTeacher ? 3 : 2,
           vsync: this,
         );
       });
@@ -106,12 +106,9 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
       _loadLessons(),
     ];
     
-    // Only load quizzes and exercises for teachers
+    // Only load quizzes for teachers
     if (_isTeacher) {
-      futures.addAll([
-        _loadQuizzes(),
-        _loadExercises(),
-      ]);
+      futures.add(_loadQuizzes());
     }
     
     await Future.wait(futures);
@@ -120,6 +117,11 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
   }
 
   Future<void> _loadUnlockedItems() async {
+    // Teachers don't need unlock system - they can access all content
+    if (_isTeacher) {
+      return;
+    }
+    
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
@@ -248,7 +250,6 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
               ? const [
                   Tab(icon: Icon(Icons.menu_book), text: 'Lessons'),
                   Tab(icon: Icon(Icons.quiz), text: 'Quizzes'),
-                  Tab(icon: Icon(Icons.fitness_center), text: 'Exercises'),
                   Tab(icon: Icon(Icons.videogame_asset), text: 'Games'),
                 ]
               : const [
@@ -264,7 +265,6 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
             ? [
                 _buildLessonsTab(),
                 _buildQuizzesTab(),
-                _buildExercisesTab(),
                 GameScreen(operatorKey: widget.operatorName, classroomId: widget.classroomId),
               ]
             : [
@@ -277,29 +277,6 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
   }
 
   Widget _buildLessonsTab() {
-    final supabase = Supabase.instance.client;
-    final user = supabase.auth.currentUser;
-
-    Future<bool> _isTeacher() async {
-      if (user == null) return false;
-      try {
-        final res = await supabase
-            .from('users')
-            .select('user_type')
-            .eq('id', user.id)
-            .maybeSingle();
-        return res?['user_type'] == 'teacher';
-      } catch (e) {
-        return false;
-      }
-    }
-
-    return FutureBuilder<bool>(
-      future: _isTeacher(),
-      builder: (context, teacherSnapshot) {
-        final isTeacher = teacherSnapshot.data ?? false;
-        final showCreateButtons = isTeacher && widget.classroomId != null;
-
     if (_isLoadingLessons) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -314,52 +291,6 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
       },
           child: Column(
             children: [
-              if (showCreateButtons) ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.add),
-                          label: const Text('Create Lesson'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => CreateContentScreen(
-                                  operator: widget.operatorName,
-                                  contentType: 'lesson',
-                                  classroomId: widget.classroomId,
-                                ),
-                              ),
-                            ).then((_) => _loadLessons());
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.quiz),
-                          label: const Text('Create Quiz'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => CreateContentScreen(
-                                  operator: widget.operatorName,
-                                  contentType: 'quiz',
-                                  classroomId: widget.classroomId,
-                                ),
-                              ),
-                            ).then((_) => _loadLessons());
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Divider(),
-              ],
               Expanded(
                 child: _lessons.isEmpty
                     ? const Center(child: Text('No lessons available yet.'))
@@ -367,10 +298,11 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
         itemCount: _lessons.length,
         itemBuilder: (context, index) {
           final lesson = _lessons[index];
-          // Check unlock status from database
+          // Teachers should see all lessons as unlocked (no lock system for teachers)
+          // Students: Check unlock status from database
           // First lesson (oldest by creation date) should be unlocked by default via initializeFirstUnlocks
           // Lessons are sorted oldest first, so index 0 is the oldest
-          final isUnlocked = lesson.id == null || _unlockedLessons.contains(lesson.id);
+          final isUnlocked = _isTeacher || lesson.id == null || _unlockedLessons.contains(lesson.id);
           
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -392,7 +324,7 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                       ),
                     ),
                   ),
-                  if (!isUnlocked)
+                  if (!isUnlocked && !_isTeacher)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -432,19 +364,25 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                       lesson: lesson,
                     ),
                   ),
-                ).then((_) => _loadUnlockedItems());
+                ).then((_) {
+                  if (!_isTeacher) {
+                    _loadUnlockedItems();
+                  }
+                });
               } : () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('🔒 This lesson is locked. Complete previous content to unlock it.'),
-                    backgroundColor: Colors.orange,
-                    action: SnackBarAction(
-                      label: 'OK',
-                      textColor: Colors.white,
-                      onPressed: () {},
+                if (!_isTeacher) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('🔒 This lesson is locked. Complete previous content to unlock it.'),
+                      backgroundColor: Colors.orange,
+                      action: SnackBarAction(
+                        label: 'OK',
+                        textColor: Colors.white,
+                        onPressed: () {},
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
                               },
                             ),
                           );
@@ -454,8 +392,6 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
             ],
           ),
         );
-      },
-    );
   }
 
   Widget _buildQuizzesTab() {

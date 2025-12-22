@@ -30,6 +30,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   List<QuizProgressData> _gameProgress = [];
   String? _classroomId;
   String? _selectedOperator;
+  List<Map<String, String>> _classrooms = []; // List of {id, name} for dropdown
 
   @override
   void initState() {
@@ -50,16 +51,41 @@ class _StudentDashboardState extends State<StudentDashboard> {
       
       final supabase = Supabase.instance.client;
       
+      // Load all classrooms with their names
       final classroomsResponse = await supabase
           .from('user_classrooms')
-          .select('classroom_id')
+          .select('classroom_id, classrooms(id, name)')
           .eq('user_id', user.id)
           .eq('status', 'accepted')
           .order('joined_at', ascending: false);
       
       setState(() {
+        final previousClassroomId = _classroomId;
+        _classrooms = [];
         if (classroomsResponse.isNotEmpty) {
-          _classroomId = classroomsResponse.first['classroom_id'];
+          for (var item in classroomsResponse) {
+            final classroomData = item['classrooms'];
+            if (classroomData != null) {
+              _classrooms.add({
+                'id': classroomData['id'] as String,
+                'name': classroomData['name'] as String? ?? 'Unknown Classroom',
+              });
+            }
+          }
+          // Keep the previous selection if it's still valid, otherwise use the first one
+          if (_classrooms.isNotEmpty) {
+            final isPreviousClassroomValid = previousClassroomId != null &&
+                _classrooms.any((c) => c['id'] == previousClassroomId);
+            if (isPreviousClassroomValid) {
+              _classroomId = previousClassroomId;
+            } else {
+              _classroomId = _classrooms.first['id'];
+            }
+          } else {
+            _classroomId = null;
+          }
+        } else {
+          _classroomId = null;
         }
         _loadingClassroom = false;
       });
@@ -169,11 +195,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.trending_up, color: Colors.blue, size: 24),
-                SizedBox(width: 8),
-                Text(
+                const Icon(Icons.trending_up, color: Colors.blue, size: 24),
+                const SizedBox(width: 8),
+                const Text(
                   'My Progress',
                   style: TextStyle(
                     fontSize: 20,
@@ -182,6 +208,65 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 ),
               ],
             ),
+            if (_classrooms.length > 1) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(Icons.school, color: Colors.blue[700], size: 18),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Classroom:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _classroomId,
+                        isDense: true,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        icon: const Icon(Icons.arrow_drop_down, color: Colors.blue, size: 20),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue,
+                        ),
+                        items: _classrooms.map((classroom) {
+                          return DropdownMenuItem<String>(
+                            value: classroom['id'],
+                            child: Text(
+                              classroom['name']!,
+                              style: const TextStyle(fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (String? newClassroomId) {
+                          if (newClassroomId != null && newClassroomId != _classroomId) {
+                            setState(() {
+                              _classroomId = newClassroomId;
+                            });
+                            _loadStudentProgress(_selectedOperator ?? 'addition');
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             
             if (_loadingClassroom)
@@ -289,6 +374,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final classroomProvider = Provider.of<ClassroomProvider>(context, listen: false);
     await classroomProvider.loadStudentClassrooms(user.id);
     await _loadRecentActivity(user.id);
+    
+    // Reload classrooms for dropdown
+    await _loadClassroomId();
 
     final currentClassroom = classroomProvider.studentClassrooms.isNotEmpty
         ? classroomProvider.studentClassrooms.first
@@ -302,10 +390,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
       if (mounted) {
         setState(() {
           _completedLessons = completed;
-          _classroomId = currentClassroom.id;
         });
-        // Refresh My Progress
-        await _loadStudentProgress(_selectedOperator ?? 'addition');
+        // Refresh My Progress if classroom is still selected
+        if (_classroomId != null) {
+          await _loadStudentProgress(_selectedOperator ?? 'addition');
+        }
       }
     }
   }

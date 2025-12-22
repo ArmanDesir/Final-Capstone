@@ -320,6 +320,150 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       }
     }
 
+    // Slant pattern (↘) - student value is first number (position 0)
+    if (row + 4 < _grid.length && col + 4 < _grid[row].length) {
+      final opCell = _getCell(row + 1, col + 1);
+      final num2Cell = _getCell(row + 2, col + 2);
+      final eqCell = _getCell(row + 3, col + 3);
+      final answerCell = _getCell(row + 4, col + 4);
+
+      if (opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num2 = _getNumericValue(num2Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num2 != null && answer != null && op != null) {
+          final calculated = _calculateAnswer(studentValue, num2, op);
+          if (calculated == answer) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // Slant pattern (↘) - student value is second number (position 2)
+    if (row >= 2 && col >= 2 && row + 2 < _grid.length && col + 2 < _grid[row].length) {
+      final num1Cell = _getCell(row - 2, col - 2);
+      final opCell = _getCell(row - 1, col - 1);
+      final eqCell = _getCell(row + 1, col + 1);
+      final answerCell = _getCell(row + 2, col + 2);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num1 = _getNumericValue(num1Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num1 != null && answer != null && op != null) {
+          final calculated = _calculateAnswer(num1, studentValue, op);
+          if (calculated == answer) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // Slant pattern (↘) - student value is answer (position 4)
+    if (row >= 4 && col >= 4) {
+      final num1Cell = _getCell(row - 4, col - 4);
+      final opCell = _getCell(row - 3, col - 3);
+      final num2Cell = _getCell(row - 2, col - 2);
+      final eqCell = _getCell(row - 1, col - 1);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals) {
+        final num1 = _getNumericValue(num1Cell);
+        final num2 = _getNumericValue(num2Cell);
+        final op = opCell!.value;
+
+        if (num1 != null && num2 != null && op != null) {
+          final calculated = _calculateAnswer(num1, num2, op);
+          if (calculated == studentValue) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // Slant reverse pattern (↙) - student value is first number (position 0)
+    if (row + 4 < _grid.length && col >= 4) {
+      final opCell = _getCell(row + 1, col - 1);
+      final num2Cell = _getCell(row + 2, col - 2);
+      final eqCell = _getCell(row + 3, col - 3);
+      final answerCell = _getCell(row + 4, col - 4);
+
+      if (opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num2 = _getNumericValue(num2Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num2 != null && answer != null && op != null) {
+          final calculated = _calculateAnswer(studentValue, num2, op);
+          if (calculated == answer) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // Slant reverse pattern (↙) - student value is second number (position 2)
+    if (row >= 2 && row + 2 < _grid.length && col >= 2 && col + 2 < _grid[row].length) {
+      final num1Cell = _getCell(row - 2, col + 2);
+      final opCell = _getCell(row - 1, col + 1);
+      final eqCell = _getCell(row + 1, col - 1);
+      final answerCell = _getCell(row + 2, col - 2);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          eqCell?.type == CellType.equals &&
+          _hasNumericValue(answerCell)) {
+        final num1 = _getNumericValue(num1Cell);
+        final answer = _getNumericValue(answerCell);
+        final op = opCell!.value;
+
+        if (num1 != null && answer != null && op != null) {
+          final calculated = _calculateAnswer(num1, studentValue, op);
+          if (calculated == answer) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // Slant reverse pattern (↙) - student value is answer (position 4)
+    if (row >= 4 && col + 4 < _grid[row].length) {
+      final num1Cell = _getCell(row - 4, col + 4);
+      final opCell = _getCell(row - 3, col + 3);
+      final num2Cell = _getCell(row - 2, col + 2);
+      final eqCell = _getCell(row - 1, col + 1);
+
+      if (_hasNumericValue(num1Cell) &&
+          opCell?.type == CellType.operator &&
+          _hasNumericValue(num2Cell) &&
+          eqCell?.type == CellType.equals) {
+        final num1 = _getNumericValue(num1Cell);
+        final num2 = _getNumericValue(num2Cell);
+        final op = opCell!.value;
+
+        if (num1 != null && num2 != null && op != null) {
+          final calculated = _calculateAnswer(num1, num2, op);
+          if (calculated == studentValue) {
+            return true;
+          }
+        }
+      }
+    }
+
     return false;
   }
 

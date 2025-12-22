@@ -53,6 +53,26 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && authProvider.currentUser != null && mounted) {
+      // Verify that the user's actual role matches the login screen type
+      final user = authProvider.currentUser!;
+      if (user.userType != widget.userType) {
+        // User type mismatch - sign out and show error
+        await authProvider.signOut();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.userType == UserType.teacher
+                  ? 'Access denied. This account is registered as a student. Please use the Student Login page.'
+                  : 'Access denied. This account is registered as a teacher. Please use the Teacher Login page.',
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+
+      // Role matches - proceed to home screen
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
