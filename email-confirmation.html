@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Confirmed - PracPro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            animation: scaleIn 0.5s ease-out 0.2s both;
+        }
+        
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+            }
+            to {
+                transform: scale(1);
+            }
+        }
+        
+        .success-icon::after {
+            content: '✓';
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+        }
+        
+        h1 {
+            color: #1f2937;
+            font-size: 28px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+        
+        p {
+            color: #6b7280;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .message {
+            background: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+            text-align: left;
+        }
+        
+        .message-title {
+            color: #1e40af;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+        
+        .message-text {
+            color: #1e3a8a;
+            font-size: 15px;
+        }
+        
+        .error-message {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+            text-align: left;
+        }
+        
+        .error-title {
+            color: #991b1b;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+        
+        .error-text {
+            color: #7f1d1d;
+            font-size: 15px;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .success-icon {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .success-icon::after {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="success-content" style="display: none;">
+            <div class="success-icon"></div>
+            <h1>Email Confirmed!</h1>
+            <p>Your email address has been successfully verified.</p>
+            
+            <div class="message">
+                <div class="message-title">✓ You're all set!</div>
+                <div class="message-text">
+                    Your account has been authenticated. You can now sign in to the PracPro app using your email and password.
+                </div>
+            </div>
+            
+            <p style="margin-top: 20px; font-size: 14px; color: #9ca3af;">
+                You can close this page and return to the app to sign in.
+            </p>
+        </div>
+        
+        <div id="error-content" style="display: none;">
+            <div class="success-icon" style="background: #ef4444;">
+                <div style="color: white; font-size: 48px; font-weight: bold;">✗</div>
+            </div>
+            <h1>Verification Failed</h1>
+            <p>There was an issue verifying your email address.</p>
+            
+            <div class="error-message">
+                <div class="error-title" id="error-title">Error</div>
+                <div class="error-text" id="error-description">
+                    Please try again or contact support if the problem persists.
+                </div>
+            </div>
+            
+            <p style="margin-top: 20px; font-size: 14px; color: #9ca3af;">
+                You can close this page and try again from the app.
+            </p>
+        </div>
+        
+        <div id="loading-content">
+            <div class="success-icon" style="background: #6b7280; animation: pulse 1.5s ease-in-out infinite;">
+                <div style="color: white; font-size: 24px;">⏳</div>
+            </div>
+            <h1>Verifying...</h1>
+            <p>Please wait while we verify your email address.</p>
+        </div>
+    </div>
+    
+    <script>
+        // Parse URL parameters to check for errors
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        
+        // Check for errors in both query params and hash
+        const error = urlParams.get('error') || hashParams.get('error');
+        const errorCode = urlParams.get('error_code') || hashParams.get('error_code');
+        const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+        
+        const loadingContent = document.getElementById('loading-content');
+        const successContent = document.getElementById('success-content');
+        const errorContent = document.getElementById('error-content');
+        
+        // Hide loading after a short delay
+        setTimeout(() => {
+            loadingContent.style.display = 'none';
+            
+            if (error) {
+                // Show error message
+                errorContent.style.display = 'block';
+                
+                // Set error details if available
+                if (errorCode) {
+                    document.getElementById('error-title').textContent = `Error: ${errorCode}`;
+                }
+                
+                if (errorDescription) {
+                    // Decode URL-encoded description
+                    const decodedDescription = decodeURIComponent(errorDescription.replace(/\+/g, ' '));
+                    document.getElementById('error-description').textContent = decodedDescription;
+                }
+            } else {
+                // Show success message
+                successContent.style.display = 'block';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
+
