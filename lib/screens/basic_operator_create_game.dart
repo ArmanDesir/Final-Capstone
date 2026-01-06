@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:pracpro/screens/basic_operator_crossword_builder_screen.dart';
 import 'package:pracpro/screens/basic_operator_ninja_builder_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/operator_game_service.dart';
@@ -21,7 +20,7 @@ class _BasicOperatorCreateGamePageState
   final _descCtrl = TextEditingController();
 
   bool _isSaving = false;
-  String _selectedGame = 'crossmath';
+  String _selectedGame = 'ninjamath'; // Only Ninja Math can be created
   String _selectedDifficulty = 'Easy';
 
   final Map<String, Map<String, dynamic>> _configs = {
@@ -46,28 +45,26 @@ class _BasicOperatorCreateGamePageState
 
       final config = Map<String, dynamic>.from(_configs[_selectedDifficulty]!);
 
-      if (_selectedGame == 'crossmath') config.remove('rounds');
+      // Only Ninja Math can be created - always generate rounds
       List<Map<String, dynamic>>? generatedRounds;
-      if (_selectedGame == 'ninjamath') {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BasicOperatorNinjaBuilderScreen(
-              operator: widget.operatorKey,
-              config: config,
-              difficulty: _selectedDifficulty,
-              title: _titleCtrl.text.trim(),
-              description: _descCtrl.text.trim(),
-            ),
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BasicOperatorNinjaBuilderScreen(
+            operator: widget.operatorKey,
+            config: config,
+            difficulty: _selectedDifficulty,
+            title: _titleCtrl.text.trim(),
+            description: _descCtrl.text.trim(),
           ),
-        );
+        ),
+      );
 
-        if (result == null || result.isEmpty) {
-          setState(() => _isSaving = false);
-          return;
-        }
-        generatedRounds = List<Map<String, dynamic>>.from(result);
+      if (result == null || result.isEmpty) {
+        setState(() => _isSaving = false);
+        return;
       }
+      generatedRounds = List<Map<String, dynamic>>.from(result);
       final gameId = await _svc.createGame(
         operatorKey: widget.operatorKey,
         gameKey: _selectedGame,
@@ -100,23 +97,7 @@ class _BasicOperatorCreateGamePageState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('✅ Game created successfully (ID: $gameId)')),
       );
-      if (_selectedGame == 'crossmath') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BasicOperatorCrosswordBuilderScreen(
-              operator: widget.operatorKey,
-              gameId: gameId,
-              difficulty: _selectedDifficulty.toLowerCase(),
-              config: config,
-              title: _titleCtrl.text.trim(),
-              description: _descCtrl.text.trim(),
-            ),
-          ),
-        );
-      } else {
-        Navigator.pop(context);
-      }
+      Navigator.pop(context);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -130,8 +111,6 @@ class _BasicOperatorCreateGamePageState
 
   @override
   Widget build(BuildContext context) {
-    final isNinjaMath = _selectedGame == 'ninjamath';
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Game'),
@@ -143,15 +122,29 @@ class _BasicOperatorCreateGamePageState
           key: _formKey,
           child: ListView(
             children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Game Type'),
-                value: _selectedGame,
-                items: const [
-                  DropdownMenuItem(value: 'crossmath', child: Text('CrossMath')),
-                  DropdownMenuItem(value: 'ninjamath', child: Text('Ninja Math')),
-                ],
-                onChanged: (v) =>
-                    setState(() => _selectedGame = v ?? 'crossmath'),
+              // Game type is fixed to Ninja Math only
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Game Type: ',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const Text(
+                      'Ninja Math',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepPurple,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               TextFormField(
                 controller: _titleCtrl,
@@ -177,7 +170,7 @@ class _BasicOperatorCreateGamePageState
                     setState(() => _selectedDifficulty = v ?? 'Easy'),
               ),
               const SizedBox(height: 16),
-              if (isNinjaMath) _buildConfigCard(_selectedDifficulty),
+              _buildConfigCard(_selectedDifficulty),
               const SizedBox(height: 24),
               _isSaving
                   ? const Center(child: CircularProgressIndicator())

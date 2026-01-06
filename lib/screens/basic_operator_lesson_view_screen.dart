@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pracpro/models/basic_operator_lesson.dart';
 import 'package:pracpro/models/basic_operator_quiz.dart';
 import 'package:pracpro/screens/basic_operator_quiz_screen.dart';
+import 'package:pracpro/screens/basic_operator_quiz_view_screen.dart';
 import 'package:pracpro/services/basic_operator_quiz_service.dart';
 import 'package:pracpro/utils/pdf_viewer.dart';
 import 'package:pracpro/widgets/cached_video_player.dart';
@@ -20,13 +21,46 @@ class BasicOperatorLessonViewScreen extends StatefulWidget {
 class _BasicOperatorLessonViewScreenState
     extends State<BasicOperatorLessonViewScreen> {
   final _quizService = BasicOperatorQuizService();
+  final supabase = Supabase.instance.client;
   bool _isLoading = true;
+  bool _isTeacher = false;
+  bool _isLoadingUserRole = true;
   List<BasicOperatorQuiz> _quizzes = [];
 
   @override
   void initState() {
     super.initState();
+    _checkUserRole();
     _loadRelatedQuizzes();
+  }
+
+  Future<void> _checkUserRole() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      setState(() {
+        _isTeacher = false;
+        _isLoadingUserRole = false;
+      });
+      return;
+    }
+
+    try {
+      final res = await supabase
+          .from('users')
+          .select('user_type')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      setState(() {
+        _isTeacher = res?['user_type'] == 'teacher';
+        _isLoadingUserRole = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isTeacher = false;
+        _isLoadingUserRole = false;
+      });
+    }
   }
 
   Future<void> _loadRelatedQuizzes() async {
@@ -157,16 +191,28 @@ class _BasicOperatorLessonViewScreenState
                   );
                   return;
                 }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => BasicOperatorQuizScreen(
-                      quiz: quiz,
-                      userId: user.id,
-                      lessonId: widget.lesson.id, // Pass lesson ID when quiz is taken from a lesson
+                // Teachers can only view quizzes, not take them
+                if (_isTeacher) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BasicOperatorQuizViewScreen(
+                        quiz: quiz,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BasicOperatorQuizScreen(
+                        quiz: quiz,
+                        userId: user.id,
+                        lessonId: widget.lesson.id, // Pass lesson ID when quiz is taken from a lesson
+                      ),
+                    ),
+                  );
+                }
               },
             ),
           );

@@ -7,7 +7,6 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../models/basic_operator_lesson.dart';
 import '../providers/basic_operator_lesson_provider.dart';
 import '../utils/youtube_utils.dart';
-import 'basic_operator_module_page.dart';
 
 class CreateBasicOperatorLessonScreen extends StatefulWidget {
   final String operator;
@@ -57,18 +56,27 @@ class _CreateBasicOperatorLessonScreenState
 
   void _initializeYoutubePlayer(String url) {
     final videoId = YouTubeUtils.extractVideoId(url);
-    if (videoId != null && videoId.isNotEmpty) {
-      setState(() {
-        _youtubeController?.dispose();
-        _youtubeController = YoutubePlayerController(
-          initialVideoId: videoId,
-          flags: const YoutubePlayerFlags(
-            autoPlay: false,
-            mute: false,
-          ),
-        );
-      });
-    }
+    setState(() {
+      _youtubeController?.dispose();
+      if (videoId != null && videoId.isNotEmpty) {
+        // Validate video ID format (11 characters, alphanumeric with hyphens/underscores only)
+        if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId)) {
+          _youtubeController = YoutubePlayerController(
+            initialVideoId: videoId,
+            flags: const YoutubePlayerFlags(
+              autoPlay: false,
+              mute: false,
+            ),
+          );
+        } else {
+          // Invalid video ID format - don't create controller
+          _youtubeController = null;
+        }
+      } else {
+        // No valid video ID extracted - clear controller
+        _youtubeController = null;
+      }
+    });
   }
 
   Future<void> _pickPdfFile() async {
@@ -136,27 +144,10 @@ class _CreateBasicOperatorLessonScreenState
         ),
       );
 
-      // Navigate back to BasicOperatorModulePage with classroomId preserved
-      // This ensures the teacher sees the module page with create buttons
+      // Navigate back to the operator action selection screen (teacher management view)
+      // Teachers should return to the management screen, not the student-facing module page
       if (mounted) {
-        // Pop the create lesson screen
         Navigator.pop(context, true);
-        
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            // Replace current route (operator action screen) with module page
-            // This ensures classroomId is passed and teacher view is shown
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => BasicOperatorModulePage(
-                  operatorName: widget.operator,
-                  classroomId: widget.classroomId, // Required for teacher create buttons
-                ),
-              ),
-            );
-          }
-        });
       }
     } catch (e) {
       if (!mounted) return;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pracpro/models/lesson.dart';
 import 'package:pracpro/providers/auth_provider.dart';
+import 'package:pracpro/utils/youtube_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'quiz_screen.dart';
@@ -20,20 +21,26 @@ class LessonViewScreen extends StatefulWidget {
 }
 
 class _LessonViewScreenState extends State<LessonViewScreen> {
-  late YoutubePlayerController _controller;
+  YoutubePlayerController? _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = YoutubePlayerController(
-      initialVideoId: YoutubePlayer.convertUrlToId(widget.lesson.youtubeUrl ?? '') ?? '',
-      flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
-    );
+    final videoId = YouTubeUtils.extractVideoId(widget.lesson.youtubeUrl ?? '');
+    if (videoId != null && videoId.isNotEmpty) {
+      // Validate video ID format before creating controller
+      if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId)) {
+        _controller = YoutubePlayerController(
+          initialVideoId: videoId,
+          flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -55,9 +62,9 @@ class _LessonViewScreenState extends State<LessonViewScreen> {
             const SizedBox(height: 12),
             Text(lesson.description ?? '', style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 16),
-            if ((lesson.youtubeUrl ?? '').isNotEmpty)
+            if ((lesson.youtubeUrl ?? '').isNotEmpty && _controller != null)
               YoutubePlayer(
-                controller: _controller,
+                controller: _controller!,
                 showVideoProgressIndicator: true,
                 progressIndicatorColor: Colors.blueAccent,
                 progressColors: const ProgressBarColors(

@@ -8,7 +8,6 @@ import '../models/basic_operator_lesson.dart';
 import '../providers/basic_operator_exercise_provider.dart';
 import '../providers/basic_operator_lesson_provider.dart';
 import '../providers/basic_operator_quiz_provider.dart';
-import 'basic_operator_module_page.dart';
 
 class CreateContentScreen extends StatefulWidget {
   final String operator;
@@ -425,24 +424,9 @@ class _CreateContentScreenState extends State<CreateContentScreen> {
                   }
 
                   if (mounted) {
+                    // Navigate back to the operator action selection screen (teacher management view)
+                    // Teachers should return to the management screen, not the student-facing module page
                     Navigator.pop(context, true);
-                    
-                    // If creating a lesson, navigate back to module page to show updated content
-                    if (widget.contentType == 'lesson' && widget.classroomId != null) {
-                      Future.delayed(const Duration(milliseconds: 300), () {
-                        if (mounted) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => BasicOperatorModulePage(
-                                operatorName: widget.operator,
-                                classroomId: widget.classroomId!,
-                              ),
-                            ),
-                          );
-                        }
-                      });
-                    }
                   }
                 },
                 child: const Text("Submit"),

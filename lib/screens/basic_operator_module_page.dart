@@ -5,6 +5,7 @@ import 'package:pracpro/models/basic_operator_exercise.dart';
 import 'package:pracpro/modules/basic_operators/addition/game_screen.dart';
 import 'package:pracpro/screens/basic_operator_lesson_view_screen.dart';
 import 'package:pracpro/screens/basic_operator_quiz_screen.dart';
+import 'package:pracpro/screens/basic_operator_quiz_view_screen.dart';
 import 'package:pracpro/screens/create_content_screen.dart';
 import 'package:pracpro/services/basic_operator_lesson_service.dart';
 import 'package:pracpro/services/basic_operator_quiz_service.dart';
@@ -438,21 +439,33 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                     subtitle: Text('${quiz.questions.length} questions'),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded),
                     onTap: user != null ? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => BasicOperatorQuizScreen(
-                              quiz: quiz,
-                              userId: user.id,
+                        // Teachers can only view quizzes, not take them
+                        if (_isTeacher) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BasicOperatorQuizViewScreen(
+                                quiz: quiz,
+                              ),
                             ),
-                          ),
-                      ).then((_) async {
-                        await Future.wait([
-                          _loadQuizzes(),
-                          _loadUnlockedItems(),
-                          _loadLessons(), // Reload lessons to reflect unlock status
-                        ]);
-                      });
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BasicOperatorQuizScreen(
+                                quiz: quiz,
+                                userId: user.id,
+                              ),
+                            ),
+                          ).then((_) async {
+                            await Future.wait([
+                              _loadQuizzes(),
+                              _loadUnlockedItems(),
+                              _loadLessons(), // Reload lessons to reflect unlock status
+                            ]);
+                          });
+                        }
                     } : null,
                   ),
                 );

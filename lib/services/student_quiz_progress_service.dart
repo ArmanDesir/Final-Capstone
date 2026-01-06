@@ -141,22 +141,52 @@ class StudentQuizProgressService {
     try {
       
       // Query activity_progress filtering by:
-      // 1. Selected classroom_id (validates classroom_id in activity_progress matches selected classroom)
-      // 2. Student user_id
-      // 3. Operator
-      var query = _supabase
+      // 1. Student user_id
+      // 2. Operator
+      // Note: We do client-side filtering for classroom_id to handle null values properly
+      final allProgress = await _supabase
           .from('activity_progress')
           .select('*')
           .eq('user_id', studentId)
-          .eq('operator', operator);
-
-      // Always filter by classroom_id if provided - this validates the classroom_id matches
-      if (classroomId.isNotEmpty) {
-        query = query.eq('classroom_id', classroomId);
-      }
-
-      final allProgress = await query.order('created_at', ascending: false);
+          .eq('operator', operator)
+          .order('created_at', ascending: false);
+      
       final progressList = (allProgress as List).cast<Map<String, dynamic>>();
+      
+      // Client-side filtering: Include records where classroom_id matches OR is null
+      // This ensures progress saved before classroom_id was properly tracked still shows
+      // If classroomId is empty, show all progress (backward compatibility)
+      final filteredProgress = progressList.where((progress) {
+        // If no classroom filter specified, show all progress
+        if (classroomId.isEmpty || classroomId.trim().isEmpty) {
+          return true;
+        }
+        
+        // Get classroom_id from progress record, handling various types
+        final progressClassroomIdRaw = progress['classroom_id'];
+        String? progressClassroomId;
+        
+        if (progressClassroomIdRaw == null) {
+          // Progress with null classroom_id - include for backward compatibility
+          return true;
+        } else if (progressClassroomIdRaw is String) {
+          progressClassroomId = progressClassroomIdRaw.trim();
+        } else {
+          progressClassroomId = progressClassroomIdRaw.toString().trim();
+        }
+        
+        // If progress has empty/null classroom_id, include it (backward compatibility)
+        if (progressClassroomId == null || progressClassroomId.isEmpty) {
+          return true;
+        }
+        
+        // Compare normalized IDs (trim for safety, UUIDs are case-insensitive but normalize anyway)
+        final normalizedProgressId = progressClassroomId.toLowerCase().trim();
+        final normalizedClassroomId = classroomId.toLowerCase().trim();
+        
+        // Include if classroom_id matches
+        return normalizedProgressId == normalizedClassroomId;
+      }).toList();
       
 
       // Get quiz metadata for calculating total questions
@@ -173,7 +203,7 @@ class StudentQuizProgressService {
       // Group progress by entity (quiz or game)
       final Map<String, List<Map<String, dynamic>>> progressByEntity = {};
 
-      for (final progress in progressList) {
+      for (final progress in filteredProgress) {
         final entityType = progress['entity_type']?.toString() ?? '';
         String? entityKey;
 

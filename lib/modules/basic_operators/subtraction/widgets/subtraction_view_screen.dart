@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:pracpro/modules/basic_operators/subtraction/widgets/subtraction_quiz_screen.dart';
+import 'package:pracpro/utils/youtube_utils.dart';
 
 class SubtractionLessonViewScreen extends StatefulWidget {
   final String lessonTitle;
@@ -22,20 +23,26 @@ class SubtractionLessonViewScreen extends StatefulWidget {
 
 class _SubtractionLessonViewScreenState
     extends State<SubtractionLessonViewScreen> {
-  late YoutubePlayerController _controller;
+  YoutubePlayerController? _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = YoutubePlayerController(
-      initialVideoId: YoutubePlayer.convertUrlToId(widget.videoUrl) ?? "",
-      flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
-    );
+    final videoId = YouTubeUtils.extractVideoId(widget.videoUrl);
+    if (videoId != null && videoId.isNotEmpty) {
+      // Validate video ID format before creating controller
+      if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId)) {
+        _controller = YoutubePlayerController(
+          initialVideoId: videoId,
+          flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -74,15 +81,16 @@ class _SubtractionLessonViewScreenState
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 16),
-                    YoutubePlayer(
-                      controller: _controller,
-                      showVideoProgressIndicator: true,
-                      progressIndicatorColor: Colors.redAccent,
-                      progressColors: const ProgressBarColors(
-                        playedColor: Colors.red,
-                        handleColor: Colors.redAccent,
+                    if (_controller != null)
+                      YoutubePlayer(
+                        controller: _controller!,
+                        showVideoProgressIndicator: true,
+                        progressIndicatorColor: Colors.redAccent,
+                        progressColors: const ProgressBarColors(
+                          playedColor: Colors.red,
+                          handleColor: Colors.redAccent,
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.quiz),

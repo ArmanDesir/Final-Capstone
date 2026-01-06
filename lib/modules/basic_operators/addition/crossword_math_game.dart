@@ -31,22 +31,44 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
   late int _remainingSeconds;
   Timer? _timer;
 
-  late List<List<CrosswordCell>> _grid;
+  late List<List<List<CrosswordCell>>> _rounds; // Multiple grids for multiple rounds
+  int _currentRound = 0; // Current round/page index
   bool _finished = false;
   bool _answersChecked = false; 
   int _correct = 0;
   int _totalBlanks = 0;
   bool _isLoading = true;
+  List<int> _correctPerRound = []; // Track correct answers per round
+  List<int> _totalBlanksPerRound = []; // Track total blanks per round
+  List<bool> _roundCompleted = []; // Track which rounds have been completed (answers checked)
 
-  final Map<String, TextEditingController> _controllers = {};
+  final Map<int, Map<String, TextEditingController>> _roundControllers = {}; // Controllers per round (key: roundIndex)
   final supabase = Supabase.instance.client;
   final _activityProgressService = ActivityProgressService();
   bool _progressSaved = false; // Track if progress has been saved
+  bool _isSavingProgress = false; // Prevent concurrent saves
   
   // Store game metadata when game starts - reuse for all attempts (including Try Again)
   String? _gameId;
   String _gameTitle = 'Crossword Math';
   bool _gameMetadataLoaded = false;
+
+  // Get number of rounds based on difficulty
+  int get _numRounds {
+    switch (widget.difficulty.toLowerCase()) {
+      case 'easy':
+        return 1;
+      case 'medium':
+        return 2;
+      case 'hard':
+        return 3;
+      default:
+        return 1;
+    }
+  }
+
+  // Get current grid
+  List<List<CrosswordCell>> get _grid => _rounds[_currentRound];
 
   @override
   void initState() {
@@ -65,47 +87,48 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
 
     try {
-      final puzzle = await supabase
-          .from('crossword_puzzles')
-          .select()
-          .eq('operator', widget.operator)
-          .eq('difficulty', widget.difficulty.toLowerCase())
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
-
-      if (puzzle != null) {
-        final gridData = puzzle['grid'] as List;
-        _grid = gridData
-            .map((r) => (r as List)
-            .map((c) => CrosswordCell.fromJson(c as Map<String, dynamic>))
-            .toList())
-            .toList();
-      } else {
+      // Generate puzzles for all rounds based on difficulty
+      // Easy: 1 board, Medium: 2 boards, Hard: 3 boards
+      _rounds = [];
+      _totalBlanksPerRound = [];
+      _roundCompleted = [];
+      for (int i = 0; i < _numRounds; i++) {
+        // Always generate fresh puzzles for variety (random operand combinations)
         final gen = CrosswordGridGenerator.generate(
           operator: widget.operator,
           difficulty: widget.difficulty,
           minVal: min,
           maxVal: max,
         );
-        _grid = gen.grid;
+        _rounds.add(gen.grid);
+        final roundBlanks = gen.grid.expand((r) => r).where((c) => c.type == CellType.blank).length;
+        _totalBlanksPerRound.add(roundBlanks);
+        _correctPerRound.add(0); // Initialize correct count per round
+        _roundCompleted.add(false); // No rounds completed yet
       }
 
-      _totalBlanks =
-          _grid.expand((r) => r).where((c) => c.type == CellType.blank).length;
+      // Calculate total blanks across all rounds
+      _totalBlanks = _rounds.fold(0, (sum, grid) =>
+          sum + grid.expand((r) => r).where((c) => c.type == CellType.blank).length);
 
+      _currentRound = 0;
       _remainingSeconds = timeSec;
       _isLoading = false;
       _startTimer();
       setState(() {});
     } catch (e, st) {
+      // Fallback: generate at least one round
       final gen = CrosswordGridGenerator.generate(
         operator: widget.operator,
         difficulty: widget.difficulty,
         minVal: min,
         maxVal: max,
       );
-      _grid = gen.grid;
+      _rounds = [gen.grid];
+      final roundBlanks = gen.grid.expand((r) => r).where((c) => c.type == CellType.blank).length;
+      _totalBlanksPerRound = [roundBlanks];
+      _correctPerRound = [0];
+      _roundCompleted = [false];
       _remainingSeconds = timeSec;
       _isLoading = false;
       _startTimer();
@@ -143,50 +166,98 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     });
   }
 
-  void _finish() {
+  void _finish() async {
     _timer?.cancel();
     setState(() => _finished = true);
+    
+    // Check all rounds when timer runs out
     _correct = _countCorrect();
-    _showResultDialog();
-  }
-
-  int _countCorrect() {
-    int ok = 0;
-
-    for (final row in _grid) {
-      for (final cell in row) {
-        if (cell.type == CellType.blank) {
-            final studentAnswer = int.tryParse(cell.value ?? '');
-          
-          if (studentAnswer == null) {
-              cell.isCorrect = false;
-            continue;
-            }
-
-          final isEquationCorrect = _validateEquationWithStudentInput(cell, studentAnswer);
-
-          if (isEquationCorrect) {
-                cell.isCorrect = true;
-                ok++;
+    
+    // Mark all rounds as checked (even if incomplete)
+    for (int i = 0; i < _rounds.length; i++) {
+      if (!_roundCompleted[i]) {
+        // Count correct for this round
+        final grid = _rounds[i];
+        int roundCorrect = 0;
+        for (final row in grid) {
+          for (final cell in row) {
+            if (cell.type == CellType.blank) {
+              final studentAnswer = int.tryParse(cell.value ?? '');
+              if (studentAnswer != null) {
+                final isCorrect = _validateEquationWithStudentInputForRound(cell, studentAnswer, i);
+                cell.isCorrect = isCorrect;
+                if (isCorrect) roundCorrect++;
               } else {
                 cell.isCorrect = false;
               }
+            }
+          }
         }
+        _correctPerRound[i] = roundCorrect;
+        _roundCompleted[i] = true;
       }
     }
+    _correct = _correctPerRound.fold(0, (sum, correct) => sum + correct);
+    
+    // Save progress when timer runs out
+    final elapsed = 120 - _remainingSeconds;
+    await _recordGameProgress(_correct, elapsed);
+    
+    // Always show final summary when timer runs out
+    _showFinalSummaryDialog();
+  }
 
-    return ok;
+  int _countCorrect() {
+    int totalCorrect = 0;
+    
+    // Count correct answers across all rounds
+    for (int roundIndex = 0; roundIndex < _rounds.length; roundIndex++) {
+      int roundCorrect = 0;
+      final grid = _rounds[roundIndex];
+      
+      for (final row in grid) {
+        for (final cell in row) {
+          if (cell.type == CellType.blank) {
+            final studentAnswer = int.tryParse(cell.value ?? '');
+            
+            if (studentAnswer == null) {
+              cell.isCorrect = false;
+              continue;
+            }
+
+            final isEquationCorrect = _validateEquationWithStudentInputForRound(cell, studentAnswer, roundIndex);
+
+            if (isEquationCorrect) {
+              cell.isCorrect = true;
+              roundCorrect++;
+              totalCorrect++;
+            } else {
+              cell.isCorrect = false;
+            }
+          }
+        }
+      }
+      
+      _correctPerRound[roundIndex] = roundCorrect;
+    }
+
+    return totalCorrect;
   }
 
   bool _validateEquationWithStudentInput(CrosswordCell blankCell, int studentValue) {
+    return _validateEquationWithStudentInputForRound(blankCell, studentValue, _currentRound);
+  }
+
+  bool _validateEquationWithStudentInputForRound(CrosswordCell blankCell, int studentValue, int roundIndex) {
+    final grid = _rounds[roundIndex];
     final row = blankCell.row;
     final col = blankCell.col;
 
-    if (col + 4 < _grid[row].length) {
-      final opCell = _getCell(row, col + 1);
-      final num2Cell = _getCell(row, col + 2);
-      final eqCell = _getCell(row, col + 3);
-      final answerCell = _getCell(row, col + 4);
+    if (col + 4 < grid[row].length) {
+      final opCell = _getCellForRound(row, col + 1, roundIndex);
+      final num2Cell = _getCellForRound(row, col + 2, roundIndex);
+      final eqCell = _getCellForRound(row, col + 3, roundIndex);
+      final answerCell = _getCellForRound(row, col + 4, roundIndex);
 
       if (opCell?.type == CellType.operator &&
           _hasNumericValue(num2Cell) &&
@@ -205,11 +276,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       }
     }
 
-    if (col >= 2 && col + 2 < _grid[row].length) {
-      final num1Cell = _getCell(row, col - 2);
-      final opCell = _getCell(row, col - 1);
-      final eqCell = _getCell(row, col + 1);
-      final answerCell = _getCell(row, col + 2);
+    if (col >= 2 && col + 2 < grid[row].length) {
+      final num1Cell = _getCellForRound(row, col - 2, roundIndex);
+      final opCell = _getCellForRound(row, col - 1, roundIndex);
+      final eqCell = _getCellForRound(row, col + 1, roundIndex);
+      final answerCell = _getCellForRound(row, col + 2, roundIndex);
 
       if (_hasNumericValue(num1Cell) &&
           opCell?.type == CellType.operator &&
@@ -229,10 +300,10 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
 
     if (col >= 4) {
-      final num1Cell = _getCell(row, col - 4);
-      final opCell = _getCell(row, col - 3);
-      final num2Cell = _getCell(row, col - 2);
-      final eqCell = _getCell(row, col - 1);
+      final num1Cell = _getCellForRound(row, col - 4, roundIndex);
+      final opCell = _getCellForRound(row, col - 3, roundIndex);
+      final num2Cell = _getCellForRound(row, col - 2, roundIndex);
+      final eqCell = _getCellForRound(row, col - 1, roundIndex);
 
       if (_hasNumericValue(num1Cell) &&
           opCell?.type == CellType.operator &&
@@ -321,11 +392,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
 
     // Slant pattern (↘) - student value is first number (position 0)
-    if (row + 4 < _grid.length && col + 4 < _grid[row].length) {
-      final opCell = _getCell(row + 1, col + 1);
-      final num2Cell = _getCell(row + 2, col + 2);
-      final eqCell = _getCell(row + 3, col + 3);
-      final answerCell = _getCell(row + 4, col + 4);
+    if (row + 4 < grid.length && col + 4 < grid[row].length) {
+      final opCell = _getCellForRound(row + 1, col + 1, roundIndex);
+      final num2Cell = _getCellForRound(row + 2, col + 2, roundIndex);
+      final eqCell = _getCellForRound(row + 3, col + 3, roundIndex);
+      final answerCell = _getCellForRound(row + 4, col + 4, roundIndex);
 
       if (opCell?.type == CellType.operator &&
           _hasNumericValue(num2Cell) &&
@@ -345,11 +416,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
 
     // Slant pattern (↘) - student value is second number (position 2)
-    if (row >= 2 && col >= 2 && row + 2 < _grid.length && col + 2 < _grid[row].length) {
-      final num1Cell = _getCell(row - 2, col - 2);
-      final opCell = _getCell(row - 1, col - 1);
-      final eqCell = _getCell(row + 1, col + 1);
-      final answerCell = _getCell(row + 2, col + 2);
+    if (row >= 2 && col >= 2 && row + 2 < grid.length && col + 2 < grid[row].length) {
+      final num1Cell = _getCellForRound(row - 2, col - 2, roundIndex);
+      final opCell = _getCellForRound(row - 1, col - 1, roundIndex);
+      final eqCell = _getCellForRound(row + 1, col + 1, roundIndex);
+      final answerCell = _getCellForRound(row + 2, col + 2, roundIndex);
 
       if (_hasNumericValue(num1Cell) &&
           opCell?.type == CellType.operator &&
@@ -370,10 +441,10 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
 
     // Slant pattern (↘) - student value is answer (position 4)
     if (row >= 4 && col >= 4) {
-      final num1Cell = _getCell(row - 4, col - 4);
-      final opCell = _getCell(row - 3, col - 3);
-      final num2Cell = _getCell(row - 2, col - 2);
-      final eqCell = _getCell(row - 1, col - 1);
+      final num1Cell = _getCellForRound(row - 4, col - 4, roundIndex);
+      final opCell = _getCellForRound(row - 3, col - 3, roundIndex);
+      final num2Cell = _getCellForRound(row - 2, col - 2, roundIndex);
+      final eqCell = _getCellForRound(row - 1, col - 1, roundIndex);
 
       if (_hasNumericValue(num1Cell) &&
           opCell?.type == CellType.operator &&
@@ -393,11 +464,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
 
     // Slant reverse pattern (↙) - student value is first number (position 0)
-    if (row + 4 < _grid.length && col >= 4) {
-      final opCell = _getCell(row + 1, col - 1);
-      final num2Cell = _getCell(row + 2, col - 2);
-      final eqCell = _getCell(row + 3, col - 3);
-      final answerCell = _getCell(row + 4, col - 4);
+    if (row + 4 < grid.length && col >= 4) {
+      final opCell = _getCellForRound(row + 1, col - 1, roundIndex);
+      final num2Cell = _getCellForRound(row + 2, col - 2, roundIndex);
+      final eqCell = _getCellForRound(row + 3, col - 3, roundIndex);
+      final answerCell = _getCellForRound(row + 4, col - 4, roundIndex);
 
       if (opCell?.type == CellType.operator &&
           _hasNumericValue(num2Cell) &&
@@ -417,11 +488,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
 
     // Slant reverse pattern (↙) - student value is second number (position 2)
-    if (row >= 2 && row + 2 < _grid.length && col >= 2 && col + 2 < _grid[row].length) {
-      final num1Cell = _getCell(row - 2, col + 2);
-      final opCell = _getCell(row - 1, col + 1);
-      final eqCell = _getCell(row + 1, col - 1);
-      final answerCell = _getCell(row + 2, col - 2);
+    if (row >= 2 && row + 2 < grid.length && col >= 2 && col + 2 < grid[row].length) {
+      final num1Cell = _getCellForRound(row - 2, col + 2, roundIndex);
+      final opCell = _getCellForRound(row - 1, col + 1, roundIndex);
+      final eqCell = _getCellForRound(row + 1, col - 1, roundIndex);
+      final answerCell = _getCellForRound(row + 2, col - 2, roundIndex);
 
       if (_hasNumericValue(num1Cell) &&
           opCell?.type == CellType.operator &&
@@ -441,11 +512,11 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     }
 
     // Slant reverse pattern (↙) - student value is answer (position 4)
-    if (row >= 4 && col + 4 < _grid[row].length) {
-      final num1Cell = _getCell(row - 4, col + 4);
-      final opCell = _getCell(row - 3, col + 3);
-      final num2Cell = _getCell(row - 2, col + 2);
-      final eqCell = _getCell(row - 1, col + 1);
+    if (row >= 4 && col + 4 < grid[row].length) {
+      final num1Cell = _getCellForRound(row - 4, col + 4, roundIndex);
+      final opCell = _getCellForRound(row - 3, col + 3, roundIndex);
+      final num2Cell = _getCellForRound(row - 2, col + 2, roundIndex);
+      final eqCell = _getCellForRound(row - 1, col + 1, roundIndex);
 
       if (_hasNumericValue(num1Cell) &&
           opCell?.type == CellType.operator &&
@@ -645,10 +716,16 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
   }
 
   CrosswordCell? _getCell(int row, int col) {
-    if (row < 0 || row >= _grid.length || col < 0 || col >= _grid[row].length) {
+    return _getCellForRound(row, col, _currentRound);
+  }
+
+  CrosswordCell? _getCellForRound(int row, int col, int roundIndex) {
+    if (roundIndex < 0 || roundIndex >= _rounds.length) return null;
+    final grid = _rounds[roundIndex];
+    if (row < 0 || row >= grid.length || col < 0 || col >= grid[row].length) {
       return null;
     }
-    return _grid[row][col];
+    return grid[row][col];
   }
 
   int? _calculateAnswer(int num1, int num2, String op) {
@@ -671,11 +748,32 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
 
   Future<void> _recordGameProgress(int score, int elapsed) async {
     // Prevent duplicate saves for the same attempt
-    if (_progressSaved) return;
+    // Only save when all rounds are completed (handled by caller)
+    if (_progressSaved || _isSavingProgress) return;
+    
+    // Double check: Only proceed if all rounds are completed
+    final allRoundsCompleted = _roundCompleted.isNotEmpty && _roundCompleted.every((completed) => completed);
+    if (!allRoundsCompleted) {
+      _isSavingProgress = false;
+      return; // Don't save if rounds aren't all complete
+    }
+    
+    // Prevent concurrent saves
+    _isSavingProgress = true;
     
     try {
       final user = supabase.auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        _isSavingProgress = false;
+        return;
+      }
+
+      // Validate that game was properly initialized
+      if (_totalBlanks <= 0) {
+        // Game wasn't properly initialized, don't save
+        _isSavingProgress = false;
+        return;
+      }
 
       // Ensure game metadata is loaded (should be loaded in _bootstrap, but double-check)
       if (!_gameMetadataLoaded) {
@@ -700,7 +798,7 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
           if (classroomsResponse.isNotEmpty) {
             finalClassroomId = classroomsResponse.first['classroom_id'] as String?;
           }
-    } catch (e) {
+        } catch (e) {
           // If we can't get classroom_id, continue without it
         }
       }
@@ -722,8 +820,15 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       );
       
       _progressSaved = true; // Mark as saved to prevent duplicates
-    } catch (e) {
-      // Log error but don't block UI
+    } catch (e, stackTrace) {
+      // Log error for debugging but don't block UI
+      // Re-throw to ensure caller knows save failed
+      print('Error saving game progress: $e');
+      print('Stack trace: $stackTrace');
+      // Don't mark as saved if there was an error
+      _progressSaved = false;
+    } finally {
+      _isSavingProgress = false;
     }
   }
 
@@ -731,37 +836,88 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
     if (_answersChecked) return;
     
     HapticFeedback.lightImpact();
-    final ok = _countCorrect();
     
-    _timer?.cancel();
+    // Check answers for current round only
+    final grid = _rounds[_currentRound];
+    int roundCorrect = 0;
     
-    setState(() {
-      _correct = ok;
-      _answersChecked = true;
-    });
+    for (final row in grid) {
+      for (final cell in row) {
+        if (cell.type == CellType.blank) {
+          final studentAnswer = int.tryParse(cell.value ?? '');
+          
+          if (studentAnswer == null) {
+            cell.isCorrect = false;
+            continue;
+          }
 
-    final elapsed = 120 - _remainingSeconds;
-    // Save progress immediately when answers are checked
-    // This ensures it's saved regardless of which button the user clicks
-    await _recordGameProgress(ok, elapsed);
+          final isEquationCorrect = _validateEquationWithStudentInputForRound(cell, studentAnswer, _currentRound);
 
-    // Show dialog after saving
-    _showResultDialog();
-  }
-
-  void _showResultDialog() {
-    final elapsed = 120 - _remainingSeconds;
-    final wrongCount = _totalBlanks - _correct;
-    
-    List<String> wrongAnswers = [];
-    for (int r = 0; r < _grid.length; r++) {
-      for (int c = 0; c < _grid[r].length; c++) {
-        final cell = _grid[r][c];
-        if (cell.type == CellType.blank && !cell.isCorrect && cell.value != null && cell.value!.isNotEmpty) {
-          wrongAnswers.add('Cell at row ${r + 1}, col ${c + 1}: "${cell.value}"');
+          if (isEquationCorrect) {
+            cell.isCorrect = true;
+            roundCorrect++;
+          } else {
+            cell.isCorrect = false;
+          }
         }
       }
     }
+    
+    // Update current round's correct count
+    _correctPerRound[_currentRound] = roundCorrect;
+    _roundCompleted[_currentRound] = true;
+    
+    // Recalculate total correct across all rounds
+    _correct = _correctPerRound.fold(0, (sum, correct) => sum + correct);
+    
+    setState(() {
+      _answersChecked = true;
+    });
+
+    // Check if all rounds are completed
+    final allRoundsCompleted = _roundCompleted.every((completed) => completed);
+    
+    final elapsed = 120 - _remainingSeconds;
+    
+    // Only save progress when ALL rounds are completed to ensure we capture the total score
+    if (allRoundsCompleted) {
+      await _recordGameProgress(_correct, elapsed);
+      _showFinalSummaryDialog();
+    } else {
+      // Don't save progress yet - wait until all rounds are done
+      _showCurrentRoundResultDialog();
+    }
+  }
+
+  // Check if current round can proceed to next (all blanks filled)
+  bool _canProceedToNext() {
+    if (_currentRound >= _numRounds - 1) return false; // Already at last round
+    if (!_roundCompleted[_currentRound]) return false; // Current round not completed
+    
+    // Check if all previous rounds are completed
+    for (int i = 0; i <= _currentRound; i++) {
+      if (!_roundCompleted[i]) return false;
+    }
+    return true;
+  }
+
+  void _showCurrentRoundResultDialog() {
+    final grid = _rounds[_currentRound];
+    final roundCorrect = _correctPerRound[_currentRound];
+    final roundTotal = _totalBlanksPerRound[_currentRound];
+    final roundWrong = roundTotal - roundCorrect;
+    
+    List<String> wrongAnswers = [];
+    for (int r = 0; r < grid.length; r++) {
+      for (int c = 0; c < grid[r].length; c++) {
+        final cell = grid[r][c];
+        if (cell.type == CellType.blank && !cell.isCorrect && cell.value != null && cell.value!.isNotEmpty) {
+          wrongAnswers.add('Row ${r + 1}, Col ${c + 1}: "${cell.value}"');
+        }
+      }
+    }
+    
+    final canProceed = _canProceedToNext();
     
     showDialog(
       context: context,
@@ -771,12 +927,143 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _correct == _totalBlanks ? Icons.celebration : (_correct > _totalBlanks / 2 ? Icons.thumb_up : Icons.sentiment_neutral),
-              color: _correct == _totalBlanks ? Colors.amber : (_correct > _totalBlanks / 2 ? Colors.green : Colors.orange),
+              roundCorrect == roundTotal ? Icons.celebration : (roundCorrect > roundTotal / 2 ? Icons.thumb_up : Icons.sentiment_neutral),
+              color: roundCorrect == roundTotal ? Colors.amber : (roundCorrect > roundTotal / 2 ? Colors.green : Colors.orange),
               size: 32,
             ),
             const SizedBox(width: 8),
-            Text(_correct == _totalBlanks ? 'Amazing!' : 'Nice Work!'),
+            Text(roundCorrect == roundTotal ? 'Perfect!' : 'Round Complete!'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Round ${_currentRound + 1} Results:',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You got $roundCorrect / $roundTotal correct.',
+                style: const TextStyle(
+                  fontSize: 16,
+                ),
+              ),
+              if (roundWrong > 0) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red[700], size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Wrong Answers ($roundWrong):',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...wrongAnswers.take(5).map((answer) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '• $answer',
+                          style: TextStyle(fontSize: 12, color: Colors.red[700]),
+                        ),
+                      )),
+                      if (wrongAnswers.length > 5)
+                        Text(
+                          '... and ${wrongAnswers.length - 5} more',
+                          style: TextStyle(fontSize: 12, color: Colors.red[700], fontStyle: FontStyle.italic),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+              if (canProceed && _currentRound < _numRounds - 1) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green[700], size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Great! Proceed to Round ${_currentRound + 2}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (canProceed && _currentRound < _numRounds - 1) {
+                // Auto-advance to next round
+                setState(() {
+                  _currentRound++;
+                  _answersChecked = false; // Next round not checked yet
+                });
+              }
+            },
+            child: Text(canProceed && _currentRound < _numRounds - 1 ? 'Continue to Next Round' : 'OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFinalSummaryDialog() {
+    final totalCorrect = _correct;
+    final totalWrong = _totalBlanks - _correct;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              totalCorrect == _totalBlanks ? Icons.celebration : (totalCorrect > _totalBlanks / 2 ? Icons.thumb_up : Icons.sentiment_neutral),
+              color: totalCorrect == _totalBlanks ? Colors.amber : (totalCorrect > _totalBlanks / 2 ? Colors.green : Colors.orange),
+              size: 32,
+            ),
+            const SizedBox(width: 8),
+            Text(totalCorrect == _totalBlanks ? 'Perfect Game!' : 'Game Complete!'),
           ],
         ),
         content: SingleChildScrollView(
@@ -797,9 +1084,9 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Answers submitted! Game is complete.',
+                        'All rounds completed!',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 14,
                           color: Colors.blue[900],
                           fontWeight: FontWeight.bold,
                         ),
@@ -808,69 +1095,75 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Text(
-                'You got $_correct / $_totalBlanks.',
+                'Final Score: $totalCorrect / $_totalBlanks',
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Time stopped at: ${_fmt(_remainingSeconds)}.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[700],
-                ),
-              ),
-              if (wrongCount > 0) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.error_outline, color: Colors.red[700], size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Wrong Answers ($wrongCount):',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red[700],
-                            ),
-                          ),
-                        ],
+              const SizedBox(height: 16),
+              // Show results per round
+              ...List.generate(_numRounds, (index) {
+                final roundCorrect = _correctPerRound[index];
+                final roundTotal = _totalBlanksPerRound[index];
+                final roundWrong = roundTotal - roundCorrect;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: roundCorrect == roundTotal ? Colors.green[50] : Colors.orange[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: roundCorrect == roundTotal ? Colors.green[200]! : Colors.orange[200]!,
                       ),
-                      const SizedBox(height: 8),
-                      ...wrongAnswers.take(5).map((answer) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          '• $answer',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.red[900],
-                          ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              roundCorrect == roundTotal ? Icons.check_circle : Icons.error_outline,
+                              color: roundCorrect == roundTotal ? Colors.green[700] : Colors.orange[700],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Round ${index + 1}:',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: roundCorrect == roundTotal ? Colors.green[700] : Colors.orange[700],
+                              ),
+                            ),
+                          ],
                         ),
-                      )),
-                      if (wrongAnswers.length > 5)
+                        const SizedBox(height: 4),
                         Text(
-                          '... and ${wrongAnswers.length - 5} more',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.red[700],
-                            fontStyle: FontStyle.italic,
-                          ),
+                          'Correct: $roundCorrect / $roundTotal',
+                          style: const TextStyle(fontSize: 13),
                         ),
-                    ],
+                        if (roundWrong > 0)
+                          Text(
+                            'Wrong: $roundWrong',
+                            style: TextStyle(fontSize: 13, color: Colors.red[700]),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              if (totalWrong > 0) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Total Errors: $totalWrong',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red[700],
                   ),
                 ),
               ],
@@ -880,99 +1173,23 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              // Progress is already saved in _checkAnswers(), but try again if needed
-              if (!_progressSaved) {
-                _recordGameProgress(_correct, elapsed).then((_) {
-                  Navigator.pop(context);
-                  setState(() {
-                  });
-                });
-              } else {
-                Navigator.pop(context);
-                setState(() {
-                });
-              }
+              Navigator.of(context).pop();
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'View Results',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              // Progress is already saved in _checkAnswers(), but try again if needed
-              if (!_progressSaved) {
-                _recordGameProgress(_correct, elapsed).then((_) {
-              Navigator.pop(context);
-              _reset();
-                });
-              } else {
-                Navigator.pop(context);
-                _reset();
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.orange,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Try Again',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              // Progress is already saved in _checkAnswers(), but try again if needed
-              if (!_progressSaved) {
-                _recordGameProgress(_correct, elapsed).then((_) {
-              Navigator.pop(context);
-              Navigator.pop(context, {
-                'score': _correct,
-                'elapsed': elapsed,
-                    'totalBlanks': _totalBlanks, // Include totalBlanks for game_screen
-                  });
-                });
-              } else {
-                Navigator.pop(context);
-                Navigator.pop(context, {
-                  'score': _correct,
-                  'elapsed': elapsed,
-                  'totalBlanks': _totalBlanks, // Include totalBlanks for game_screen
-                });
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Go Back',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+            child: const Text('OK'),
           ),
         ],
-        actionsAlignment: MainAxisAlignment.center,
       ),
     );
+  }
+
+  void _showResultDialog() {
+    // Legacy method - redirect to appropriate dialog
+    final allRoundsCompleted = _roundCompleted.every((completed) => completed);
+    if (allRoundsCompleted) {
+      _showFinalSummaryDialog();
+    } else {
+      _showCurrentRoundResultDialog();
+    }
   }
 
   void _reset() {
@@ -982,21 +1199,32 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
       // Reset game state for "Try Again"
       // IMPORTANT: DO NOT reset _gameId, _gameTitle, or _gameMetadataLoaded
       // These must persist across attempts to ensure all attempts are grouped correctly
-      for (final c in _grid.expand((r) => r)) {
-        if (c.type == CellType.blank) {
-          c.value = null;
-          c.isCorrect = false;
+      // Reset all grids across all rounds
+      for (final grid in _rounds) {
+        for (final c in grid.expand((r) => r)) {
+          if (c.type == CellType.blank) {
+            c.value = null;
+            c.isCorrect = false;
+          }
         }
       }
+      _currentRound = 0;
       _correct = 0;
       _finished = false;
       _answersChecked = false;
       _remainingSeconds = 120;
-      for (final controller in _controllers.values) {
-        controller.clear();
+      // Reset all controllers across all rounds
+      for (final roundControllers in _roundControllers.values) {
+        for (final controller in roundControllers.values) {
+          controller.clear();
+        }
       }
+      // Reset per-round correct counts and completion status
+      _correctPerRound = List.generate(_numRounds, (_) => 0);
+      _roundCompleted = List.generate(_numRounds, (_) => false);
       // Reset progress saved flag so the next attempt can be saved
       _progressSaved = false;
+      _isSavingProgress = false;
       _startTimer();
     });
   }
@@ -1004,11 +1232,37 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
   String _fmt(int s) =>
       '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
 
+  void _goToRound(int roundIndex) {
+    if (roundIndex < 0 || roundIndex >= _rounds.length) return;
+    
+    // Can only go forward if previous rounds are completed
+    if (roundIndex > _currentRound) {
+      if (!_canProceedToNext()) {
+        // Show message that current round must be completed first
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please complete the current round before proceeding to the next one.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+    }
+    
+    setState(() {
+      _currentRound = roundIndex;
+      // Set answers checked state based on whether round is completed
+      _answersChecked = _roundCompleted[roundIndex];
+    });
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
-    for (final c in _controllers.values) {
-      c.dispose();
+    for (final roundControllers in _roundControllers.values) {
+      for (final c in roundControllers.values) {
+        c.dispose();
+      }
     }
     super.dispose();
   }
@@ -1026,8 +1280,17 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          '${widget.operator[0].toUpperCase()}${widget.operator.substring(1)} - ${widget.difficulty} CrossMath',
+        title: Column(
+          children: [
+            Text(
+              '${widget.operator[0].toUpperCase()}${widget.operator.substring(1)} - ${widget.difficulty} CrossMath',
+            ),
+            if (_numRounds > 1)
+              Text(
+                'Round ${_currentRound + 1} / $_numRounds',
+                style: const TextStyle(fontSize: 12),
+              ),
+          ],
         ),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
@@ -1048,6 +1311,88 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Column(
             children: [
+              // Round navigation (only show if more than 1 round)
+              if (_numRounds > 1) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SizedBox(
+                        width: 80,
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: _currentRound > 0 ? () => _goToRound(_currentRound - 1) : null,
+                          icon: const Icon(Icons.arrow_back, size: 16),
+                          label: const Text('Prev', style: TextStyle(fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            minimumSize: const Size(80, 40),
+                            maximumSize: const Size(80, 40),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Round ${_currentRound + 1} / $_numRounds',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (_roundCompleted[_currentRound])
+                                Text(
+                                  '✓ Done',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.green[700],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 80,
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: _canProceedToNext()
+                              ? () {
+                                  setState(() {
+                                    _currentRound++;
+                                    _answersChecked = false;
+                                  });
+                                }
+                              : null,
+                          icon: const Icon(Icons.arrow_forward, size: 16),
+                          label: const Text('Next', style: TextStyle(fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            minimumSize: const Size(80, 40),
+                            maximumSize: const Size(80, 40),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              // Current round's grid
               for (int r = 0; r < _grid.length; r++)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1059,43 +1404,63 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
               const SizedBox(height: 24),
               _buildLegend(),
               const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (!_answersChecked)
-              ElevatedButton(
-                onPressed: _checkAnswers,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                ),
-                child: const Text('Check Answers', style: TextStyle(fontSize: 18)),
-                    )
-                  else ...[
-                    ElevatedButton(
-                      onPressed: null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (!_roundCompleted[_currentRound])
+                      Flexible(
+                        child: ElevatedButton(
+                          onPressed: _checkAnswers,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          child: const Text('Check Answers', style: TextStyle(fontSize: 16)),
+                        ),
+                      )
+                    else ...[
+                      Flexible(
+                        child: ElevatedButton(
+                          onPressed: null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          ),
+                          child: Text(
+                            _canProceedToNext() && _currentRound < _numRounds - 1
+                                ? 'Round Complete → Next'
+                                : (_roundCompleted.every((c) => c) ? 'All Complete' : 'Round Complete'),
+                            style: const TextStyle(fontSize: 14),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
-                      child: const Text('Answers Checked', style: TextStyle(fontSize: 18)),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        _reset();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                      ),
-                      child: const Text('Try Again', style: TextStyle(fontSize: 18)),
-                    ),
+                      // Only show Try Again when all rounds are completed
+                      if (_roundCompleted.every((c) => c)) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              _reset();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            child: const Text('Try Again', style: TextStyle(fontSize: 16)),
+                          ),
+                        ),
+                      ],
+                    ],
                   ],
-                ],
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -1105,7 +1470,7 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
                   color: _answersChecked
                       ? (_correct == _totalBlanks ? Colors.green : Colors.orange)
                       : Colors.black,
-              ),
+                ),
               ),
               if (_answersChecked) ...[
                 const SizedBox(height: 8),
@@ -1188,16 +1553,20 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
 
   Widget _editableCell(CrosswordCell cell) {
     final key = '${cell.row}-${cell.col}';
-    if (!_controllers.containsKey(key)) {
-      _controllers[key] = TextEditingController(text: cell.value ?? '');
+    // Initialize controllers map for current round if needed
+    if (!_roundControllers.containsKey(_currentRound)) {
+      _roundControllers[_currentRound] = {};
     }
-    final controller = _controllers[key]!;
+    if (!_roundControllers[_currentRound]!.containsKey(key)) {
+      _roundControllers[_currentRound]![key] = TextEditingController(text: cell.value ?? '');
+    }
+    final controller = _roundControllers[_currentRound]![key]!;
     
     Color backgroundColor;
     Color borderColor;
     double borderWidth = 2;
     
-    if (_answersChecked) {
+    if (_roundCompleted[_currentRound]) {
       if (cell.isCorrect == true) {
         backgroundColor = Colors.green[100]!;
         borderColor = Colors.green;
@@ -1236,15 +1605,15 @@ class _CrosswordMathGameScreenState extends State<CrosswordMathGameScreen> {
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         decoration: const InputDecoration(border: InputBorder.none),
         style: GameTheme.tileText.copyWith(fontSize: 22),
-            enabled: !_answersChecked, 
+            enabled: !_roundCompleted[_currentRound], 
         onChanged: (val) {
-              if (!_answersChecked) {
+              if (!_roundCompleted[_currentRound]) {
           cell.value = val;
           setState(() {});
               }
             },
           ),
-          if (_answersChecked && cell.value != null && cell.value!.isNotEmpty && cell.isCorrect != true)
+          if (_roundCompleted[_currentRound] && cell.value != null && cell.value!.isNotEmpty && cell.isCorrect != true)
             Positioned(
               top: 2,
               right: 2,

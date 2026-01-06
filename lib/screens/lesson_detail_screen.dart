@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pracpro/screens/LessonQuizScreen.dart';
 import 'package:pracpro/utils/pdf_viewer.dart';
+import 'package:pracpro/utils/youtube_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -74,19 +75,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   String? _getYoutubeId(String? url) {
     if (url == null || url.isEmpty) return null;
-
-    try {
-      if (url.contains('/shorts/')) {
-        return url.split('/shorts/').last.split('?').first;
-      }
-
-      if (url.contains('/watch')) {
-        final uri = Uri.parse(url);
-        return uri.queryParameters['v'];
-      }
-    } catch (_) {}
-
-    return YoutubePlayer.convertUrlToId(url);
+    // Use YouTubeUtils.extractVideoId which has proper validation
+    return YouTubeUtils.extractVideoId(url);
   }
 
   @override
