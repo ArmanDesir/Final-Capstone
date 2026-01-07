@@ -23,42 +23,85 @@ class _BasicOperatorQuizViewScreenState
   @override
   void initState() {
     super.initState();
+    // Start user role check immediately
     _checkUserRole();
   }
 
   Future<void> _checkUserRole() async {
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      if (mounted) {
+        setState(() {
+          _isTeacher = false;
+          _loadingUser = false;
+        });
+      }
+      return;
+    }
 
-    final res = await supabase
-        .from('users')
-        .select('user_type')
-        .eq('id', user.id)
-        .maybeSingle();
+    try {
+      final res = await supabase
+          .from('users')
+          .select('user_type')
+          .eq('id', user.id)
+          .maybeSingle();
 
-    setState(() {
-      _isTeacher = res?['user_type'] == 'teacher';
-      _loadingUser = false;
-    });
+      if (mounted) {
+        setState(() {
+          _isTeacher = res?['user_type'] == 'teacher';
+          _loadingUser = false;
+        });
+      }
+    } catch (e) {
+      // If check fails, default to student (don't show answers)
+      if (mounted) {
+        setState(() {
+          _isTeacher = false;
+          _loadingUser = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final questions = widget.quiz.questions;
+    final questions = widget.quiz.questions ?? [];
 
     if (_loadingUser) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.quiz.title ?? 'Quiz'),
+          backgroundColor: Colors.lightBlue,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.quiz.title),
+        title: Text(widget.quiz.title ?? 'Quiz'),
         backgroundColor: Colors.lightBlue,
       ),
       body: questions.isEmpty
-          ? const Center(child: Text('No questions found for this quiz.'))
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.quiz_outlined, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No questions found for this quiz.',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+                  if (_isTeacher)
+                    const Text(
+                      'This quiz has no questions yet.',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                ],
+              ),
+            )
           : Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(
@@ -122,7 +165,12 @@ class _BasicOperatorQuizViewScreenState
               final letter = entry.key;
               final text = entry.value;
               Color? color;
-              if (_submitted && !_isTeacher) {
+              // For teachers, always highlight correct answer. For students, highlight after submission.
+              if (_isTeacher) {
+                if (letter == correct) {
+                  color = Colors.green[100];
+                }
+              } else if (_submitted) {
                 if (letter == correct) {
                   color = Colors.green[100];
                 } else if (letter == selected && selected != correct) {

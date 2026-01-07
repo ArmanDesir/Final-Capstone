@@ -32,7 +32,7 @@ class YouTubeUtils {
 
       if (url.contains('watch?v=')) {
         try {
-          final uri = Uri.parse(url);
+        final uri = Uri.parse(url);
           final videoId = uri.queryParameters['v']?.trim();
           if (videoId != null && videoId.isNotEmpty && _isValidVideoId(videoId)) {
             return videoId;
@@ -65,8 +65,8 @@ class YouTubeUtils {
           final videoId = parts[1].split('?').first.split('&').first.trim();
           if (videoId.isNotEmpty && _isValidVideoId(videoId)) {
             return videoId;
-          }
         }
+      }
       }
 
       // Try YoutubePlayer.convertUrlToId as last resort, but validate the result

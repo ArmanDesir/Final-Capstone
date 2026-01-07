@@ -32,10 +32,10 @@ class _SubtractionLessonViewScreenState
     if (videoId != null && videoId.isNotEmpty) {
       // Validate video ID format before creating controller
       if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId)) {
-        _controller = YoutubePlayerController(
+    _controller = YoutubePlayerController(
           initialVideoId: videoId,
-          flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
-        );
+      flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
+    );
       }
     }
   }
@@ -82,15 +82,15 @@ class _SubtractionLessonViewScreenState
                     ),
                     const SizedBox(height: 16),
                     if (_controller != null)
-                      YoutubePlayer(
+                    YoutubePlayer(
                         controller: _controller!,
-                        showVideoProgressIndicator: true,
-                        progressIndicatorColor: Colors.redAccent,
-                        progressColors: const ProgressBarColors(
-                          playedColor: Colors.red,
-                          handleColor: Colors.redAccent,
-                        ),
+                      showVideoProgressIndicator: true,
+                      progressIndicatorColor: Colors.redAccent,
+                      progressColors: const ProgressBarColors(
+                        playedColor: Colors.red,
+                        handleColor: Colors.redAccent,
                       ),
+                    ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.quiz),

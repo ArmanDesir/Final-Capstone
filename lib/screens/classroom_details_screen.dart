@@ -15,6 +15,7 @@ import 'package:pracpro/services/basic_operator_quiz_service.dart';
 import 'package:pracpro/models/basic_operator_lesson.dart';
 import 'package:pracpro/models/basic_operator_quiz.dart';
 import 'package:pracpro/screens/basic_operator_lesson_view_screen.dart';
+import 'package:pracpro/screens/basic_operator_quiz_view_screen.dart';
 import 'package:pracpro/widgets/operator_button.dart';
 import 'package:pracpro/widgets/content_card.dart';
 import 'package:pracpro/widgets/loading_wrapper.dart';
@@ -560,9 +561,13 @@ class _ClassroomDetailsScreenState extends State<ClassroomDetailsScreen>
                           ),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Quiz: ${quiz.title}'),
+                            // Navigate to quiz view screen for teachers (view-only mode)
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => BasicOperatorQuizViewScreen(
+                                  quiz: quiz,
+                                ),
                               ),
                             );
                           },

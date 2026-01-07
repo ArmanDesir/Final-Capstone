@@ -202,16 +202,16 @@ class _BasicOperatorLessonViewScreenState
                     ),
                   );
                 } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => BasicOperatorQuizScreen(
-                        quiz: quiz,
-                        userId: user.id,
-                        lessonId: widget.lesson.id, // Pass lesson ID when quiz is taken from a lesson
-                      ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BasicOperatorQuizScreen(
+                      quiz: quiz,
+                      userId: user.id,
+                      lessonId: widget.lesson.id, // Pass lesson ID when quiz is taken from a lesson
                     ),
-                  );
+                  ),
+                );
                 }
               },
             ),

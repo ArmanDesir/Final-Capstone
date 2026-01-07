@@ -30,10 +30,10 @@ class _LessonViewScreenState extends State<LessonViewScreen> {
     if (videoId != null && videoId.isNotEmpty) {
       // Validate video ID format before creating controller
       if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId)) {
-        _controller = YoutubePlayerController(
+    _controller = YoutubePlayerController(
           initialVideoId: videoId,
-          flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
-        );
+      flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
+    );
       }
     }
   }

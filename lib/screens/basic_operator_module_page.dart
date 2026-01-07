@@ -441,6 +441,8 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                     onTap: user != null ? () {
                         // Teachers can only view quizzes, not take them
                         if (_isTeacher) {
+                          // Always navigate to view screen for teachers, even if quiz has no questions
+                          // The view screen will handle showing appropriate message
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -464,9 +466,27 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                               _loadUnlockedItems(),
                               _loadLessons(), // Reload lessons to reflect unlock status
                             ]);
+                          }).catchError((error) {
+                            // Handle navigation errors
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error opening quiz: $error'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
                           });
                         }
-                    } : null,
+                    } : () {
+                      // Show message if user is not logged in
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please log in to view quizzes'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    },
                   ),
                 );
               },

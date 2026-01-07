@@ -886,11 +886,11 @@ class CrosswordGridGenerator {
         } else if (i == 4) {
           // Result position
           if (cell.type == CellType.answer || cell.type == CellType.number) {
-            if (int.tryParse(cell.value ?? '') != result) return false;
+          if (int.tryParse(cell.value ?? '') != result) return false;
           } else {
-            return false;
-          }
+          return false;
         }
+      }
       }
     }
     
@@ -981,11 +981,11 @@ class CrosswordGridGenerator {
         } else if (i == 4) {
           // Result position
           if (cell.type == CellType.answer || cell.type == CellType.number) {
-            if (int.tryParse(cell.value ?? '') != result) return false;
+          if (int.tryParse(cell.value ?? '') != result) return false;
           } else {
-            return false;
-          }
+          return false;
         }
+      }
       }
     }
     
@@ -1076,11 +1076,11 @@ class CrosswordGridGenerator {
         } else if (i == 4) {
           // Result position - must match result value
           if (cell.type == CellType.answer || cell.type == CellType.number) {
-            if (int.tryParse(cell.value ?? '') != result) return false;
+          if (int.tryParse(cell.value ?? '') != result) return false;
           } else {
-            return false;
-          }
+          return false;
         }
+      }
       }
     }
     
@@ -1171,11 +1171,11 @@ class CrosswordGridGenerator {
         } else if (i == 4) {
           // Result position
           if (cell.type == CellType.answer || cell.type == CellType.number) {
-            if (int.tryParse(cell.value ?? '') != result) return false;
+          if (int.tryParse(cell.value ?? '') != result) return false;
           } else {
-            return false;
-          }
+          return false;
         }
+      }
       }
     }
     

@@ -47,24 +47,24 @@ class _BasicOperatorCreateGamePageState
 
       // Only Ninja Math can be created - always generate rounds
       List<Map<String, dynamic>>? generatedRounds;
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BasicOperatorNinjaBuilderScreen(
-            operator: widget.operatorKey,
-            config: config,
-            difficulty: _selectedDifficulty,
-            title: _titleCtrl.text.trim(),
-            description: _descCtrl.text.trim(),
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BasicOperatorNinjaBuilderScreen(
+              operator: widget.operatorKey,
+              config: config,
+              difficulty: _selectedDifficulty,
+              title: _titleCtrl.text.trim(),
+              description: _descCtrl.text.trim(),
+            ),
           ),
-        ),
-      );
+        );
 
-      if (result == null || result.isEmpty) {
-        setState(() => _isSaving = false);
-        return;
-      }
-      generatedRounds = List<Map<String, dynamic>>.from(result);
+        if (result == null || result.isEmpty) {
+          setState(() => _isSaving = false);
+          return;
+        }
+        generatedRounds = List<Map<String, dynamic>>.from(result);
       final gameId = await _svc.createGame(
         operatorKey: widget.operatorKey,
         gameKey: _selectedGame,
@@ -97,7 +97,7 @@ class _BasicOperatorCreateGamePageState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('✅ Game created successfully (ID: $gameId)')),
       );
-      Navigator.pop(context);
+        Navigator.pop(context);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

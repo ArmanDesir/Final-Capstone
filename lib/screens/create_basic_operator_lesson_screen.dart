@@ -56,18 +56,18 @@ class _CreateBasicOperatorLessonScreenState
 
   void _initializeYoutubePlayer(String url) {
     final videoId = YouTubeUtils.extractVideoId(url);
-    setState(() {
-      _youtubeController?.dispose();
+      setState(() {
+        _youtubeController?.dispose();
       if (videoId != null && videoId.isNotEmpty) {
         // Validate video ID format (11 characters, alphanumeric with hyphens/underscores only)
         if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId)) {
-          _youtubeController = YoutubePlayerController(
-            initialVideoId: videoId,
-            flags: const YoutubePlayerFlags(
-              autoPlay: false,
-              mute: false,
-            ),
-          );
+        _youtubeController = YoutubePlayerController(
+          initialVideoId: videoId,
+          flags: const YoutubePlayerFlags(
+            autoPlay: false,
+            mute: false,
+          ),
+        );
         } else {
           // Invalid video ID format - don't create controller
           _youtubeController = null;
@@ -75,7 +75,7 @@ class _CreateBasicOperatorLessonScreenState
       } else {
         // No valid video ID extracted - clear controller
         _youtubeController = null;
-      }
+    }
     });
   }
 
