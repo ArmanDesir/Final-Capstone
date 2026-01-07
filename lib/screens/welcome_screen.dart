@@ -195,14 +195,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    'Making Math Learning Fun and Interactive',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+
                 ],
               ),
             ),

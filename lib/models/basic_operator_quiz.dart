@@ -23,7 +23,6 @@ class BasicOperatorQuiz {
     this.createdAt,
     this.questions = const [],
   });
-
   factory BasicOperatorQuiz.fromJson(Map<String, dynamic> json) =>
       _$BasicOperatorQuizFromJson(json);
 
