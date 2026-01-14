@@ -63,79 +63,231 @@ class _BasicOperatorNinjaBuilderScreenState
   }
 
   List<_PreviewRound> _generateValidRounds() {
-    return List.generate(
-        _totalRounds, (_) {
-      int target = _min + _random.nextInt((_max * 2) - _min);
-      return _generateRoundWithTarget(target);
-    });
+    List<_PreviewRound> list = [];
+    for (int i = 0; i < _totalRounds; i++) {
+      int numCount = 4 + _random.nextInt(2);
+      List<int> numbers;
+      int target;
+
+      switch (widget.operator.toLowerCase()) {
+        case 'addition':
+        case 'add':
+          numbers = List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
+          numbers.shuffle();
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          List<int> solution = numbers.sublist(0, solutionCount);
+          target = solution.fold(0, (a, b) => a + b);
+          break;
+
+        case 'subtraction':
+        case 'subtract':
+          int startNum = _max;
+          numbers = [startNum];
+          for (int j = 0; j < numCount - 1; j++) {
+            numbers.add(_min + _random.nextInt(((startNum ~/ 2).clamp(1, _max - _min + 1)).toInt()));
+          }
+          numbers.shuffle();
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          List<int> solution = numbers.sublist(0, solutionCount);
+          if (solution.length > 1) {
+            target = solution[0] - solution.sublist(1).fold(0, (a, b) => a + b);
+            if (target < 0) {
+              solution.sort((a, b) => b.compareTo(a));
+              target = solution[0] - solution.sublist(1).fold(0, (a, b) => a + b);
+            }
+          } else {
+            target = solution[0];
+          }
+          break;
+
+        case 'multiplication':
+        case 'multiply':
+          numbers = List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
+          numbers.shuffle();
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          List<int> solution = numbers.sublist(0, solutionCount);
+          target = solution.fold(1, (a, b) => a * b);
+          break;
+
+        case 'division':
+        case 'divide':
+          int dividend = ((_min * 2 + _random.nextInt((_max * 2) - (_min * 2) + 1)).clamp(_min * 2, _max * 3)).toInt();
+          numbers = [dividend];
+          
+          List<int> divisors = [];
+          for (int j = 0; j < numCount - 1; j++) {
+            if (j < 2) {
+              int possibleDivisor = _min + _random.nextInt(((dividend ~/ 2).clamp(1, _max - _min + 1)).toInt());
+              if (dividend % possibleDivisor == 0 && possibleDivisor > 1) {
+                divisors.add(possibleDivisor);
+                numbers.add(possibleDivisor);
+              } else {
+                numbers.add(_min + _random.nextInt(_max - _min + 1));
+              }
+            } else {
+              numbers.add(_min + _random.nextInt(_max - _min + 1));
+            }
+          }
+          
+          numbers.shuffle();
+
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          List<int> solution = numbers.sublist(0, solutionCount);
+          if (solution.length > 1) {
+            int divisor = solution.sublist(1).fold(1, (a, b) => a * b);
+            if (divisor > 0 && solution[0] % divisor == 0) {
+              target = solution[0] ~/ divisor;
+            } else {
+              solution[0] = (divisor * (_min + _random.nextInt(5))).toInt();
+              target = solution[0] ~/ divisor;
+            }
+          } else {
+            target = solution[0];
+          }
+          break;
+
+        default:
+          numbers = List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
+          numbers.shuffle();
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          List<int> solution = numbers.sublist(0, solutionCount);
+          target = solution.fold(0, (a, b) => a + b);
+      }
+
+      list.add(_PreviewRound(target: target, numbers: numbers));
+    }
+    return list;
   }
 
   _PreviewRound _generateRoundWithTarget(int target) {
-    int baseCount = 4;
-    int maxCount = 6;
-    int numCount = baseCount + _random.nextInt(2);
+    // For custom target editing, generate a round that can achieve the target
+    // using the operator-specific logic
+    int numCount = 4 + _random.nextInt(2);
+    List<int> numbers;
+    int finalTarget = target;
 
-    if (target > _max * 3.5) numCount = maxCount;
+    switch (widget.operator.toLowerCase()) {
+      case 'addition':
+      case 'add':
+        // For addition, generate numbers that can sum to target
+        int solutionCount = 2 + _random.nextInt(numCount - 1);
+        numbers = [];
+        int remaining = target;
+        for (int i = 0; i < solutionCount - 1; i++) {
+          int num = _min + _random.nextInt((remaining - _min * (solutionCount - i - 1)).clamp(1, _max - _min + 1));
+          numbers.add(num);
+          remaining -= num;
+        }
+        numbers.add(remaining.clamp(_min, _max));
+        while (numbers.length < numCount) {
+          numbers.add(_min + _random.nextInt(_max - _min + 1));
+        }
+        numbers.shuffle();
+        break;
 
-    bool solvable = false;
-    List<int> numbers = [];
+      case 'subtraction':
+      case 'subtract':
+        // For subtraction: startNum - (sum of others) = target
+        int startNum = (target + _min * 2).clamp(_max ~/ 2, _max);
+        numbers = [startNum];
+        int subtractSum = startNum - target;
+        List<int> subtractors = [];
+        int remaining = subtractSum;
+        for (int i = 0; i < numCount - 2 && remaining > 0; i++) {
+          int num = _min + _random.nextInt((remaining - _min).clamp(1, _max - _min + 1));
+          subtractors.add(num);
+          remaining -= num;
+        }
+        if (remaining > 0) subtractors.add(remaining);
+        numbers.addAll(subtractors);
+        while (numbers.length < numCount) {
+          numbers.add(_min + _random.nextInt(_max - _min + 1));
+        }
+        numbers.shuffle();
+        break;
 
-    for (int attempt = 0; attempt < 150 && !solvable; attempt++) {
-      numbers =
-          List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
-      for (int comboSize = 2; comboSize <= min(5, numbers.length); comboSize++) {
-        for (final combo in _getCombinations(numbers, comboSize)) {
-          if (combo.reduce((a, b) => a + b) == target) {
-            solvable = true;
-            break;
+      case 'multiplication':
+      case 'multiply':
+        // For multiplication, generate factors
+        int solutionCount = 2 + _random.nextInt(numCount - 1);
+        numbers = [];
+        int remaining = target;
+        for (int i = 0; i < solutionCount - 1 && remaining > 1; i++) {
+          int factor = _min + _random.nextInt(((remaining / _min).round().clamp(1, _max - _min + 1)).toInt());
+          if (factor > 1 && remaining % factor == 0) {
+            numbers.add(factor);
+            remaining ~/= factor;
+          } else {
+            numbers.add(_min + _random.nextInt(_max - _min + 1));
           }
         }
-        if (solvable) break;
-      }
-    }
-    if (!solvable) {
-      int avg = (target / numCount).round().clamp(_min, _max);
-      numbers = List.generate(numCount, (_) => avg);
-      int total = numbers.reduce((a, b) => a + b);
-      int diff = target - total;
-
-      while (diff != 0) {
-        int idx = _random.nextInt(numbers.length);
-        int candidate = numbers[idx] + diff.sign;
-        if (candidate >= _min && candidate <= _max) {
-          numbers[idx] = candidate;
-          diff -= diff.sign;
-        } else {
-          break;
+        if (remaining > 1) numbers.add(remaining);
+        while (numbers.length < numCount) {
+          numbers.add(_min + _random.nextInt(_max - _min + 1));
         }
-      }
+        numbers.shuffle();
+        break;
+
+      case 'division':
+      case 'divide':
+        // For division: dividend / (product of divisors) = target
+        int divisor = _min + _random.nextInt(_max - _min + 1);
+        int dividend = target * divisor;
+        numbers = [dividend, divisor];
+        while (numbers.length < numCount) {
+          numbers.add(_min + _random.nextInt(_max - _min + 1));
+        }
+        numbers.shuffle();
+        break;
+
+      default:
+        numbers = List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
+        numbers.shuffle();
     }
 
-    numbers.shuffle();
-    return _PreviewRound(target: target, numbers: numbers);
+    return _PreviewRound(target: finalTarget, numbers: numbers);
   }
 
-  List<List<int>> _getCombinations(List<int> items, int length) {
-    if (length == 0) return [[]];
-    if (items.length < length) return [];
-
-    List<List<int>> result = [];
-    for (int i = 0; i < items.length; i++) {
-      var head = items[i];
-      var tailCombos = _getCombinations(items.sublist(i + 1), length - 1);
-      for (var tail in tailCombos) {
-        result.add([head, ...tail]);
-      }
+  String _getValidRangeText() {
+    switch (widget.operator.toLowerCase()) {
+      case 'addition':
+      case 'add':
+        return 'Valid range: ${_min * 2}–${_max * 5}';
+      case 'subtraction':
+      case 'subtract':
+        return 'Valid range: 0–$_max';
+      case 'multiplication':
+      case 'multiply':
+        return 'Valid range: ${_min * _min}–${_max * _max * 2}';
+      case 'division':
+      case 'divide':
+        return 'Valid range: 1–${_max * 2}';
+      default:
+        return 'Valid range: ${_min * 2}–${_max * 5}';
     }
-    return result;
   }
 
   bool _isTargetValid(int value) {
-    const minNumbers = 2;
-    const maxNumbers = 5;
-    final minPossible = _min * minNumbers;
-    final maxPossible = _max * maxNumbers;
-    return value >= minPossible && value <= maxPossible;
+    // Operator-specific validation ranges (rough estimates)
+    switch (widget.operator.toLowerCase()) {
+      case 'addition':
+      case 'add':
+        return value >= _min * 2 && value <= _max * 5;
+      case 'subtraction':
+      case 'subtract':
+        // For subtraction, target can be from 0 to max
+        return value >= 0 && value <= _max;
+      case 'multiplication':
+      case 'multiply':
+        // For multiplication, target can be from min*min to max*max
+        return value >= _min * _min && value <= _max * _max * 2;
+      case 'division':
+      case 'divide':
+        // For division, target is typically from 1 to max
+        return value >= 1 && value <= _max * 2;
+      default:
+        return value >= _min * 2 && value <= _max * 5;
+    }
   }
 
   void _applyNewTarget(int index) {
@@ -148,8 +300,28 @@ class _BasicOperatorNinjaBuilderScreenState
     }
 
     if (!_isTargetValid(newTarget)) {
-      _showSnack(
-          '⚠️ Total must be between ${_min * 2} and ${_max * 5} (range $_min–$_max).');
+      String rangeText;
+      switch (widget.operator.toLowerCase()) {
+        case 'addition':
+        case 'add':
+          rangeText = '${_min * 2} and ${_max * 5}';
+          break;
+        case 'subtraction':
+        case 'subtract':
+          rangeText = '0 and $_max';
+          break;
+        case 'multiplication':
+        case 'multiply':
+          rangeText = '${_min * _min} and ${_max * _max * 2}';
+          break;
+        case 'division':
+        case 'divide':
+          rangeText = '1 and ${_max * 2}';
+          break;
+        default:
+          rangeText = '${_min * 2} and ${_max * 5}';
+      }
+      _showSnack('⚠️ Target must be between $rangeText (range $_min–$_max).');
       setState(() => _validationStates[index] = ValidationState.invalid);
       return;
     }
@@ -345,7 +517,7 @@ class _BasicOperatorNinjaBuilderScreenState
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Valid range: ${_min * 2}–${_max * 5}',
+                  _getValidRangeText(),
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
                 const SizedBox(height: 8),

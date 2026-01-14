@@ -196,6 +196,7 @@ class _BasicOperationsDashboardState extends State<BasicOperationsDashboard> {
                       MaterialPageRoute(
                         builder: (_) => BasicOperatorCreateGamePage(
                           operatorKey: operatorName,
+                          classroomId: widget.classroomId,
                         ),
                       ),
                     ),

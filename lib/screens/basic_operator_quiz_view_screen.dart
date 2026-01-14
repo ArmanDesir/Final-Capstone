@@ -40,17 +40,17 @@ class _BasicOperatorQuizViewScreenState
     }
 
     try {
-      final res = await supabase
-          .from('users')
-          .select('user_type')
-          .eq('id', user.id)
-          .maybeSingle();
+    final res = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', user.id)
+        .maybeSingle();
 
       if (mounted) {
-        setState(() {
-          _isTeacher = res?['user_type'] == 'teacher';
-          _loadingUser = false;
-        });
+    setState(() {
+      _isTeacher = res?['user_type'] == 'teacher';
+      _loadingUser = false;
+    });
       }
     } catch (e) {
       // If check fails, default to student (don't show answers)

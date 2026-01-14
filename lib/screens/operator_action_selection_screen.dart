@@ -100,6 +100,7 @@ class OperatorActionSelectionScreen extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (_) => BasicOperatorCreateGamePage(
                             operatorKey: operator,
+                            classroomId: classroomId,
                           ),
                         ),
                       );

@@ -9,6 +9,8 @@ class NinjaMathGameScreen extends StatefulWidget {
   final Map<String, dynamic>? config;
   final String operator;
   final String? classroomId; // Optional classroom ID
+  final List<Map<String, dynamic>>? presetRounds; // Optional teacher-assigned rounds
+  final bool isAssigned; // For UI hint only
 
   const NinjaMathGameScreen({
     super.key,
@@ -16,6 +18,8 @@ class NinjaMathGameScreen extends StatefulWidget {
     required this.operator,
     this.config,
     this.classroomId,
+    this.presetRounds,
+    this.isAssigned = false,
   });
 
   @override
@@ -41,7 +45,24 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   void initState() {
     super.initState();
     _applyConfig();
-    _rounds = _generateRounds();
+    if (widget.presetRounds != null && widget.presetRounds!.isNotEmpty) {
+      _rounds = widget.presetRounds!
+          .map((r) => _TargetRound(
+                target: int.tryParse(r['target']?.toString() ?? '') ?? 0,
+                numbers: (r['numbers'] is List)
+                    ? (r['numbers'] as List)
+                        .map((e) => int.tryParse(e.toString()) ?? 0)
+                        .toList()
+                    : <int>[],
+                // Teacher-assigned rounds currently store only numbers+target.
+                // We intentionally leave solutionIndices empty (game still validates by total == target).
+                solutionIndices: const <int>[],
+              ))
+          .toList();
+      _totalRounds = _rounds.length;
+    } else {
+      _rounds = _generateRounds();
+    }
     _startTimer();
   }
 
@@ -393,7 +414,8 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
         setState(() {
       _answerSubmitted = true;
       _incorrectIndices.clear();
-      if (!isCorrect) {
+      // Only compute incorrect index highlighting if we have a known solution.
+      if (!isCorrect && round.solutionIndices.isNotEmpty) {
         for (int index in _selectedIndices) {
           if (!round.solutionIndices.contains(index)) {
             _incorrectIndices.add(index);
@@ -436,7 +458,9 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
             if (!isCorrect) ...[
               const SizedBox(height: 12),
               Text(
-                'Correct answer: ${round.solutionIndices.map((i) => round.numbers[i]).join(_getOperatorSymbol() + ' ')} = ${round.target}',
+                round.solutionIndices.isEmpty
+                    ? 'Correct total: ${round.target}'
+                    : 'Correct answer: ${round.solutionIndices.map((i) => round.numbers[i]).join(_getOperatorSymbol() + ' ')} = ${round.target}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
@@ -761,7 +785,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
         backgroundColor: GameTheme.background,
         appBar: AppBar(
           title: Text(
-            'Ninja Math (${widget.difficulty})',
+            'Ninja Math (${widget.difficulty})${widget.isAssigned ? ' • Assigned' : ''}',
             style: GameTheme.tileText,
           ),
           backgroundColor: GameTheme.primary,

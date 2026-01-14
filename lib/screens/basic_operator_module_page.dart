@@ -452,20 +452,20 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                             ),
                           );
                         } else {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => BasicOperatorQuizScreen(
-                                quiz: quiz,
-                                userId: user.id,
-                              ),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BasicOperatorQuizScreen(
+                              quiz: quiz,
+                              userId: user.id,
                             ),
-                          ).then((_) async {
-                            await Future.wait([
-                              _loadQuizzes(),
-                              _loadUnlockedItems(),
-                              _loadLessons(), // Reload lessons to reflect unlock status
-                            ]);
+                          ),
+                      ).then((_) async {
+                        await Future.wait([
+                          _loadQuizzes(),
+                          _loadUnlockedItems(),
+                          _loadLessons(), // Reload lessons to reflect unlock status
+                        ]);
                           }).catchError((error) {
                             // Handle navigation errors
                             if (mounted) {
@@ -476,7 +476,7 @@ class _BasicOperatorModulePageState extends State<BasicOperatorModulePage>
                                 ),
                               );
                             }
-                          });
+                      });
                         }
                     } : () {
                       // Show message if user is not logged in

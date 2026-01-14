@@ -5,7 +5,12 @@ import '../services/operator_game_service.dart';
 
 class BasicOperatorCreateGamePage extends StatefulWidget {
   final String operatorKey;
-  const BasicOperatorCreateGamePage({super.key, required this.operatorKey});
+  final String? classroomId;
+  const BasicOperatorCreateGamePage({
+    super.key,
+    required this.operatorKey,
+    this.classroomId,
+  });
 
   @override
   State<BasicOperatorCreateGamePage> createState() =>
@@ -76,6 +81,7 @@ class _BasicOperatorCreateGamePageState
           _selectedDifficulty.toLowerCase(): config,
         },
         createdBy: user.id,
+        classroomId: widget.classroomId,
       );
       if (generatedRounds != null && generatedRounds.isNotEmpty) {
         final rows = generatedRounds

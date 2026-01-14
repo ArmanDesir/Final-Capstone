@@ -53,20 +53,41 @@ class GameScreen extends StatelessWidget {
 
     try {
       final svc = OperatorGameService();
-      final games = await svc.getGamesForOperator(operatorKey);
-
       final gameKey = gameName == 'Crossword Math' ? 'crossmath' : 'ninjamath';
 
-      final gameData = games.firstWhere(
-            (g) => g.gameKey == gameKey,
-        orElse: () => throw Exception('Game not found for operator "$operatorKey"'),
-      );
-      final variant = gameData.variants.firstWhere(
-            (v) => v.difficulty.toLowerCase() == difficulty.toLowerCase(),
-        orElse: () => gameData.variants.first,
+      // Prefer classroom-scoped teacher-created games (when available).
+      // Falls back to a global game (classroom_id IS NULL) if none exists.
+      final preferred = await svc.getPreferredGame(
+        operatorKey: operatorKey,
+        gameKey: gameKey,
+        difficulty: difficulty,
+        classroomId: classroomId,
       );
 
+      if (preferred == null) {
+        throw Exception('Game not found for operator "$operatorKey"');
+      }
+
+      final gameData = preferred.game;
+      final variant = preferred.variant;
       final config = variant.config;
+
+      List<Map<String, dynamic>>? presetRounds;
+      bool isAssigned = false;
+
+      // Load teacher-created rounds for Ninja Math (works for all operators)
+      if (gameKey == 'ninjamath') {
+        try {
+          final rounds = await svc.getNinjaMathRounds(gameData.id);
+          if (rounds.isNotEmpty) {
+            presetRounds = rounds;
+            isAssigned = preferred.isClassroomScoped;
+          }
+        } catch (_) {
+          // If rounds can't be fetched, fall back to randomized rounds.
+        }
+      }
+
       Widget screen;
       if (gameKey == 'crossmath') {
         screen = CrosswordMathGameScreen(
@@ -81,6 +102,8 @@ class GameScreen extends StatelessWidget {
           difficulty: difficulty,
           config: config,
           classroomId: classroomId, // Pass classroom_id to ninja math game too
+          presetRounds: presetRounds,
+          isAssigned: isAssigned,
         );
       }
 
