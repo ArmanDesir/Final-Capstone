@@ -99,100 +99,245 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
       List<int> numbers;
       List<int> solution;
       int target;
+      List<int> solutionIndices = [];
 
       switch (widget.operator.toLowerCase()) {
         case 'addition':
         case 'add':
-          numbers = List.generate(numCount, (_) => min + _random.nextInt(max - min + 1));
-          numbers.shuffle();
+          // Generate solution first
           int solutionCount = 2 + _random.nextInt(numCount - 1);
-          solution = numbers.sublist(0, solutionCount);
+          solution = List.generate(solutionCount, (_) => min + _random.nextInt(max - min + 1));
           target = solution.fold(0, (a, b) => a + b);
+          
+          // Add distractors
+          numbers = List.from(solution);
+          while (numbers.length < numCount) {
+            numbers.add(min + _random.nextInt(max - min + 1));
+          }
+          
+          // Find solution indices before shuffling and store values
+          List<int> numbersCopy = List.from(numbers);
+          List<int> solutionValues = [];
+          for (int solNum in solution) {
+            int index = numbersCopy.indexOf(solNum);
+            if (index != -1) {
+              solutionIndices.add(index);
+              solutionValues.add(numbers[index]);
+              numbersCopy[index] = -1; // Mark as used
+            }
+          }
+          
+          // Shuffle and find solution values in new positions
+          numbers.shuffle();
+          List<int> newSolutionIndices = [];
+          List<int> numbersCopy2 = List.from(numbers);
+          for (int value in solutionValues) {
+            int index = numbersCopy2.indexOf(value);
+            if (index != -1) {
+              newSolutionIndices.add(index);
+              numbersCopy2[index] = -1; // Mark as used
+            }
+          }
+          solutionIndices = newSolutionIndices;
           break;
 
         case 'subtraction':
         case 'subtract':
-          int startNum = max;
-          numbers = [startNum];
-          for (int j = 0; j < numCount - 1; j++) {
-            numbers.add(min + _random.nextInt(((startNum ~/ 2).clamp(1, max - min + 1)).toInt()));
-          }
-          numbers.shuffle();
+          // Generate solution: start with larger number, subtract smaller ones
           int solutionCount = 2 + _random.nextInt(numCount - 1);
-          solution = numbers.sublist(0, solutionCount);
-          if (solution.length > 1) {
-            target = solution[0] - solution.sublist(1).fold(0, (a, b) => a + b);
-            if (target < 0) {
-              solution.sort((a, b) => b.compareTo(a));
-              target = solution[0] - solution.sublist(1).fold(0, (a, b) => a + b);
-            }
-          } else {
-            target = solution[0];
+          int firstNum = max;
+          solution = [firstNum];
+          int subtractSum = 0;
+          for (int j = 1; j < solutionCount; j++) {
+            int subNum = min + _random.nextInt(((firstNum ~/ 2).clamp(1, max - min + 1)).toInt());
+            solution.add(subNum);
+            subtractSum += subNum;
           }
+          target = firstNum - subtractSum;
+          if (target < 0) {
+            // Recalculate with sorted solution (largest first)
+            solution.sort((a, b) => b.compareTo(a));
+            subtractSum = solution.sublist(1).fold(0, (a, b) => a + b);
+            target = solution[0] - subtractSum;
+          }
+          
+          // Add distractors
+          numbers = List.from(solution);
+          while (numbers.length < numCount) {
+            numbers.add(min + _random.nextInt(((max).clamp(1, max - min + 1)).toInt()));
+          }
+          
+          // Find solution indices before shuffling and store values
+          numbersCopy = List.from(numbers);
+          solutionIndices = [];
+          List<int> solutionValues = [];
+          for (int solNum in solution) {
+            int index = numbersCopy.indexOf(solNum);
+            if (index != -1) {
+              solutionIndices.add(index);
+              solutionValues.add(numbers[index]);
+              numbersCopy[index] = -1;
+            }
+          }
+          
+          // Shuffle and find solution values in new positions
+          numbers.shuffle();
+          List<int> newSolutionIndices = [];
+          List<int> numbersCopy2 = List.from(numbers);
+          for (int value in solutionValues) {
+            int index = numbersCopy2.indexOf(value);
+            if (index != -1) {
+              newSolutionIndices.add(index);
+              numbersCopy2[index] = -1;
+            }
+          }
+          solutionIndices = newSolutionIndices;
           break;
 
         case 'multiplication':
         case 'multiply':
-          numbers = List.generate(numCount, (_) => min + _random.nextInt(max - min + 1));
-          numbers.shuffle();
+          // Generate solution first
           int solutionCount = 2 + _random.nextInt(numCount - 1);
-          solution = numbers.sublist(0, solutionCount);
+          solution = List.generate(solutionCount, (_) => min + _random.nextInt(max - min + 1));
           target = solution.fold(1, (a, b) => a * b);
+          
+          // Add distractors
+          numbers = List.from(solution);
+          while (numbers.length < numCount) {
+            numbers.add(min + _random.nextInt(max - min + 1));
+          }
+          
+          // Find solution indices before shuffling and store values
+          numbersCopy = List.from(numbers);
+          solutionIndices = [];
+          List<int> solutionValues = [];
+          for (int solNum in solution) {
+            int index = numbersCopy.indexOf(solNum);
+            if (index != -1) {
+              solutionIndices.add(index);
+              solutionValues.add(numbers[index]);
+              numbersCopy[index] = -1;
+            }
+          }
+          
+          // Shuffle and find solution values in new positions
+          numbers.shuffle();
+          List<int> newSolutionIndices = [];
+          List<int> numbersCopy2 = List.from(numbers);
+          for (int value in solutionValues) {
+            int index = numbersCopy2.indexOf(value);
+            if (index != -1) {
+              newSolutionIndices.add(index);
+              numbersCopy2[index] = -1;
+            }
+          }
+          solutionIndices = newSolutionIndices;
           break;
 
         case 'division':
         case 'divide':
-          int dividend = ((min * 2 + _random.nextInt((max * 2) - (min * 2) + 1)).clamp(min * 2, max * 3)).toInt();
-          numbers = [dividend];
-          
-          List<int> divisors = [];
-          for (int j = 0; j < numCount - 1; j++) {
-            if (j < 2) {
-              int possibleDivisor = min + _random.nextInt(((dividend ~/ 2).clamp(1, max - min + 1)).toInt());
-              if (dividend % possibleDivisor == 0 && possibleDivisor > 1) {
-                divisors.add(possibleDivisor);
-                numbers.add(possibleDivisor);
-              } else {
-                numbers.add(min + _random.nextInt(max - min + 1));
-              }
-            } else {
-              numbers.add(min + _random.nextInt(max - min + 1));
-            }
-          }
-          
-      numbers.shuffle();
-
+          // Generate solution first: ensure valid division
           int solutionCount = 2 + _random.nextInt(numCount - 1);
-          solution = numbers.sublist(0, solutionCount);
-          if (solution.length > 1) {
-            int divisor = solution.sublist(1).fold(1, (a, b) => a * b);
-            if (divisor > 0 && solution[0] % divisor == 0) {
-              target = solution[0] ~/ divisor;
-            } else {
-              solution[0] = (divisor * (min + _random.nextInt(5))).toInt();
-              target = solution[0] ~/ divisor;
-            }
-          } else {
-            target = solution[0];
+          if (solutionCount < 2) solutionCount = 2;
+          
+          // Generate divisor first (product of divisors)
+          int divisor = min;
+          List<int> divisorParts = [];
+          for (int j = 0; j < solutionCount - 1; j++) {
+            int part = min + _random.nextInt((max - min + 1));
+            if (part < 1) part = 1;
+            divisorParts.add(part);
           }
+          divisor = divisorParts.fold(1, (a, b) => a * b);
+          if (divisor < 1) divisor = 1;
+          
+          // Generate dividend that is divisible by divisor
+          int quotient = min + _random.nextInt((max - min + 1).clamp(1, 10));
+          int dividend = divisor * quotient;
+          
+          // Ensure dividend is within reasonable range
+          while (dividend > max * 3) {
+            quotient = min + _random.nextInt(5);
+            dividend = divisor * quotient;
+          }
+          
+          solution = [dividend, ...divisorParts];
+          target = quotient;
+          
+          // Add distractors
+          numbers = List.from(solution);
+          while (numbers.length < numCount) {
+            numbers.add(min + _random.nextInt(max - min + 1));
+          }
+          
+          // Find solution indices before shuffling and store values
+          numbersCopy = List.from(numbers);
+          solutionIndices = [];
+          solutionValues = [];
+          for (int solNum in solution) {
+            int index = numbersCopy.indexOf(solNum);
+            if (index != -1) {
+              solutionIndices.add(index);
+              solutionValues.add(numbers[index]);
+              numbersCopy[index] = -1;
+            }
+          }
+          
+          // Shuffle and find solution values in new positions
+          numbers.shuffle();
+          newSolutionIndices = [];
+          numbersCopy2 = List.from(numbers);
+          for (int value in solutionValues) {
+            int index = numbersCopy2.indexOf(value);
+            if (index != -1) {
+              newSolutionIndices.add(index);
+              numbersCopy2[index] = -1;
+            }
+          }
+          solutionIndices = newSolutionIndices;
           break;
 
         default:
-          numbers = List.generate(numCount, (_) => min + _random.nextInt(max - min + 1));
-          numbers.shuffle();
-      int solutionCount = 2 + _random.nextInt(numCount - 1);
-          solution = numbers.sublist(0, solutionCount);
+          // Default to addition logic
+          int solutionCount = 2 + _random.nextInt(numCount - 1);
+          solution = List.generate(solutionCount, (_) => min + _random.nextInt(max - min + 1));
           target = solution.fold(0, (a, b) => a + b);
+          
+          numbers = List.from(solution);
+          while (numbers.length < numCount) {
+            numbers.add(min + _random.nextInt(max - min + 1));
+          }
+          
+          numbersCopy = List.from(numbers);
+          solutionIndices = [];
+          solutionValues = [];
+          for (int solNum in solution) {
+            int index = numbersCopy.indexOf(solNum);
+            if (index != -1) {
+              solutionIndices.add(index);
+              solutionValues.add(numbers[index]);
+              numbersCopy[index] = -1;
+            }
+          }
+          
+          // Shuffle and find solution values in new positions
+          numbers.shuffle();
+          newSolutionIndices = [];
+          numbersCopy2 = List.from(numbers);
+          for (int value in solutionValues) {
+            int index = numbersCopy2.indexOf(value);
+            if (index != -1) {
+              newSolutionIndices.add(index);
+              numbersCopy2[index] = -1;
+            }
+          }
+          solutionIndices = newSolutionIndices;
       }
-
-      List<int> solutionIndices = [];
-      List<int> numbersCopy = List.from(numbers);
-      for (int solNum in solution) {
-        int index = numbersCopy.indexOf(solNum);
-        if (index != -1) {
-          solutionIndices.add(index);
-          numbersCopy[index] = -1;
-        }
+      
+      // Ensure we have valid solution indices
+      if (solutionIndices.isEmpty) {
+        // Fallback: use first numbers as solution
+        solutionIndices = List.generate(solution.length.clamp(0, numbers.length), (i) => i);
       }
       
       list.add(_TargetRound(target: target, numbers: numbers, solutionIndices: solutionIndices));
