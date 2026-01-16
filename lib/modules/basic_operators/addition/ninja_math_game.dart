@@ -168,7 +168,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
           }
           
           // Find solution indices before shuffling and store values
-          numbersCopy = List.from(numbers);
+          List<int> numbersCopy = List.from(numbers);
           solutionIndices = [];
           List<int> solutionValues = [];
           for (int solNum in solution) {
@@ -208,7 +208,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
           }
           
           // Find solution indices before shuffling and store values
-          numbersCopy = List.from(numbers);
+          List<int> numbersCopy = List.from(numbers);
           solutionIndices = [];
           List<int> solutionValues = [];
           for (int solNum in solution) {
@@ -271,9 +271,9 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
           }
           
           // Find solution indices before shuffling and store values
-          numbersCopy = List.from(numbers);
+          List<int> numbersCopy = List.from(numbers);
           solutionIndices = [];
-          solutionValues = [];
+          List<int> solutionValues = [];
           for (int solNum in solution) {
             int index = numbersCopy.indexOf(solNum);
             if (index != -1) {
@@ -285,8 +285,8 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
           
           // Shuffle and find solution values in new positions
           numbers.shuffle();
-          newSolutionIndices = [];
-          numbersCopy2 = List.from(numbers);
+          List<int> newSolutionIndices = [];
+          List<int> numbersCopy2 = List.from(numbers);
           for (int value in solutionValues) {
             int index = numbersCopy2.indexOf(value);
             if (index != -1) {
@@ -308,9 +308,9 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
             numbers.add(min + _random.nextInt(max - min + 1));
           }
           
-          numbersCopy = List.from(numbers);
+          List<int> numbersCopy = List.from(numbers);
           solutionIndices = [];
-          solutionValues = [];
+          List<int> solutionValues = [];
           for (int solNum in solution) {
             int index = numbersCopy.indexOf(solNum);
             if (index != -1) {
@@ -322,8 +322,8 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
           
           // Shuffle and find solution values in new positions
           numbers.shuffle();
-          newSolutionIndices = [];
-          numbersCopy2 = List.from(numbers);
+          List<int> newSolutionIndices = [];
+          List<int> numbersCopy2 = List.from(numbers);
           for (int value in solutionValues) {
             int index = numbersCopy2.indexOf(value);
             if (index != -1) {
