@@ -5,8 +5,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:pracpro/services/user_service.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../providers/auth_provider.dart';
+
 import '../models/user.dart' as app_model;
+import '../providers/auth_provider.dart';
+import 'teacher_profile_screen.dart';
+
+/// ===============================================================
+/// EDIT STUDENT SCREEN (STUDENT ONLY)
+/// ===============================================================
 
 class EditStudentScreen extends StatefulWidget {
   final app_model.User student;
@@ -96,73 +102,102 @@ class _EditStudentScreenState extends State<EditStudentScreen> {
   }
 }
 
+/// ===============================================================
+/// PROFILE ROUTER (DECIDES TEACHER OR STUDENT)
+/// ===============================================================
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final studentId = ModalRoute.of(context)?.settings.arguments as String?;
+    final userId = ModalRoute.of(context)?.settings.arguments as String?;
     final authProvider = Provider.of<AuthProvider>(context);
 
-    if (studentId == null) {
+    /// ===========================================================
+    /// VIEWING OWN PROFILE
+    /// ===========================================================
+    if (userId == null) {
       final user = authProvider.currentUser;
+
       if (user == null) {
         return const Scaffold(
-          body: Center(child: Text('No user data available.')),
+          body: Center(child: Text('No user data available')),
         );
       }
-      return _ProfileScaffold(
+
+      // ✅ TEACHER PROFILE
+      if (user.userType == app_model.UserType.teacher) {
+        return TeacherProfileScreen(teacher: user);
+      }
+
+      // ✅ STUDENT PROFILE
+      return _StudentProfileScaffold(
         user: user,
-        isTeacher: user.userType == app_model.UserType.teacher,
         loggedInUser: user,
+        isTeacherViewer: false,
       );
     }
 
+    /// ===========================================================
+    /// VIEWING ANOTHER USER PROFILE
+    /// ===========================================================
     return FutureBuilder<app_model.User?>(
-      future: UserService().getUser(studentId),
+      future: UserService().getUser(userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
+
         final user = snapshot.data;
         if (user == null) {
           return const Scaffold(
-            body: Center(child: Text('No user data available.')),
+            body: Center(child: Text('No user data available')),
           );
         }
 
         final loggedInUser = authProvider.currentUser;
-        final isTeacher = loggedInUser?.userType == app_model.UserType.teacher;
 
-        return _ProfileScaffold(
+        // ✅ VIEWING A TEACHER
+        if (user.userType == app_model.UserType.teacher) {
+          return TeacherProfileScreen(teacher: user);
+        }
+
+        // ✅ VIEWING A STUDENT
+        return _StudentProfileScaffold(
           user: user,
-          isTeacher: isTeacher,
           loggedInUser: loggedInUser,
+          isTeacherViewer:
+          loggedInUser?.userType == app_model.UserType.teacher,
         );
       },
     );
   }
 }
 
-class _ProfileScaffold extends StatefulWidget {
-  final app_model.User user;
-  final bool isTeacher;
-  final app_model.User? loggedInUser;
+/// ===============================================================
+/// STUDENT PROFILE (STUDENT DATA ONLY)
+/// ===============================================================
 
-  const _ProfileScaffold({
+class _StudentProfileScaffold extends StatefulWidget {
+  final app_model.User user;
+  final app_model.User? loggedInUser;
+  final bool isTeacherViewer;
+
+  const _StudentProfileScaffold({
     required this.user,
-    required this.isTeacher,
     required this.loggedInUser,
+    required this.isTeacherViewer,
   });
 
   @override
-  State<_ProfileScaffold> createState() => _ProfileScaffoldState();
+  State<_StudentProfileScaffold> createState() =>
+      _StudentProfileScaffoldState();
 }
 
-class _ProfileScaffoldState extends State<_ProfileScaffold> {
-
+class _StudentProfileScaffoldState extends State<_StudentProfileScaffold> {
   void _editStudent(BuildContext context) async {
     final updated = await Navigator.push(
       context,
@@ -173,14 +208,14 @@ class _ProfileScaffoldState extends State<_ProfileScaffold> {
 
     if (updated == true) {
       final refreshed = await UserService().getUser(widget.user.id);
-      if (refreshed != null) {
+      if (refreshed != null && mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => _ProfileScaffold(
+            builder: (_) => _StudentProfileScaffold(
               user: refreshed,
-              isTeacher: widget.isTeacher,
               loggedInUser: widget.loggedInUser,
+              isTeacherViewer: widget.isTeacherViewer,
             ),
           ),
         );
@@ -188,17 +223,19 @@ class _ProfileScaffoldState extends State<_ProfileScaffold> {
     }
   }
 
-  Future<void> _pickAndUploadImage(BuildContext context) async {
-    if (widget.loggedInUser == null) return;
+  Future<void> _pickAndUploadImage() async {
+    if (widget.loggedInUser?.id != widget.user.id) return;
 
     final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
+    final image = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 80,
     );
+
     if (image == null) return;
 
-    final path = 'avatars/${widget.loggedInUser!.id}_${DateTime.now().millisecondsSinceEpoch}.png';
+    final path =
+        'avatars/${widget.user.id}_${DateTime.now().millisecondsSinceEpoch}.png';
 
     showDialog(
       context: context,
@@ -209,50 +246,37 @@ class _ProfileScaffoldState extends State<_ProfileScaffold> {
     try {
       await Supabase.instance.client.storage
           .from('pictures')
-          .upload(
-        path,
-        File(image.path),
-        fileOptions: const FileOptions(
-          upsert: true,
-          contentType: 'image/png',
-        ),
-      );
+          .upload(path, File(image.path),
+          fileOptions:
+          const FileOptions(contentType: 'image/png', upsert: true));
 
-      final publicUrl = Supabase.instance.client.storage
+      final url = Supabase.instance.client.storage
           .from('pictures')
           .getPublicUrl(path);
 
-      final updatedUser = widget.loggedInUser!.copyWith(photoUrl: publicUrl);
-      await UserService().updateUser(updatedUser);
+      await UserService().updateUser(
+        widget.user.copyWith(photoUrl: url),
+      );
 
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      await authProvider.refreshUserProfile();
+      await Provider.of<AuthProvider>(context, listen: false)
+          .refreshUserProfile();
 
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile picture uploaded successfully!')),
-      );
-    } catch (e) {
+    } catch (_) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Upload failed: $e')),
-      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isOwnProfile = widget.loggedInUser?.id == widget.user.id;
+    final isOwnProfile =
+        widget.loggedInUser?.id == widget.user.id;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        title: const Text('Student Profile'),
         actions: [
-          if (widget.isTeacher &&
-              widget.user.userType == app_model.UserType.student &&
-              !isOwnProfile)
+          if (widget.isTeacherViewer && !isOwnProfile)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () => _editStudent(context),
@@ -260,26 +284,19 @@ class _ProfileScaffoldState extends State<_ProfileScaffold> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: ListView(
           children: [
             Center(
               child: GestureDetector(
-                onTap: isOwnProfile ? () => _pickAndUploadImage(context) : null,
+                onTap: isOwnProfile ? _pickAndUploadImage : null,
                 child: CircleAvatar(
                   radius: 40,
-                  backgroundColor: Colors.blue.shade100,
                   backgroundImage: widget.user.photoUrl != null
                       ? NetworkImage(widget.user.photoUrl!)
                       : null,
                   child: widget.user.photoUrl == null
-                      ? Icon(
-                    widget.user.userType == app_model.UserType.teacher
-                        ? Icons.person
-                        : Icons.school,
-                    size: 48,
-                    color: Colors.blue,
-                  )
+                      ? const Icon(Icons.school, size: 40)
                       : null,
                 ),
               ),
@@ -292,9 +309,15 @@ class _ProfileScaffoldState extends State<_ProfileScaffold> {
               value: widget.user.studentId ?? 'N/A',
             ),
             const SizedBox(height: 16),
-            _ProfileField(label: 'Guardian Name', value: widget.user.guardianName ?? 'N/A'),
+            _ProfileField(
+              label: 'Guardian Name',
+              value: widget.user.guardianName ?? 'N/A',
+            ),
             const SizedBox(height: 16),
-            _ProfileField(label: 'Guardian Email', value: widget.user.guardianEmail ?? 'N/A'),
+            _ProfileField(
+              label: 'Guardian Email',
+              value: widget.user.guardianEmail ?? 'N/A',
+            ),
             const SizedBox(height: 16),
             _ProfileField(
               label: 'Guardian Contact Number',
@@ -307,9 +330,14 @@ class _ProfileScaffoldState extends State<_ProfileScaffold> {
   }
 }
 
+/// ===============================================================
+/// SHARED PROFILE FIELD
+/// ===============================================================
+
 class _ProfileField extends StatelessWidget {
   final String label;
   final String value;
+
   const _ProfileField({required this.label, required this.value});
 
   @override
@@ -317,18 +345,21 @@ class _ProfileField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+        Text(label,
+            style: const TextStyle(fontSize: 14, color: Colors.grey)),
         const SizedBox(height: 4),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          padding:
+          const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           decoration: BoxDecoration(
             color: Colors.blue.shade50,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             value,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style:
+            const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ),
       ],

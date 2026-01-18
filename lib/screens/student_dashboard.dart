@@ -287,23 +287,78 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 ),
               )
             else ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
+                /// 🔽 BASIC OPERATOR DROPDOWN
+                Row(
                   children: [
-                    _buildOperatorFilterButton('addition', '+', Colors.red),
-                    _buildOperatorFilterButton('subtraction', '−', Colors.blue),
-                    _buildOperatorFilterButton('multiplication', '×', Colors.green),
-                    _buildOperatorFilterButton('division', '÷', Colors.orange),
+                    Icon(Icons.calculate, color: Colors.blue[700], size: 18),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Operator:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue[200]!),
+                        ),
+                        child: DropdownButton<String>(
+                          value: _selectedOperator ?? 'addition',
+                          isDense: true,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          icon: const Icon(
+                            Icons.arrow_drop_down,
+                            color: Colors.blue,
+                            size: 20,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue,
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'addition',
+                              child: Text('Addition "+"'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'subtraction',
+                              child: Text('Subtraction "-"'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'multiplication',
+                              child: Text('Multiplication "×"'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'division',
+                              child: Text('Division "÷"'),
+                            ),
+                          ],
+                          onChanged: (String? value) {
+                            if (value == null) return;
+                            setState(() {
+                              _selectedOperator = value;
+                            });
+                            _loadStudentProgress(value);
+                          },
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              
-              if (_loadingProgress)
+
+                const SizedBox(height: 16),
+
+
+                if (_loadingProgress)
                 const Center(
                   child: Padding(
                     padding: EdgeInsets.all(32.0),
